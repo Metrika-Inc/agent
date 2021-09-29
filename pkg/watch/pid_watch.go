@@ -8,7 +8,8 @@ import (
 type PidWatch struct {
 	Watch
 
-	Timer *TimerWatch
+	Timer   *TimerWatch
+	timerCh chan []byte
 
 	lastPid int
 }
@@ -20,6 +21,7 @@ func NewPidWatch(timer *TimerWatch) *PidWatch {
 	w.StopFn = w.Stop
 
 	w.Timer = timer
+	w.timerCh = make(chan []byte, 1)
 	w.lastPid = -1
 
 	return w
@@ -31,13 +33,17 @@ func (w *PidWatch) Start() {
 	}
 
 	w.Timer.Start()
-	w.Timer.Subscribe(w.HandleTimerMessage)
+	w.Timer.Subscribe(w.timerCh)
+
+	go func() {
+		for {
+			<-w.timerCh
+
+			fmt.Println("PidWatch/Trigger")
+		}
+	}()
 }
 
 func (w *PidWatch) Stop() {
 	w.Timer.Stop()
-}
-
-func (w *PidWatch) HandleTimerMessage(_ interface{}) {
-	fmt.Println("PidWatch/Trigger")
 }

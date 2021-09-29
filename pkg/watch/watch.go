@@ -1,10 +1,5 @@
 package watch
 
-type WatchService interface {
-	Start()
-	Stop()
-}
-
 type Watch struct {
 	Running bool
 
@@ -12,7 +7,7 @@ type Watch struct {
 	StopFn  func()
 	StopKey chan bool
 
-	listeners []func(interface{})
+	listeners []chan<- []byte
 }
 
 func NewWatch() Watch {
@@ -45,12 +40,12 @@ func (w *Watch) Stop() {
 
 // Subscription mechanism
 
-func (w *Watch) Subscribe(handler func(interface{})) {
+func (w *Watch) Subscribe(handler chan<- []byte) {
 	w.listeners = append(w.listeners, handler)
 }
 
-func (w *Watch) Emit(message interface{}) {
+func (w *Watch) Emit(message []byte) {
 	for _, handler := range w.listeners {
-		handler(message)
+		handler <- message
 	}
 }

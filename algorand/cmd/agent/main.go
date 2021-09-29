@@ -11,8 +11,13 @@ func main() {
 	//timer := watch.NewTimerWatch(1 * time.Second)
 	//timer.Start()
 
-	pid := watch.NewPidWatch(nil)
-	pid.Start()
+	fw := watch.NewFileNotifyWatch(watch.FileWatchConf{
+		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/agent/pkg/watch/file_watch.go",
+	})
+	fw.Start()
+
+	//pid := watch.NewPidWatch(nil)
+	//pid.Start()
 
 	//go func() {
 	//	<-time.After(2 * time.Second)

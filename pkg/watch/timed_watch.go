@@ -27,7 +27,7 @@ func (w *TimerWatch) TimerLoop() {
 		select {
 		case <-time.After(w.Interval):
 			fmt.Println("TimedWatch/Trigger")
-			w.Emit(true)
+			w.Emit(make([]byte, 0))
 		case <-w.stop:
 			return
 		}
