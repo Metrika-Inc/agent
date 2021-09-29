@@ -18,19 +18,15 @@ func Start(watcher Watcher) {
 type Watch struct {
 	Running bool
 
-	StartFn   func()
-	StopFn    func()
-	StopKey   chan bool
-	startOnce *sync.Once
+	StopKey chan bool
 
+	startOnce *sync.Once
 	listeners []chan<- interface{}
 }
 
 func NewWatch() Watch {
 	return Watch{
 		Running:   false,
-		StartFn:   func() {},
-		StopFn:    func() {},
 		StopKey:   make(chan bool, 1),
 		startOnce: &sync.Once{},
 	}
@@ -46,7 +42,6 @@ func (w *Watch) Stop() {
 	}
 	w.Running = false
 
-	w.StopFn()
 	w.StopKey <- true
 }
 

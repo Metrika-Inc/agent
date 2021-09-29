@@ -3,6 +3,8 @@ package watch
 import (
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
+	"time"
 )
 
 type FileWatchConf struct {
@@ -11,10 +13,72 @@ type FileWatchConf struct {
 
 // *** FileReadWatch ***
 
-type FileReadWatchConf FileWatchConf
+type FileReadWatchConf struct {
+	FileWatchConf
+
+	/// Interval is used when creating a default timer. If a timer is provided in the constructor, this value is ignored.
+	Interval time.Duration
+}
 
 type FileReadWatch struct {
-	FileWatchConf
+	FileReadWatchConf
+	Watch
+
+	TimerWatch *TimerWatch
+	timerCh    chan interface{}
+}
+
+func NewFileReadWatch(conf FileReadWatchConf, timerWatch *TimerWatch) *FileReadWatch {
+	w := new(FileReadWatch)
+	w.Watch = NewWatch()
+	w.FileReadWatchConf = conf
+	w.TimerWatch = timerWatch
+	w.timerCh = make(chan interface{}, 1)
+	return w
+}
+
+func (w *FileReadWatch) StartUnsafe() {
+	w.Watch.StartUnsafe()
+
+	// Check for missing path
+	if w.Path == "" {
+		panic("Missing required argument 'path'") //todo handle
+	}
+
+	// Create default timer if not provided
+	if w.TimerWatch == nil {
+		w.TimerWatch = NewTimerWatch(TimerWatchConf{
+			Interval: w.Interval,
+		})
+	}
+
+	// Subscribe/Start timer
+	w.TimerWatch.Subscribe(w.timerCh)
+	Start(w.TimerWatch)
+
+	// Listen to events
+	go w.handleTimer()
+}
+
+func (w *FileReadWatch) handleTimer() {
+	for {
+		select {
+		case <-w.timerCh:
+			// Read file
+			file, err := ioutil.ReadFile(w.Path)
+			if err != nil {
+				log.Errorf("[FileReadWatch] Failed to read file %s: %v\n", w.Path, err)
+				continue
+			}
+
+			// Emit message
+			w.Emit(file)
+
+		case <-w.StopKey:
+			return
+
+		}
+	}
 }
 
 // *** FileNotifyWatch ***
@@ -44,9 +108,14 @@ func NewFileNotifyWatch(conf FileNotifyWatchConf) *FileNotifyWatch {
 func (w *FileNotifyWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
+	// Check for missing path
+	if w.Path == "" {
+		panic("Missing required argument 'path'") //todo handle
+	}
+
 	go func() {
 		w.tryCreateWatcher()
-		w.PollEvents()
+		w.pollEvents()
 	}()
 }
 
@@ -59,7 +128,7 @@ func (w *FileNotifyWatch) Stop() {
 	}
 }
 
-func (w *FileNotifyWatch) PollEvents() {
+func (w *FileNotifyWatch) pollEvents() {
 	for {
 		select {
 		case event, ok := <-w.watcher.Events:
