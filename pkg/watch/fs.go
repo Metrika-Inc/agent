@@ -62,23 +62,31 @@ func (w *FileReadWatch) StartUnsafe() {
 
 func (w *FileReadWatch) handleTimer() {
 	for {
+		// Emit once on start for initial value
+		w.emitFile()
+
 		select {
 		case <-w.timerCh:
-			// Read file
-			file, err := ioutil.ReadFile(w.Path)
-			if err != nil {
-				log.Errorf("[FileReadWatch] Failed to read file %s: %v\n", w.Path, err)
-				continue
-			}
-
-			// Emit message
-			w.Emit(file)
+			// Emit on time interval
+			w.emitFile()
 
 		case <-w.StopKey:
 			return
 
 		}
 	}
+}
+
+func (w *FileReadWatch) emitFile() {
+	// Read file
+	file, err := ioutil.ReadFile(w.Path)
+	if err != nil {
+		log.Errorf("[FileReadWatch] Failed to read file %s: %v\n", w.Path, err)
+		return
+	}
+
+	// Emit message
+	w.Emit(file)
 }
 
 // *** FileNotifyWatch ***
