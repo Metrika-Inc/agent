@@ -3,6 +3,7 @@ package main
 import (
 	"agent/pkg/watch"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 )
 
 func main() {
@@ -11,10 +12,13 @@ func main() {
 	//timer := watch.NewTimerWatch(1 * time.Second)
 	//timer.Start()
 
-	fw := watch.NewFileNotifyWatch(watch.FileWatchConf{
-		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/agent/pkg/watch/file_watch.go",
+	fw := watch.NewFileNotifyWatch(watch.FileNotifyWatchConf{
+		FileWatchConf: watch.FileWatchConf{
+			Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/node_out.log",
+		},
+		Ops: fsnotify.Write,
 	})
-	fw.Start()
+	watch.Start(fw)
 
 	//pid := watch.NewPidWatch(nil)
 	//pid.Start()
