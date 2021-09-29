@@ -4,6 +4,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"os"
 	"time"
 )
 
@@ -94,7 +95,8 @@ func (w *FileReadWatch) emitFile() {
 type FileNotifyWatchConf struct {
 	FileWatchConf
 
-	Ops fsnotify.Op
+	AllowNotExists bool
+	Ops            fsnotify.Op
 }
 
 // FileNotifyWatch / FileNotifyWatch watches a file using fsnotify...
@@ -106,7 +108,7 @@ type FileNotifyWatch struct {
 	watcher *fsnotify.Watcher
 }
 
-func NewFileNotifyWatch(conf FileNotifyWatchConf) *FileNotifyWatch {
+func NewFileNotifyWatch(conf FileNotifyWatchConf) Watcher {
 	w := new(FileNotifyWatch)
 	w.Watch = NewWatch()
 	w.FileNotifyWatchConf = conf
@@ -138,6 +140,10 @@ func (w *FileNotifyWatch) Stop() {
 
 func (w *FileNotifyWatch) pollEvents() {
 	for {
+		if !w.Running {
+			return
+		}
+
 		select {
 		case event, ok := <-w.watcher.Events:
 			if !ok && w.Running {
@@ -148,7 +154,12 @@ func (w *FileNotifyWatch) pollEvents() {
 				// Event is in the given options (we do not know which), emit event
 				log.Tracef("[FileNotifyWatch] Emitted '%s' for '%s'\n", event.Op.String(), w.Path)
 				w.Emit(event.Op)
-			} // Ignore other events
+			}
+
+			// We cannot watch files which don't exist, so we must wait to resubscribe after the file is back
+			if event.Op&fsnotify.Remove == fsnotify.Remove {
+				w.waitForFileCreation()
+			}
 
 		case err, _ := <-w.watcher.Errors:
 			if !w.Running {
@@ -181,19 +192,68 @@ func (w *FileNotifyWatch) createWatcher() error {
 }
 
 func (w *FileNotifyWatch) tryCreateWatcher() {
-	for {
+	tryCreate := func() bool {
 		err := w.createWatcher()
 		if err != nil {
 			log.Errorf("[FileNotifyWatch] Failed to create watch service: %v\n", err)
-			continue
+			return false
 		}
 
 		err = w.watcher.Add(w.Path)
 		if err != nil {
+			if os.IsNotExist(err) && w.AllowNotExists {
+				// This is an acceptable error, we just need to wait for creation
+				w.waitForFileCreation()
+				return true
+			}
+
 			log.Errorf("[FileNotifyWatch] Failed to watch file '%s': %v\n", w.Path, err)
-			continue
+			return false
 		}
 
-		break
+		return true
+	}
+
+	// Try once immediately
+	if tryCreate() {
+		return
+	}
+
+	for {
+		select {
+		case <-time.After(time.Second):
+			if tryCreate() {
+				return
+			}
+
+		case <-w.StopKey:
+			return
+		}
+	}
+}
+
+func (w *FileNotifyWatch) waitForFileCreation() {
+	for {
+		select {
+		case <-time.After(10 * time.Millisecond):
+			if _, err := os.Stat(w.Path); err == nil {
+				// File exists, subscribe to it and emit fake event
+				err := w.watcher.Add(w.Path)
+				if err != nil {
+					w.tryCreateWatcher() // Watcher is gone, try again
+				}
+
+				// Simulate create event
+				w.Emit(fsnotify.Create)
+				log.Tracef("[FileNotifyWatch] Emitted '%s' for '%s'\n", fsnotify.Create.String(), w.Path)
+
+				return
+			}
+
+			// Continue waiting
+
+		case <-w.StopKey:
+			return
+		}
 	}
 }

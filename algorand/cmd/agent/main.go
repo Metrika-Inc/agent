@@ -3,28 +3,34 @@ package main
 import (
 	"agent/pkg/watch"
 	"fmt"
-	"time"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	fmt.Println("Hello, Agent!")
 
+	log.SetLevel(log.TraceLevel)
+
 	//w := watch.NewTimerWatch(watch.TimerWatchConf{
 	//	Interval: 1 * time.Second,
 	//})
 
-	w := watch.NewFileReadWatch(watch.FileReadWatchConf{
-		FileWatchConf: watch.FileWatchConf{
-			Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/metrika-agent/pkg/watch/file_watch.go",
-		},
-		Interval: time.Second,
-	}, nil)
+	//w := watch.NewFileReadWatch(watch.FileReadWatchConf{
+	//	FileWatchConf: watch.FileWatchConf{
+	//		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/metrika-agent/pkg/watch/file_watch.go",
+	//	},
+	//	Interval: time.Second,
+	//}, nil)
+
+	w := watch.NewDotPidWatch(watch.DotPidWatchConf{
+		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/file.pid",
+	})
 
 	ch := make(chan interface{}, 1)
 	go func() {
 		for {
 			value := <-ch
-			fmt.Println("Emitted", string(value.([]byte)))
+			fmt.Println("Emitted", value.(int))
 		}
 	}()
 	w.Subscribe(ch)
