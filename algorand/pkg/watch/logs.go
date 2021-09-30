@@ -3,9 +3,7 @@ package watch
 import (
 	. "agent/pkg/watch"
 	"encoding/json"
-	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
-	"os"
 )
 
 // *** AlgorandLogWatch ***
@@ -18,87 +16,60 @@ type AlgorandLogWatch struct {
 	AlgorandLogWatchConf
 	Watch
 
-	FileNotifyWatch Watcher
-	fileWatchCh     chan interface{}
-
-	lastFilePos int64 //todo comes from agent config
+	LogWatch   Watcher
+	logWatchCh chan interface{}
 }
 
-func NewAlgorandLogWatch(conf AlgorandLogWatchConf, fileNotifyWatch Watcher) *AlgorandLogWatch {
+func NewAlgorandLogWatch(conf AlgorandLogWatchConf, jsonLogWatch Watcher) *AlgorandLogWatch {
 	w := new(AlgorandLogWatch)
 	w.AlgorandLogWatchConf = conf
 	w.Watch = NewWatch()
-	w.FileNotifyWatch = fileNotifyWatch
-	w.fileWatchCh = make(chan interface{}, 1)
-	w.lastFilePos = 0
+	w.LogWatch = jsonLogWatch
+	w.logWatchCh = make(chan interface{}, 1)
 	return w
 }
 
 func (w *AlgorandLogWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
-	// Determine file size
-	info, err := os.Stat(w.Path)
-	if err != nil {
-		log.Errorf("[AlgorandLogWatch] Failed to read log file size: %v\n", err)
-		return //todo
+	if w.LogWatch == nil {
+		w.LogWatch = NewJsonLogWatch(JsonLogWatchConf{Path: w.Path}, nil)
 	}
-	w.lastFilePos = info.Size()
 
-	if w.FileNotifyWatch == nil {
-		w.FileNotifyWatch = NewFileNotifyWatch(FileNotifyWatchConf{
-			FileWatchConf:  FileWatchConf{Path: w.Path},
-			AllowNotExists: false,
-			Ops:            fsnotify.Write,
-		})
-	}
-	w.FileNotifyWatch.Subscribe(w.fileWatchCh)
-	Start(w.FileNotifyWatch)
+	w.LogWatch.Subscribe(w.logWatchCh)
+	Start(w.LogWatch)
 
 	go w.handleFileChange()
 
 }
 
+const (
+	AlgorandLogMessage = "algorand.log.message"
+)
+
 func (w *AlgorandLogWatch) handleFileChange() {
 	for {
 		select {
-		case _ = <-w.fileWatchCh:
-			// START GENERIC LOG WATCHER
+		case message := <-w.logWatchCh:
+			jsonMap := message.(map[string]interface{})
 
-			file, err := os.OpenFile(w.Path, os.O_RDONLY, 077)
+			body, err := json.Marshal(jsonMap)
 			if err != nil {
-				panic(err)
-			}
-
-			stat, err := file.Stat()
-			if err != nil {
-				panic(err)
-			}
-			fileEnd := stat.Size()
-
-			var data = make([]byte, fileEnd-w.lastFilePos-1)
-			_, err = file.ReadAt(data, w.lastFilePos)
-			if err != nil {
-				panic(err)
-			}
-			w.lastFilePos = fileEnd - 1
-
-			var jsonResult map[string]interface{}
-			err = json.Unmarshal(data, &jsonResult)
-			if err != nil {
-				log.Tracef("[AlgorandLogWatch] %s\n", string(data))
-				log.Errorf("[AlgorandLogWatch] Failed to unmarshal log line: %v\n", err)
+				log.Error("[AlgorandLogWatch] failed to marshal json data: ", err)
 				continue
 			}
 
-			// END GENERIC JSON LOG WATCHER
+			_ = body
 
-			if val, ok := jsonResult["Type"]; ok {
-				_ = val
-				if val == "RoundConcluded" {
-					log.Info("[AlgorandLogWatch] Round Concluded Event")
-				}
-			}
+			//metric := publisher.Metric{
+			//	Type: AlgorandLogMessage,
+			//	Body: publisher.MetricBody{
+			//		Timestamp: time.Now().UnixMilli(),
+			//		Value:     body,
+			//	},
+			//}
+			//
+			//w.Emit(metric)
 
 		case <-w.StopKey:
 			return

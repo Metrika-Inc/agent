@@ -72,11 +72,12 @@ func (w *DotPidWatch) handlePidFileChanges() {
 
 				// Emit new pid
 				w.Emit(pid)
+				log.Tracef("[DotPidWatch] emitted new pid.\n")
 
 			} else {
 				// op == REMOVE
-				// Emit -1
 				w.Emit(0)
+				log.Tracef("[DotPidWatch] emitted 0 pid.\n")
 			}
 
 		case <-w.StopKey:
