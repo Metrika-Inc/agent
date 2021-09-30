@@ -9,7 +9,7 @@ import (
 func main() {
 	fmt.Println("Hello, Agent!")
 
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.WarnLevel)
 
 	//w := watch.NewTimerWatch(watch.TimerWatchConf{
 	//	Interval: 1 * time.Second,
@@ -22,15 +22,23 @@ func main() {
 	//	Interval: time.Second,
 	//}, nil)
 
-	w := watch.NewDotPidWatch(watch.DotPidWatchConf{
-		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/file.pid",
-	})
+	//w := watch.NewDotPidWatch(watch.DotPidWatchConf{
+	//	Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/file.pid",
+	//})
+
+	//w := NewAlgorandLogWatch(AlgorandLogWatchConf{
+	//	Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/node_out.log",
+	//}, nil)
+
+	w := watch.NewJsonLogWatch(watch.JsonLogWatchConf{
+		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/node_out.log",
+	}, nil)
 
 	ch := make(chan interface{}, 1)
 	go func() {
 		for {
 			value := <-ch
-			fmt.Println("Emitted", value.(int))
+			log.Info("Emitted", value.(map[string]interface{}))
 		}
 	}()
 	w.Subscribe(ch)
