@@ -16,7 +16,7 @@ type Metric struct {
 
 func NewMetric(actionable bool) Metric {
 	return Metric{
-		Timestamp:  time.Now().UnixMilli(),
+		Timestamp:  time.Now().UnixNano(),
 		Actionable: actionable,
 	}
 }
