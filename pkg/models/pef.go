@@ -1,20 +1,20 @@
 package models
 
-// PromMetric represents a single entry from PEF data.
+// PEFMetric represents a single entry from PEF data.
 // Includes all relevant metadata, if PEF has it correctly specified.
-type PromMetric struct {
+type PEFMetric struct {
 	FamilyName  string // The name of a group of metrics, found in "# HELP" or "# TYPE" lines
 	Name        string
 	Description string
 	// UnitType    string // UnitType is defined by OpenMetrics, specifies the value type.
 	MetricType MetricType
-	Labels     []PromLabel
+	Labels     []PEFLabel
 	Value      float64
 	Timestamp  int64
 }
 
-// PromLabel represent key-value pairs, specified in curly brackets of a PEF entry.
-type PromLabel struct {
+// PEFLabel represent key-value pairs, specified in curly brackets of a PEF entry.
+type PEFLabel struct {
 	Key, Value string
 }
 
@@ -46,13 +46,13 @@ var MetricMap = map[string]MetricType{
 	"summary":   Summary,
 }
 
-// PromFilter is used as a matcher when only a subset of PEF entries are wanted.
-type PromFilter struct {
+// PEFFilter is used as a matcher when only a subset of PEF entries are wanted.
+type PEFFilter struct {
 	ToMatch []string
 }
 
 // Match checks the metricName against specified set of names
-func (p *PromFilter) Match(metricName string) bool {
+func (p *PEFFilter) Match(metricName string) bool {
 	for _, metric := range p.ToMatch {
 		if metric == metricName {
 			return true

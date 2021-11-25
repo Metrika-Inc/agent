@@ -19,12 +19,12 @@ var (
 	errNoHash  = errors.New("expected # at line start")
 )
 
-func ParseOpenMetrics(data []byte, filter *models.PromFilter) ([]models.PromMetric, error) {
+func ParseOpenMetrics(data []byte, filter *models.PEFFilter) ([]models.PEFMetric, error) {
 	data = bytes.TrimRight(data, "\n")
-	var metadata = make(map[string]models.PromMetric)
+	var metadata = make(map[string]models.PEFMetric)
 	lines := bytes.Split(data, []byte{'\n'})
-	metrics := []models.PromMetric{}
-	var metric models.PromMetric
+	metrics := []models.PEFMetric{}
+	var metric models.PEFMetric
 	var lastFamilyName string
 	for i := 0; i < len(lines); i++ {
 		// Ignore empty lines
@@ -64,7 +64,7 @@ func ParseOpenMetrics(data []byte, filter *models.PromFilter) ([]models.PromMetr
 		if bytes.HasPrefix(lines[i], []byte(lastFamilyName)) {
 			metric = metadata[lastFamilyName]
 		} else {
-			metric = models.PromMetric{}
+			metric = models.PEFMetric{}
 		}
 		// Get metric name and labels, if any.
 		if labelStart := bytes.IndexByte(lines[i], '{'); labelStart > 0 {
@@ -112,7 +112,7 @@ func ParseOpenMetrics(data []byte, filter *models.PromFilter) ([]models.PromMetr
 	return metrics, nil
 }
 
-func parseLabels(data []byte) ([]models.PromLabel, error) {
+func parseLabels(data []byte) ([]models.PEFLabel, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
@@ -123,15 +123,15 @@ func parseLabels(data []byte) ([]models.PromLabel, error) {
 	}
 	items = items[:len(items)-1]
 	var inside bool
-	var labels = make([]models.PromLabel, 0)
-	var label models.PromLabel
+	var labels = make([]models.PEFLabel, 0)
+	var label models.PEFLabel
 	for i := 0; i < len(items); i++ {
 
 		if !inside {
 			if len(items[i]) == 0 {
 				continue
 			}
-			label = models.PromLabel{}
+			label = models.PEFLabel{}
 			items[i] = bytes.TrimLeft(items[i], ",")
 			if items[i][len(items[i])-1] != '=' {
 				return nil, errors.New("expected '=' to precede '\"'")
