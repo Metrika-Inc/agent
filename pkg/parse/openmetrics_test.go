@@ -11,5 +11,5 @@ import (
 func TestParseOpenMetrics(t *testing.T) {
 	data, err := ioutil.ReadFile("testdata/openmetrics_valid.txt")
 	require.NoError(t, err, "failed to read test file")
-	ParseOpenMetrics(data, &models.PromFilter{Metrics: []string{"http_request_duration_seconds_bucket"}})
+	ParseOpenMetrics(data, &models.PromFilter{ToMatch: []string{"http_request_duration_seconds_bucket"}})
 }
