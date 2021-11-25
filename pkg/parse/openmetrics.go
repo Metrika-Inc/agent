@@ -19,17 +19,7 @@ var (
 	errNoHash  = errors.New("expected # at line start")
 )
 
-func ParseGauge(data []byte, name string) {
-	lines := bytes.Split(data, []byte{'\n'})
-	for _, line := range lines {
-		if bytes.HasPrefix(line, []byte("# TYPE")) && bytes.HasSuffix(line, []byte("gauge")) {
-
-		}
-	}
-
-}
-
-func ParseOpenMetrics(data []byte, options map[string]string) ([]models.PromMetric, error) {
+func ParseOpenMetrics(data []byte, filter *models.PromFilter) ([]models.PromMetric, error) {
 	data = bytes.TrimRight(data, "\n")
 	var metadata = make(map[string]models.PromMetric)
 	lines := bytes.Split(data, []byte{'\n'})
@@ -79,6 +69,9 @@ func ParseOpenMetrics(data []byte, options map[string]string) ([]models.PromMetr
 		// Get metric name and labels, if any.
 		if labelStart := bytes.IndexByte(lines[i], '{'); labelStart > 0 {
 			metric.Name = string(lines[i][:labelStart])
+			if filter != nil && !filter.Match(metric.Name) {
+				continue
+			}
 			cutoff := lines[i][labelStart+1:]
 			labelEnd := bytes.IndexByte(cutoff, '}')
 			if labelEnd < 0 {
@@ -95,10 +88,13 @@ func ParseOpenMetrics(data []byte, options map[string]string) ([]models.PromMetr
 				return nil, fmt.Errorf("%w: line: %d, expected a ' ', but did not find one", errInvalid, i+1)
 			}
 			metric.Name = string(lineSplit[0])
+			if filter != nil && !filter.Match(metric.Name) {
+				continue
+			}
 			lines[i] = lineSplit[1]
 		}
+
 		// assign value
-		// TODO: type selection for value
 		lines[i] = bytes.TrimSpace(lines[i])
 		values := bytes.Split(lines[i], []byte{' '})
 		metric.Value, err = strconv.ParseFloat(string(values[0]), 64)

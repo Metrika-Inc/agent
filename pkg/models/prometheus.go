@@ -29,9 +29,26 @@ const (
 	Unknown MetricType = iota
 	Gauge
 	Counter
+	Histogram
+	Summary
 )
 
 var MetricMap = map[string]MetricType{
-	"counter": Counter,
-	"gauge":   Gauge,
+	"counter":   Counter,
+	"gauge":     Gauge,
+	"histogram": Histogram,
+	"summary":   Summary,
+}
+
+type PromFilter struct {
+	Metrics []string
+}
+
+func (p *PromFilter) Match(metricName string) bool {
+	for _, metric := range p.Metrics {
+		if metric == metricName {
+			return true
+		}
+	}
+	return false
 }

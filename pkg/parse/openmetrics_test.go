@@ -1,10 +1,9 @@
 package parse
 
 import (
-	"fmt"
+	"agent/pkg/models"
 	"io/ioutil"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -12,11 +11,5 @@ import (
 func TestParseOpenMetrics(t *testing.T) {
 	data, err := ioutil.ReadFile("testdata/openmetrics_valid.txt")
 	require.NoError(t, err, "failed to read test file")
-	results, err := ParseOpenMetrics(data, nil)
-	_ = results
-	_ = err
-	time.Sleep(1)
-	for _, res := range results {
-		fmt.Println(res.Labels)
-	}
+	ParseOpenMetrics(data, &models.PromFilter{Metrics: []string{"http_request_duration_seconds_bucket"}})
 }
