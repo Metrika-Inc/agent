@@ -1,16 +1,25 @@
 package models
 
+type PEFResults struct {
+	Family        []*PEFFamily
+	Uncategorized []*PEFMetric
+}
+
+// PEFFamily is a group of metrics, preceded by"# HELP" and "# TYPE" lines
+type PEFFamily struct {
+	Name        string
+	Description string
+	Type        MetricType
+	Metric      []*PEFMetric
+}
+
 // PEFMetric represents a single entry from PEF data.
 // Includes all relevant metadata, if PEF has it correctly specified.
 type PEFMetric struct {
-	FamilyName  string // The name of a group of metrics, found in "# HELP" or "# TYPE" lines
-	Name        string
-	Description string
-	// UnitType    string // UnitType is defined by OpenMetrics, specifies the value type.
-	MetricType MetricType
-	Labels     []PEFLabel
-	Value      float64
-	Timestamp  int64
+	Name      string
+	Labels    []PEFLabel
+	Value     float64
+	Timestamp int64
 }
 
 // PEFLabel represent key-value pairs, specified in curly brackets of a PEF entry.
@@ -22,7 +31,8 @@ type PEFLabel struct {
 type HashLineType int
 
 const (
-	Comment HashLineType = iota
+	Invalid HashLineType = iota
+	Comment
 	Help
 	Type
 	// Unit
