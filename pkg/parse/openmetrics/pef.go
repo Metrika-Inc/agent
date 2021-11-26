@@ -2,6 +2,7 @@ package openmetrics
 
 import (
 	"agent/api/v1/model"
+	"agent/pkg/parse"
 	"bytes"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ var (
 
 // ParsePEF accepts raw data in Prometheus Exposition Format
 // 'filter' is used to match only a select subset of metrics.
-func ParsePEF(data []byte, filter *model.PEFFilter) (*model.PEFResults, error) {
+func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 	if len(data) == 0 || data[len(data)-1] != '\n' {
 		return nil, fmt.Errorf("%w: data must end in newline", errInvalid)
 	}
