@@ -15,7 +15,7 @@ const (
 	FailTests  = "testdata/failure/"
 )
 
-func TestParseOpenMetrics_HappyCase(t *testing.T) {
+func TestParsePEF_HappyCase(t *testing.T) {
 	expected := &models.PEFResults{
 		Family: []*models.PEFFamily{
 			{
@@ -177,7 +177,7 @@ func TestParseOpenMetrics_HappyCase(t *testing.T) {
 	assertParsePEF(t, expected, result)
 }
 
-func TestParseOpenMetrics_Filter(t *testing.T) {
+func TestParsePEF_Filter(t *testing.T) {
 	expected := &models.PEFResults{
 		Family: []*models.PEFFamily{
 			{

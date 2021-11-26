@@ -1,4 +1,4 @@
-package parse
+package openmetrics
 
 import (
 	"agent/pkg/models"
@@ -12,15 +12,19 @@ import (
 // Spec: https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md
 // PEF spec: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md
 
-// This is an parser of the said implementation
+// Currently the parser if for PEF implementation only.
+// It does not enforce the format fully, but it is capable to detect a considerable amount of invalid syntax
+// As well as an incomplete data.
 
 var (
 	errInvalid = errors.New("invalid syntax")
 	errNoHash  = errors.New("expected # at line start")
 )
 
+// ParsePEF accepts raw data in Prometheus Exposition Format
+// 'filter' is used to match only a select subset of metrics.
 func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error) {
-	if data[len(data)-1] != '\n' {
+	if len(data) == 0 || data[len(data)-1] != '\n' {
 		return nil, fmt.Errorf("%w: data must end in newline", errInvalid)
 	}
 	data = bytes.TrimRight(data, "\n")
