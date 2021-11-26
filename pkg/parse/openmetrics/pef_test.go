@@ -1,7 +1,7 @@
-package parse
+package openmetrics
 
 import (
-	"agent/pkg/models"
+	"agent/api/v1/model"
 	"io/ioutil"
 	"math"
 	"testing"
@@ -16,16 +16,16 @@ const (
 )
 
 func TestParsePEF_HappyCase(t *testing.T) {
-	expected := &models.PEFResults{
-		Family: []*models.PEFFamily{
+	expected := &model.PEFResults{
+		Family: []*model.PEFFamily{
 			{
 				Name:        "http_requests_total",
 				Description: "The total number of HTTP requests.",
-				Type:        models.Counter,
-				Metric: []*models.PEFMetric{
+				Type:        model.Counter,
+				Metric: []*model.PEFMetric{
 					{
 						Name: "http_requests_total",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"method", "post"}, {"code", "200"},
 						},
 						Value:     1027,
@@ -33,7 +33,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 					},
 					{
 						Name: "http_requests_total",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"method", "post"}, {"code", "400"},
 						},
 						Value:     3,
@@ -44,46 +44,46 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			{
 				Name:        "http_request_duration_seconds",
 				Description: "A histogram of the request duration.",
-				Type:        models.Histogram,
-				Metric: []*models.PEFMetric{
+				Type:        model.Histogram,
+				Metric: []*model.PEFMetric{
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "0.05"},
 						},
 						Value: 24054,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "0.1"},
 						},
 						Value: 33444,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "0.2"},
 						},
 						Value: 100392,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "0.5"},
 						},
 						Value: 129389,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "1"},
 						},
 						Value: 133988,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"le", "+Inf"},
 						},
 						Value: 144320,
@@ -101,38 +101,38 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			{
 				Name:        "rpc_duration_seconds",
 				Description: "A summary of the RPC duration in seconds.",
-				Metric: []*models.PEFMetric{
+				Metric: []*model.PEFMetric{
 					{
 						Name: "rpc_duration_seconds",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"quantile", "0.01"},
 						},
 						Value: 3102,
 					},
 					{
 						Name: "rpc_duration_seconds",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"quantile", "0.05"},
 						},
 						Value: 3272,
 					},
 					{
 						Name: "rpc_duration_seconds",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"quantile", "0.5"},
 						},
 						Value: 4773,
 					},
 					{
 						Name: "rpc_duration_seconds",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"quantile", "0.9"},
 						},
 						Value: 9001,
 					},
 					{
 						Name: "rpc_duration_seconds",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"quantile", "0.99"},
 						},
 						Value: 76656,
@@ -148,10 +148,10 @@ func TestParsePEF_HappyCase(t *testing.T) {
 				},
 			},
 		},
-		Uncategorized: []*models.PEFMetric{
+		Uncategorized: []*model.PEFMetric{
 			{
 				Name: "msdos_file_access_time_seconds",
-				Labels: []models.PEFLabel{
+				Labels: []model.PEFLabel{
 					{"path", `C:\\DIR\\FILE.TXT`}, {"error", "Cannot find file:\\n\\FILE.TXT\\"},
 				},
 				Value: 1458255915,
@@ -162,7 +162,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			},
 			{
 				Name: "something_weird",
-				Labels: []models.PEFLabel{
+				Labels: []model.PEFLabel{
 					{"problem", "division by zero"},
 				},
 				Value:     math.Inf(0),
@@ -178,16 +178,16 @@ func TestParsePEF_HappyCase(t *testing.T) {
 }
 
 func TestParsePEF_Filter(t *testing.T) {
-	expected := &models.PEFResults{
-		Family: []*models.PEFFamily{
+	expected := &model.PEFResults{
+		Family: []*model.PEFFamily{
 			{
 				Name:        "http_requests_total",
 				Description: "The total number of HTTP requests.",
-				Type:        models.Counter,
-				Metric: []*models.PEFMetric{
+				Type:        model.Counter,
+				Metric: []*model.PEFMetric{
 					{
 						Name: "http_requests_total",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"method", "post"}, {"code", "200"},
 						},
 						Value:     1027,
@@ -195,7 +195,7 @@ func TestParsePEF_Filter(t *testing.T) {
 					},
 					{
 						Name: "http_requests_total",
-						Labels: []models.PEFLabel{
+						Labels: []model.PEFLabel{
 							{"method", "post"}, {"code", "400"},
 						},
 						Value:     3,
@@ -204,10 +204,10 @@ func TestParsePEF_Filter(t *testing.T) {
 				},
 			},
 		},
-		Uncategorized: []*models.PEFMetric{
+		Uncategorized: []*model.PEFMetric{
 			{
 				Name: "something_weird",
-				Labels: []models.PEFLabel{
+				Labels: []model.PEFLabel{
 					{"problem", "division by zero"},
 				},
 				Value:     math.Inf(0),
@@ -215,7 +215,7 @@ func TestParsePEF_Filter(t *testing.T) {
 			},
 		},
 	}
-	filter := &models.PEFFilter{
+	filter := &model.PEFFilter{
 		ToMatch: []string{"http_requests_total", "something_weird"},
 	}
 	data, err := ioutil.ReadFile(ValidTests + "pef_full")
@@ -232,7 +232,7 @@ func TestParsePEF_Empty(t *testing.T) {
 	assert.Len(t, result.Uncategorized, 0)
 }
 
-func assertParsePEF(t *testing.T, expected, actual *models.PEFResults) {
+func assertParsePEF(t *testing.T, expected, actual *model.PEFResults) {
 	require.Len(t, actual.Family, len(expected.Family))
 	require.Len(t, actual.Uncategorized, len(expected.Uncategorized))
 	for i := 0; i < len(actual.Family); i++ {

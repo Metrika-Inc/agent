@@ -1,7 +1,7 @@
 package openmetrics
 
 import (
-	"agent/pkg/models"
+	"agent/api/v1/model"
 	"bytes"
 	"errors"
 	"fmt"
@@ -23,14 +23,14 @@ var (
 
 // ParsePEF accepts raw data in Prometheus Exposition Format
 // 'filter' is used to match only a select subset of metrics.
-func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error) {
+func ParsePEF(data []byte, filter *model.PEFFilter) (*model.PEFResults, error) {
 	if len(data) == 0 || data[len(data)-1] != '\n' {
 		return nil, fmt.Errorf("%w: data must end in newline", errInvalid)
 	}
 	data = bytes.TrimRight(data, "\n")
 	lines := bytes.Split(data, []byte{'\n'})
-	family := &models.PEFFamily{}
-	res := &models.PEFResults{}
+	family := &model.PEFFamily{}
+	res := &model.PEFResults{}
 	var inFamily bool
 	var err error
 	for i := 0; i < len(lines); i++ {
@@ -46,17 +46,17 @@ func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error)
 			}
 
 			// Disregard comments completely
-			if t == models.Comment {
+			if t == model.Comment {
 				continue
 			}
 			inFamily = true
 			lineItems := bytes.SplitN(lines[i], []byte{' '}, 4)
 			family.Name = string(lineItems[2])
 			// Use other lines to fill up the metadata map
-			if t == models.Help {
+			if t == model.Help {
 				family.Description = string(lineItems[3])
-			} else if t == models.Type {
-				family.Type = models.MetricMap[string(lineItems[3])]
+			} else if t == model.Type {
+				family.Type = model.MetricMap[string(lineItems[3])]
 			}
 			continue
 		} else if inFamily {
@@ -70,7 +70,7 @@ func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error)
 				res.Family = append(res.Family, family)
 				i += j
 			}
-			family = &models.PEFFamily{}
+			family = &model.PEFFamily{}
 			inFamily = false
 		} else {
 			metric, err := parsePEFLine(lines[i])
@@ -85,7 +85,7 @@ func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error)
 	return res, nil
 }
 
-func parseFamily(family *models.PEFFamily, lines [][]byte) (*models.PEFFamily, int, error) {
+func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int, error) {
 	var i int
 	var sumFound, countFound, bucketFound bool
 	for ; i < len(lines); i++ {
@@ -95,7 +95,7 @@ func parseFamily(family *models.PEFFamily, lines [][]byte) (*models.PEFFamily, i
 			if err != nil {
 				return nil, 0, err
 			}
-			if family.Type == models.Histogram {
+			if family.Type == model.Histogram {
 				if family.Name+"_bucket" == metric.Name {
 					bucketFound = true
 				} else if family.Name+"_count" == metric.Name {
@@ -106,7 +106,7 @@ func parseFamily(family *models.PEFFamily, lines [][]byte) (*models.PEFFamily, i
 					return nil, 0, fmt.Errorf("%w: in group %s unexpected metric name for histogram: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
-			if family.Type == models.Summary {
+			if family.Type == model.Summary {
 				if family.Name+"_count" == metric.Name {
 					countFound = true
 				} else if family.Name+"_sum" == metric.Name {
@@ -124,10 +124,10 @@ func parseFamily(family *models.PEFFamily, lines [][]byte) (*models.PEFFamily, i
 			break
 		}
 	}
-	if family.Type == models.Histogram && (!sumFound || !countFound || !bucketFound) {
+	if family.Type == model.Histogram && (!sumFound || !countFound || !bucketFound) {
 		return nil, 0, fmt.Errorf("%w: missing required histogram fields for %s", errInvalid, family.Name)
 	}
-	if family.Type == models.Summary && (!sumFound || !countFound) {
+	if family.Type == model.Summary && (!sumFound || !countFound) {
 		return nil, 0, fmt.Errorf("%w: missing required summary fields for %s", errInvalid, family.Name)
 	}
 	if i != 0 {
@@ -136,8 +136,8 @@ func parseFamily(family *models.PEFFamily, lines [][]byte) (*models.PEFFamily, i
 	return family, i, nil
 }
 
-func parsePEFLine(line []byte) (*models.PEFMetric, error) {
-	metric := &models.PEFMetric{}
+func parsePEFLine(line []byte) (*model.PEFMetric, error) {
+	metric := &model.PEFMetric{}
 	var err error
 	if labelStart := bytes.IndexByte(line, '{'); labelStart > 0 {
 		metric.Name = string(line[:labelStart])
@@ -177,7 +177,7 @@ func parsePEFLine(line []byte) (*models.PEFMetric, error) {
 	return metric, nil
 }
 
-func parseLabels(data []byte) ([]models.PEFLabel, error) {
+func parseLabels(data []byte) ([]model.PEFLabel, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
@@ -188,15 +188,15 @@ func parseLabels(data []byte) ([]models.PEFLabel, error) {
 	}
 	items = items[:len(items)-1]
 	var inside bool
-	var labels []models.PEFLabel
-	var label models.PEFLabel
+	var labels []model.PEFLabel
+	var label model.PEFLabel
 	for i := 0; i < len(items); i++ {
 
 		if !inside {
 			if len(items[i]) == 0 {
 				continue
 			}
-			label = models.PEFLabel{}
+			label = model.PEFLabel{}
 			items[i] = bytes.TrimLeft(items[i], ",")
 			if items[i][len(items[i])-1] != '=' {
 				return nil, errors.New("expected '=' to precede '\"'")
@@ -215,7 +215,7 @@ func parseLabels(data []byte) ([]models.PEFLabel, error) {
 	return labels, nil
 }
 
-func hashLineType(data []byte) (models.HashLineType, error) {
+func hashLineType(data []byte) (model.HashLineType, error) {
 	if len(data) == 0 || data[0] != '#' {
 		return 0, errNoHash
 	}
@@ -224,20 +224,20 @@ func hashLineType(data []byte) (models.HashLineType, error) {
 		if c := bytes.Count(data, []byte{' '}); c < 3 {
 			return 0, fmt.Errorf("expected 3 or more whitespaces in HELP line, got: %d", c)
 		}
-		return models.Help, nil
+		return model.Help, nil
 	}
 
 	if bytes.HasPrefix(data, []byte("# TYPE")) {
 		if c := bytes.Count(data, []byte{' '}); c != 3 {
 			return 0, fmt.Errorf("expected exactly 3 whitespaces in TYPE line, got: %d", c)
 		}
-		return models.Type, nil
+		return model.Type, nil
 	}
 
-	return models.Comment, nil
+	return model.Comment, nil
 }
 
 func isComment(data []byte) bool {
 	t, _ := hashLineType(data)
-	return t == models.Comment
+	return t == model.Comment
 }
