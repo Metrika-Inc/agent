@@ -20,6 +20,9 @@ var (
 )
 
 func ParsePEF(data []byte, filter *models.PEFFilter) (*models.PEFResults, error) {
+	if data[len(data)-1] != '\n' {
+		return nil, fmt.Errorf("%w: data must end in newline", errInvalid)
+	}
 	data = bytes.TrimRight(data, "\n")
 	lines := bytes.Split(data, []byte{'\n'})
 	family := &models.PEFFamily{}
