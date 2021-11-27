@@ -3,9 +3,8 @@ package watch
 import (
 	"agent/api/v1/model"
 	. "agent/pkg/watch"
-	"agent/publisher"
 	"encoding/json"
-	"fmt"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,7 +54,6 @@ func (w *AlgodRestartWatch) handlePidChange() {
 	for {
 		select {
 		case message := <-w.pidCh:
-			fmt.Println("New pid: ")
 			newPid := message.(int)
 
 			// Create health struct
@@ -78,9 +76,11 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			}
 
 			// Create & emit the metric
-			metric := publisher.Metric{
-				Type: "node.health",
-				Body: jsonHealth,
+			metric := model.MetricPlatform{
+				Type:      "node.health",
+				Timestamp: health.Timestamp,
+				NodeState: health.State,
+				Body:      jsonHealth,
 			}
 			w.Emit(metric)
 

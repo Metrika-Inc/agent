@@ -1,8 +1,9 @@
 package main
 
 import (
-	"agent/pkg/watch"
 	"fmt"
+
+	"agent/pkg/watch"
 	log "github.com/sirupsen/logrus"
 )
 

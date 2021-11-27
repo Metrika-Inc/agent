@@ -1,11 +1,11 @@
 package model
 
 import (
-	. "agent/api/v1/model"
+	"agent/api/v1/model"
 )
 
 type NewBlockMetric struct {
-	Metric
+	model.Metric
 
 	Round uint64 `json:"round"`
 }

@@ -1,12 +1,13 @@
 package openmetrics
 
 import (
-	"agent/api/v1/model"
-	"agent/pkg/parse"
 	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
+
+	"agent/api/v1/model"
+	"agent/pkg/parse"
 )
 
 // OpenMetrics is a specification built upon Prometheus expositon format

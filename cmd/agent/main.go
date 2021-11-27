@@ -1,18 +1,22 @@
 package main
 
 import (
-	"agent/algorand/pkg/watch"
-	watch2 "agent/pkg/watch"
-	"agent/publisher"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"io/ioutil"
-	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
+
+	"agent/algorand/pkg/watch"
+	"agent/api/v1/model"
+	watch2 "agent/pkg/watch"
+	"agent/publisher"
+
+	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 /*
@@ -38,31 +42,23 @@ Sync
 */
 
 var (
-	metrikaPlatformAddr = "http://d42e-195-167-104-122.eu.ngrok.io"
-	metrikaPlatformURI  = "/api/v1/algorand/testnet"
+	// metrikaPlatformAddr = "http://d42e-195-167-104-122.eu.ngrok.io"
+	metrikaPlatformAddr = "http://localhost:8000"
+	// metrikaPlatformURI  = "/api/v1/algorand/testnet"
+	metrikaPlatformURI = "/"
+
+	// agentMetricsAddr HTTP address for serving prometheus metrics
+	agentMetricsAddr = ":9000"
 )
 
 func init() {
 	logrus.SetLevel(logrus.TraceLevel)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
-}
-
-func metrikaHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		logrus.Error(err)
-	}
-
-	var msg publisher.MetrikaMessage
-	if err := json.Unmarshal(body, &msg); err != nil {
-		logrus.Fatal(err)
-	}
-
-	for _, metric := range msg.Data {
-		logrus.Info(string(metric.Body))
-	}
-	fmt.Fprintf(w, "Metrika Platform: %v\n", 200)
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(agentMetricsAddr, nil)
+	}()
 }
 
 type GenericThing struct {
@@ -88,62 +84,49 @@ func main() {
 	}
 
 	conf := publisher.HTTPConf{
-		URL:  url,
-		UUID: agentUUID.String(),
+		URL:            url.String(),
+		UUID:           agentUUID.String(),
+		DefaultTimeout: 10 * time.Second,
+		MaxBatchLen:    1000,
+		MaxBufferBytes: uint(50 * 1024 * 1024),
+		PublishFreq:    5 * time.Second,
+		MetricTTL:      30 * time.Minute,
 	}
 
-	ch := make(chan interface{}, 10)
+	ch := make(chan interface{}, 10000)
 	pub := publisher.NewHTTP(ch, conf)
 
 	wg := &sync.WaitGroup{}
 	pub.Start(wg)
 
-	//w := watch.NewAlgorandLogWatch(watch.AlgorandLogWatchConf{
-	//	Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/node_out.log",
-	//}, nil)
-
 	w := watch.NewAlgodRestartWatch(watch.AlgodRestartWatchConf{
-		Path: "/Users/mattworzala/dev/sigmoidbell/node-agent/sandbox/algod.pid",
+		Path: "/var/lib/algorand/algod.pid",
 	}, nil)
+
+	rand.Seed(time.Now().UnixNano())
+	go func() {
+		for {
+			<-time.After(time.Duration(rand.Intn(5)) * time.Millisecond)
+			health := model.NodeHealthMetric{
+				Metric: model.NewMetric(true),
+				State:  model.NodeStateUp,
+			}
+			body, _ := json.Marshal(health)
+
+			m := model.MetricPlatform{
+				Type:      "foobar-type",
+				Timestamp: time.Now().UnixNano(),
+				NodeState: model.NodeStateUp,
+				Body:      body,
+			}
+			ch <- m
+
+			// logrus.Debug("[test-watch] sending test ", m.Timestamp)
+		}
+	}()
 
 	w.Subscribe(ch)
 	watch2.Start(w)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		http.HandleFunc("/", metrikaHandler)
-		log.Fatal(http.ListenAndServe(":8000", nil))
-	}()
-
-	//wg.Add(1)
-	//go func() {
-	//	defer wg.Done()
-	//
-	//	ticker := time.NewTicker(100 * time.Millisecond)
-	//	for {
-	//		select {
-	//		case <-ticker.C:
-	//			msgUUID, err := uuid.NewUUID()
-	//			if err != nil {
-	//				logrus.Fatal(err)
-	//			}
-	//			body := msgUUID.String()
-	//			m := publisher.Metric{
-	//				Type: "foo",
-	//				Body: []byte(fmt.Sprintf("{'key': %s}", body)),
-	//			}
-	//
-	//			select {
-	//			case ch <- m:
-	//				logrus.Debugf("sent metric to publisher %v", msgUUID)
-	//			case <-time.After(5 * time.Second):
-	//				logrus.Errorf("timeout sending metric to publisher %v", msgUUID)
-	//			}
-	//		}
-	//	}
-	//}()
 
 	forever := make(chan bool)
 	<-forever
