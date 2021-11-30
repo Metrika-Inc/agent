@@ -91,10 +91,10 @@ func parseFamily(family model.PEFFamily, lines [][]byte) (model.PEFFamily, int, 
 	var i int
 	var sumFound, countFound, bucketFound bool
 
-	var familyNameBucket = family.Name + "_bucket"
-	var familyNameCount = family.Name + "_count"
-	var familyNameSum = family.Name + "_sum"
-
+	const bucket = "_bucket"
+	const count = "_count"
+	const sum = "_sum"
+	nameLen := len(family.Name)
 	for ; i < len(lines); i++ {
 		// Get metric name and labels, if any.
 		if bytes.HasPrefix(lines[i], []byte(family.Name)) {
@@ -103,22 +103,24 @@ func parseFamily(family model.PEFFamily, lines [][]byte) (model.PEFFamily, int, 
 				return model.PEFFamily{}, 0, err
 			}
 			if family.Type == model.Histogram {
-				if familyNameBucket == metric.Name {
+				if len(metric.Name) == nameLen+7 && metric.Name[nameLen:] == bucket {
 					bucketFound = true
-				} else if familyNameCount == metric.Name {
+				} else if len(metric.Name) == nameLen+6 && metric.Name[nameLen:] == count {
 					countFound = true
-				} else if familyNameSum == metric.Name {
+				} else if len(metric.Name) == nameLen+4 && metric.Name[nameLen:] == sum {
 					sumFound = true
 				} else {
 					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for histogram: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
 			if family.Type == model.Summary {
-				if familyNameCount == metric.Name {
+				if nameLen == len(metric.Name) {
+					// isPrefix already did confirmed value equality so we only check length
+				} else if !countFound && len(metric.Name) == nameLen+6 && metric.Name[nameLen:] == count {
 					countFound = true
-				} else if familyNameSum == metric.Name {
+				} else if !sumFound && len(metric.Name) == nameLen+4 && metric.Name[nameLen:] == sum {
 					sumFound = true
-				} else if family.Name != metric.Name {
+				} else {
 					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for summary: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
@@ -170,54 +172,78 @@ func parsePEFLine(line []byte) (model.PEFMetric, error) {
 	}
 	// assign value
 	line = bytes.TrimSpace(line)
-	values := bytes.Split(line, []byte{' '})
-	metric.Value, err = strconv.ParseFloat(string(values[0]), 64)
-	if err != nil {
-		return model.PEFMetric{}, fmt.Errorf("%w: metric %s, failed to parse value '%s' into float", errInvalid, metric.Name, values[0])
-	}
-	if len(values) == 2 {
-		metric.Timestamp, err = strconv.ParseInt(string(values[1]), 10, 64)
+	spacePos := bytes.IndexByte(line, ' ')
+	switch spacePos {
+	case -1:
+		// no whitespace found among values, meaning there's no timestamp
+		metric.Value, err = strconv.ParseFloat(string(line), 64)
 		if err != nil {
-			return model.PEFMetric{}, fmt.Errorf("%w, metric %s failed to convert '%s' into int/timestamp", errInvalid, metric.Name, values[1])
+			return model.PEFMetric{}, fmt.Errorf("%w: metric %s, failed to parse value '%s' into float", errInvalid, metric.Name, line)
+		}
+	default:
+		// whitespace was found, meaning there's a timestamp
+		metric.Value, err = strconv.ParseFloat(string(line[:spacePos]), 64)
+		if err != nil {
+			return model.PEFMetric{}, fmt.Errorf("%w: metric %s, failed to parse value '%s' into float", errInvalid, metric.Name, line[:spacePos])
+		}
+		metric.Timestamp, err = strconv.ParseInt(string(line[spacePos+1:]), 10, 64)
+		if err != nil {
+			return model.PEFMetric{}, fmt.Errorf("%w, metric %s failed to convert '%s' into int/timestamp", errInvalid, metric.Name, line[spacePos+1:])
 		}
 	}
 	return metric, nil
 }
 
 func parseLabels(data []byte) ([]model.PEFLabel, error) {
-	if len(data) == 0 {
+	dataLen := len(data)
+	if dataLen == 0 {
 		return nil, nil
 	}
-	items := bytes.Split(data, []byte{'"'})
-	// since label data should end in a quote, remove last element
-	if len(items[len(items)-1]) != 0 {
-		return nil, errors.New("expected '\"' before closing bracket '}' of labels")
-	}
-	items = items[:len(items)-1]
 	var inside bool
 	var labels = make([]model.PEFLabel, 0, 2)
 	var label model.PEFLabel
-	for i := 0; i < len(items); i++ {
+	var nextQuote int
 
+	findNextQuote := func(i int) int {
+		if dataLen-1 == i {
+			return -1
+		}
+		idx := bytes.IndexByte(data[i+1:], '"')
+		if idx == -1 {
+			return idx
+		}
+		nextQuote += idx + 1
+		return nextQuote
+	}
+	var val []byte
+	for i := 0; findNextQuote(nextQuote) != -1; i = nextQuote + 1 {
+		item := data[i:nextQuote]
 		if !inside {
-			if len(items[i]) == 0 {
+			if len(item) == 0 {
 				continue
 			}
+			val = []byte{}
 			label = model.PEFLabel{}
-			items[i] = bytes.TrimLeft(items[i], ",")
-			if items[i][len(items[i])-1] != '=' {
+			if item[0] == ',' {
+				item = item[1:]
+			}
+			if item[len(item)-1] != '=' {
 				return nil, errors.New("expected '=' to precede '\"'")
 			}
-			label.Key = string(items[i][:len(items[i])-1])
+			label.Key = string(item[:len(item)-1])
 			inside = true
 		} else {
-			label.Value += string(items[i])
-			if len(items[i]) > 0 && items[i][len(items[i])-1] == '\\' {
+			val = append(val, item...)
+			if len(item) > 0 && item[len(item)-1] == '\\' {
 				continue
 			}
+			label.Value = string(val)
 			labels = append(labels, label)
 			inside = false
 		}
+	}
+	if inside {
+		return nil, errors.New("failed to find a label value closure")
 	}
 	return labels, nil
 }
