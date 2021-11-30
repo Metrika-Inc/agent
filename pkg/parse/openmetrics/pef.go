@@ -90,6 +90,11 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 func parseFamily(family model.PEFFamily, lines [][]byte) (model.PEFFamily, int, error) {
 	var i int
 	var sumFound, countFound, bucketFound bool
+
+	var familyNameBucket = family.Name + "_bucket"
+	var familyNameCount = family.Name + "_count"
+	var familyNameSum = family.Name + "_sum"
+
 	for ; i < len(lines); i++ {
 		// Get metric name and labels, if any.
 		if bytes.HasPrefix(lines[i], []byte(family.Name)) {
@@ -98,20 +103,20 @@ func parseFamily(family model.PEFFamily, lines [][]byte) (model.PEFFamily, int, 
 				return model.PEFFamily{}, 0, err
 			}
 			if family.Type == model.Histogram {
-				if family.Name+"_bucket" == metric.Name {
+				if familyNameBucket == metric.Name {
 					bucketFound = true
-				} else if family.Name+"_count" == metric.Name {
+				} else if familyNameCount == metric.Name {
 					countFound = true
-				} else if family.Name+"_sum" == metric.Name {
+				} else if familyNameSum == metric.Name {
 					sumFound = true
 				} else {
 					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for histogram: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
 			if family.Type == model.Summary {
-				if family.Name+"_count" == metric.Name {
+				if familyNameCount == metric.Name {
 					countFound = true
-				} else if family.Name+"_sum" == metric.Name {
+				} else if familyNameSum == metric.Name {
 					sumFound = true
 				} else if family.Name != metric.Name {
 					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for summary: '%s'", errInvalid, family.Name, metric.Name)
