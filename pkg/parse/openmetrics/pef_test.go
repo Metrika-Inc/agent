@@ -17,12 +17,12 @@ const (
 
 func TestParsePEF_HappyCase(t *testing.T) {
 	expected := &model.PEFResults{
-		Family: []*model.PEFFamily{
+		Family: []model.PEFFamily{
 			{
 				Name:        "http_requests_total",
 				Description: "The total number of HTTP requests.",
 				Type:        model.Counter,
-				Metric: []*model.PEFMetric{
+				Metric: []model.PEFMetric{
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
@@ -45,7 +45,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 				Name:        "http_request_duration_seconds",
 				Description: "A histogram of the request duration.",
 				Type:        model.Histogram,
-				Metric: []*model.PEFMetric{
+				Metric: []model.PEFMetric{
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
@@ -101,7 +101,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			{
 				Name:        "rpc_duration_seconds",
 				Description: "A summary of the RPC duration in seconds.",
-				Metric: []*model.PEFMetric{
+				Metric: []model.PEFMetric{
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
@@ -148,7 +148,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 				},
 			},
 		},
-		Uncategorized: []*model.PEFMetric{
+		Uncategorized: []model.PEFMetric{
 			{
 				Name: "msdos_file_access_time_seconds",
 				Labels: []model.PEFLabel{
@@ -179,12 +179,12 @@ func TestParsePEF_HappyCase(t *testing.T) {
 
 func TestParsePEF_Filter(t *testing.T) {
 	expected := &model.PEFResults{
-		Family: []*model.PEFFamily{
+		Family: []model.PEFFamily{
 			{
 				Name:        "http_requests_total",
 				Description: "The total number of HTTP requests.",
 				Type:        model.Counter,
-				Metric: []*model.PEFMetric{
+				Metric: []model.PEFMetric{
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
@@ -204,7 +204,7 @@ func TestParsePEF_Filter(t *testing.T) {
 				},
 			},
 		},
-		Uncategorized: []*model.PEFMetric{
+		Uncategorized: []model.PEFMetric{
 			{
 				Name: "something_weird",
 				Labels: []model.PEFLabel{

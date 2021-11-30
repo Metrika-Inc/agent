@@ -1,8 +1,8 @@
 package model
 
 type PEFResults struct {
-	Family        []*PEFFamily
-	Uncategorized []*PEFMetric
+	Family        []PEFFamily
+	Uncategorized []PEFMetric
 }
 
 // PEFFamily is a group of metrics, preceded by"# HELP" and "# TYPE" lines
@@ -10,7 +10,7 @@ type PEFFamily struct {
 	Name        string
 	Description string
 	Type        MetricType
-	Metric      []*PEFMetric
+	Metric      []PEFMetric
 }
 
 // PEFMetric represents a single entry from PEF data.

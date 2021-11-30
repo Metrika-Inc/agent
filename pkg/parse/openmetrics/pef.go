@@ -30,8 +30,8 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 	}
 	data = bytes.TrimRight(data, "\n")
 	lines := bytes.Split(data, []byte{'\n'})
-	family := &model.PEFFamily{}
-	res := &model.PEFResults{}
+	family := model.PEFFamily{Metric: make([]model.PEFMetric, 0, 4)}
+	res := &model.PEFResults{Family: make([]model.PEFFamily, 0, 8), Uncategorized: make([]model.PEFMetric, 0, 8)}
 	var inFamily bool
 	var err error
 	for i := 0; i < len(lines); i++ {
@@ -71,7 +71,7 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 				res.Family = append(res.Family, family)
 				i += j
 			}
-			family = &model.PEFFamily{}
+			family = model.PEFFamily{Metric: make([]model.PEFMetric, 0, 4)}
 			inFamily = false
 		} else {
 			metric, err := parsePEFLine(lines[i])
@@ -86,7 +86,7 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 	return res, nil
 }
 
-func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int, error) {
+func parseFamily(family model.PEFFamily, lines [][]byte) (model.PEFFamily, int, error) {
 	var i int
 	var sumFound, countFound, bucketFound bool
 	for ; i < len(lines); i++ {
@@ -94,7 +94,7 @@ func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int
 		if bytes.HasPrefix(lines[i], []byte(family.Name)) {
 			metric, err := parsePEFLine(lines[i])
 			if err != nil {
-				return nil, 0, err
+				return model.PEFFamily{}, 0, err
 			}
 			if family.Type == model.Histogram {
 				if family.Name+"_bucket" == metric.Name {
@@ -104,7 +104,7 @@ func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int
 				} else if family.Name+"_sum" == metric.Name {
 					sumFound = true
 				} else {
-					return nil, 0, fmt.Errorf("%w: in group %s unexpected metric name for histogram: '%s'", errInvalid, family.Name, metric.Name)
+					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for histogram: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
 			if family.Type == model.Summary {
@@ -113,7 +113,7 @@ func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int
 				} else if family.Name+"_sum" == metric.Name {
 					sumFound = true
 				} else if family.Name != metric.Name {
-					return nil, 0, fmt.Errorf("%w: in group %s unexpected metric name for summary: '%s'", errInvalid, family.Name, metric.Name)
+					return model.PEFFamily{}, 0, fmt.Errorf("%w: in group %s unexpected metric name for summary: '%s'", errInvalid, family.Name, metric.Name)
 				}
 			}
 			family.Metric = append(family.Metric, metric)
@@ -126,10 +126,10 @@ func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int
 		}
 	}
 	if family.Type == model.Histogram && (!sumFound || !countFound || !bucketFound) {
-		return nil, 0, fmt.Errorf("%w: missing required histogram fields for %s", errInvalid, family.Name)
+		return model.PEFFamily{}, 0, fmt.Errorf("%w: missing required histogram fields for %s", errInvalid, family.Name)
 	}
 	if family.Type == model.Summary && (!sumFound || !countFound) {
-		return nil, 0, fmt.Errorf("%w: missing required summary fields for %s", errInvalid, family.Name)
+		return model.PEFFamily{}, 0, fmt.Errorf("%w: missing required summary fields for %s", errInvalid, family.Name)
 	}
 	if i != 0 {
 		i--
@@ -137,8 +137,8 @@ func parseFamily(family *model.PEFFamily, lines [][]byte) (*model.PEFFamily, int
 	return family, i, nil
 }
 
-func parsePEFLine(line []byte) (*model.PEFMetric, error) {
-	metric := &model.PEFMetric{}
+func parsePEFLine(line []byte) (model.PEFMetric, error) {
+	metric := model.PEFMetric{}
 	var err error
 	if labelStart := bytes.IndexByte(line, '{'); labelStart > 0 {
 		metric.Name = string(line[:labelStart])
@@ -146,17 +146,17 @@ func parsePEFLine(line []byte) (*model.PEFMetric, error) {
 		cutoff := line[labelStart+1:]
 		labelEnd := bytes.IndexByte(cutoff, '}')
 		if labelEnd < 0 {
-			return nil, fmt.Errorf("%w: line '%s', found '{', but no '}'", errInvalid, line)
+			return model.PEFMetric{}, fmt.Errorf("%w: line '%s', found '{', but no '}'", errInvalid, line)
 		}
 		metric.Labels, err = parseLabels(cutoff[:labelEnd])
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed parsing labels for '%s': %v", errInvalid, line, err)
+			return model.PEFMetric{}, fmt.Errorf("%w: failed parsing labels for '%s': %v", errInvalid, line, err)
 		}
 		line = cutoff[labelEnd+1:]
 	} else {
 		lineSplit := bytes.SplitN(line, []byte{' '}, 2)
 		if len(lineSplit) != 2 {
-			return nil, fmt.Errorf("%w: line '%s' expected a ' ', but did not find one", errInvalid, line)
+			return model.PEFMetric{}, fmt.Errorf("%w: line '%s' expected a ' ', but did not find one", errInvalid, line)
 		}
 		metric.Name = string(lineSplit[0])
 
@@ -167,12 +167,12 @@ func parsePEFLine(line []byte) (*model.PEFMetric, error) {
 	values := bytes.Split(line, []byte{' '})
 	metric.Value, err = strconv.ParseFloat(string(values[0]), 64)
 	if err != nil {
-		return nil, fmt.Errorf("%w: metric %s, failed to parse value '%s' into float", errInvalid, metric.Name, values[0])
+		return model.PEFMetric{}, fmt.Errorf("%w: metric %s, failed to parse value '%s' into float", errInvalid, metric.Name, values[0])
 	}
 	if len(values) == 2 {
 		metric.Timestamp, err = strconv.ParseInt(string(values[1]), 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%w, metric %s failed to convert '%s' into int/timestamp", errInvalid, metric.Name, values[1])
+			return model.PEFMetric{}, fmt.Errorf("%w, metric %s failed to convert '%s' into int/timestamp", errInvalid, metric.Name, values[1])
 		}
 	}
 	return metric, nil
@@ -189,7 +189,7 @@ func parseLabels(data []byte) ([]model.PEFLabel, error) {
 	}
 	items = items[:len(items)-1]
 	var inside bool
-	var labels []model.PEFLabel
+	var labels = make([]model.PEFLabel, 0, 2)
 	var label model.PEFLabel
 	for i := 0; i < len(items); i++ {
 
