@@ -40,7 +40,7 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 			continue
 		}
 		// Lines starting with "#" indicate a comment, description, or type
-		if bytes.HasPrefix(lines[i], []byte{'#'}) {
+		if lines[i][0] == '#' {
 			t, err := hashLineType(lines[i])
 			if err != nil {
 				return nil, fmt.Errorf("%w: %v", errInvalid, err)
@@ -54,9 +54,10 @@ func ParsePEF(data []byte, filter parse.KeyMatcher) (*model.PEFResults, error) {
 			lineItems := bytes.SplitN(lines[i], []byte{' '}, 4)
 			family.Name = string(lineItems[2])
 			// Use other lines to fill up the metadata map
-			if t == model.Help {
+			switch t {
+			case model.Help:
 				family.Description = string(lineItems[3])
-			} else if t == model.Type {
+			case model.Type:
 				family.Type = model.MetricMap[string(lineItems[3])]
 			}
 			continue
