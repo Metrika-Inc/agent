@@ -26,7 +26,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
-							{"method", "post"}, {"code", "200"},
+							{Key: "method", Value: "post"}, {Key: "code", Value: "200"},
 						},
 						Value:     1027,
 						Timestamp: 1395066363000,
@@ -34,7 +34,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
-							{"method", "post"}, {"code", "400"},
+							{Key: "method", Value: "post"}, {Key: "code", Value: "400"},
 						},
 						Value:     3,
 						Timestamp: 1395066363000,
@@ -49,42 +49,42 @@ func TestParsePEF_HappyCase(t *testing.T) {
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "0.05"},
+							{Key: "le", Value: "0.05"},
 						},
 						Value: 24054,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "0.1"},
+							{Key: "le", Value: "0.1"},
 						},
 						Value: 33444,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "0.2"},
+							{Key: "le", Value: "0.2"},
 						},
 						Value: 100392,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "0.5"},
+							{Key: "le", Value: "0.5"},
 						},
 						Value: 129389,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "1"},
+							{Key: "le", Value: "1"},
 						},
 						Value: 133988,
 					},
 					{
 						Name: "http_request_duration_seconds_bucket",
 						Labels: []model.PEFLabel{
-							{"le", "+Inf"},
+							{Key: "le", Value: "+Inf"},
 						},
 						Value: 144320,
 					},
@@ -105,35 +105,35 @@ func TestParsePEF_HappyCase(t *testing.T) {
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
-							{"quantile", "0.01"},
+							{Key: "quantile", Value: "0.01"},
 						},
 						Value: 3102,
 					},
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
-							{"quantile", "0.05"},
+							{Key: "quantile", Value: "0.05"},
 						},
 						Value: 3272,
 					},
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
-							{"quantile", "0.5"},
+							{Key: "quantile", Value: "0.5"},
 						},
 						Value: 4773,
 					},
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
-							{"quantile", "0.9"},
+							{Key: "quantile", Value: "0.9"},
 						},
 						Value: 9001,
 					},
 					{
 						Name: "rpc_duration_seconds",
 						Labels: []model.PEFLabel{
-							{"quantile", "0.99"},
+							{Key: "quantile", Value: "0.99"},
 						},
 						Value: 76656,
 					},
@@ -152,7 +152,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			{
 				Name: "msdos_file_access_time_seconds",
 				Labels: []model.PEFLabel{
-					{"path", `C:\\DIR\\FILE.TXT`}, {"error", "Cannot find file:\\n\\FILE.TXT\\"},
+					{Key: "path", Value: `C:\\DIR\\FILE.TXT`}, {Key: "error", Value: "Cannot find file:\\n\\FILE.TXT\\"},
 				},
 				Value: 1458255915,
 			},
@@ -163,7 +163,7 @@ func TestParsePEF_HappyCase(t *testing.T) {
 			{
 				Name: "something_weird",
 				Labels: []model.PEFLabel{
-					{"problem", "division by zero"},
+					{Key: "problem", Value: "division by zero"},
 				},
 				Value:     math.Inf(0),
 				Timestamp: -3982045,
@@ -188,7 +188,7 @@ func TestParsePEF_Filter(t *testing.T) {
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
-							{"method", "post"}, {"code", "200"},
+							{Key: "method", Value: "post"}, {Key: "code", Value: "200"},
 						},
 						Value:     1027,
 						Timestamp: 1395066363000,
@@ -196,7 +196,7 @@ func TestParsePEF_Filter(t *testing.T) {
 					{
 						Name: "http_requests_total",
 						Labels: []model.PEFLabel{
-							{"method", "post"}, {"code", "400"},
+							{Key: "method", Value: "post"}, {Key: "code", Value: "400"},
 						},
 						Value:     3,
 						Timestamp: 1395066363000,
@@ -208,7 +208,7 @@ func TestParsePEF_Filter(t *testing.T) {
 			{
 				Name: "something_weird",
 				Labels: []model.PEFLabel{
-					{"problem", "division by zero"},
+					{Key: "problem", Value: "division by zero"},
 				},
 				Value:     math.Inf(0),
 				Timestamp: -3982045,
