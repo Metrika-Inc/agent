@@ -162,13 +162,14 @@ func parsePEFLine(line []byte) (model.PEFMetric, error) {
 		}
 		line = cutoff[labelEnd+1:]
 	} else {
-		lineSplit := bytes.SplitN(line, []byte{' '}, 2)
-		if len(lineSplit) != 2 {
+		line = bytes.TrimSpace(line)
+		spacePos := bytes.IndexByte(line, ' ')
+		if spacePos == -1 {
 			return model.PEFMetric{}, fmt.Errorf("%w: line '%s' expected a ' ', but did not find one", errInvalid, line)
 		}
-		metric.Name = string(lineSplit[0])
+		metric.Name = string(line[:spacePos])
 
-		line = lineSplit[1]
+		line = line[spacePos+1:]
 	}
 	// assign value
 	line = bytes.TrimSpace(line)
