@@ -10,5 +10,6 @@ require (
 
 require (
 	github.com/beevik/ntp v0.3.0
+	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
 )

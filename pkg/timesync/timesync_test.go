@@ -1,0 +1,144 @@
+package timesync
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/beevik/ntp"
+	"github.com/stretchr/testify/require"
+)
+
+func TestTimeSync_QueryNTP(t *testing.T) {
+	t.Run("QueryNTP/success", func(t *testing.T) {
+		ts := NewTimeSync("1000", context.Background())
+		ts.queryNTP = mockQueryNTP
+		err := ts.QueryNTP()
+		require.NoError(t, err)
+		require.Equal(t, time.Millisecond*1000, ts.Offset())
+	})
+	t.Run("QueryNTP/failure", func(t *testing.T) {
+		ts := NewTimeSync("notInteger", context.Background())
+		ts.queryNTP = mockQueryNTP
+		ts.delta = 1234
+		err := ts.QueryNTP()
+		require.Error(t, err)
+		require.Equal(t, time.Duration(1234), ts.Offset())
+	})
+}
+
+func TestTimeSync(t *testing.T) {
+	t.Run("Start/tick_interval_and_stop", func(t *testing.T) {
+		ts := NewTimeSync("", context.Background())
+		ts.SetSyncInterval(25 * time.Millisecond)
+		var tickCounter testCounter
+		ts.queryNTP = func(s string) (*ntp.Response, error) {
+			tickCounter.increment()
+			return &ntp.Response{}, nil
+		}
+		ts.Start()
+		// 3 ticks expected
+		<-time.After(55 * time.Millisecond)
+		ts.Stop()
+		ts.WaitForDone()
+		<-time.After(30 * time.Millisecond)
+		require.Equal(t, 2, tickCounter.get())
+	})
+	t.Run("Start/stop_on_graceful_exit", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		ts := NewTimeSync("", ctx)
+		ts.SetSyncInterval(25 * time.Millisecond)
+		var tickCounter testCounter
+		ts.queryNTP = func(s string) (*ntp.Response, error) {
+			tickCounter.increment()
+			return &ntp.Response{}, nil
+		}
+		ts.Start()
+		// 3 ticks expected
+		<-time.After(55 * time.Millisecond)
+		cancel()
+		ts.WaitForDone()
+		<-time.After(30 * time.Millisecond)
+		require.Equal(t, 2, tickCounter.get())
+	})
+	t.Run("Start/start_twice", func(t *testing.T) {
+		ts := NewTimeSync("", context.Background())
+		ts.SetSyncInterval(25 * time.Millisecond)
+		var tickCounter testCounter
+		ts.queryNTP = func(s string) (*ntp.Response, error) {
+			tickCounter.increment()
+			return nil, errors.New("error does not affect start flow")
+		}
+		ts.Start()
+		// 3 ticks expected
+		<-time.After(55 * time.Millisecond)
+		require.Equal(t, 2, tickCounter.get())
+		ts.SetSyncInterval(10 * time.Millisecond)
+		ts.Start()
+		<-time.After(35 * time.Millisecond)
+		ts.Stop()
+		<-time.After(11 * time.Millisecond)
+		require.Equal(t, 5, tickCounter.get())
+	})
+	t.Run("Start/sync_now", func(t *testing.T) {
+		ts := NewTimeSync("", context.Background())
+		ts.SetSyncInterval(100 * time.Millisecond)
+		var tickCounter testCounter
+		ts.queryNTP = func(s string) (*ntp.Response, error) {
+			tickCounter.increment()
+			return &ntp.Response{}, nil
+		}
+		ts.Start()
+		<-time.After(50 * time.Millisecond)
+		err := ts.SyncNow()
+		require.NoError(t, err)
+		<-time.After(80 * time.Millisecond)
+		ts.Stop()
+		ts.WaitForDone()
+		require.Equal(t, 1, tickCounter.get())
+	})
+	t.Run("Start/check_default_interval", func(t *testing.T) {
+		ts := NewTimeSync("", context.Background())
+		ts.Start()
+		<-time.After(15 * time.Millisecond)
+		ts.Stop()
+		require.Equal(t, defaultSyncInterval, ts.interval)
+	})
+}
+
+// mockQueryNTP shares the signature with ntp.Query
+// 'host' value will be typecast to milliseconds
+func mockQueryNTP(host string) (*ntp.Response, error) {
+	delta, err := strconv.Atoi(host)
+	if err != nil {
+		return nil, errors.New("mockQueryNTP expected a number passed as host")
+	}
+	offset := time.Duration(delta) * time.Millisecond
+	resp := &ntp.Response{
+		Time:        time.Now().Add(offset),
+		ClockOffset: offset,
+	}
+	return resp, nil
+}
+
+// testCounter is a thread-safe counter
+// useful for unit testing tickers
+type testCounter struct {
+	i int
+	sync.Mutex
+}
+
+func (t *testCounter) increment() {
+	t.Lock()
+	defer t.Unlock()
+	t.i++
+}
+
+func (t *testCounter) get() int {
+	t.Lock()
+	defer t.Unlock()
+	return t.i
+}
