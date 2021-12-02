@@ -109,6 +109,33 @@ func TestTimeSync(t *testing.T) {
 	})
 }
 
+func TestTimeSync_Now(t *testing.T) {
+	allowedDelta := time.Millisecond * 5
+	testcases := []struct {
+		offset time.Duration
+		adjust bool
+	}{
+		{offset: 5 * time.Second, adjust: true},
+		{offset: 10 * time.Second, adjust: false},
+	}
+
+	for _, testcase := range testcases {
+		ts := NewTimeSync("", context.Background())
+		ts.delta = testcase.offset
+		ts.shouldAdjust = testcase.adjust
+		expectedTime := time.Now()
+		if testcase.adjust {
+			expectedTime = expectedTime.Add(testcase.offset)
+		}
+		result := ts.Now()
+		resultDelta := result.Sub(expectedTime)
+		if resultDelta < 0 {
+			resultDelta = -resultDelta
+		}
+		require.Less(t, resultDelta, allowedDelta)
+	}
+}
+
 // mockQueryNTP shares the signature with ntp.Query
 // 'host' value will be typecast to milliseconds
 func mockQueryNTP(host string) (*ntp.Response, error) {

@@ -17,8 +17,8 @@ type TimeSync struct {
 	ctx, tickerCtx context.Context
 	tickerStop     context.CancelFunc
 	wg             *sync.WaitGroup
-	// to enable mocking
-	queryNTP func(string) (*ntp.Response, error)
+	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
+	shouldAdjust   bool
 	sync.Mutex
 }
 
@@ -66,7 +66,9 @@ func (t *TimeSync) Start() {
 				err := t.QueryNTP()
 				if err != nil {
 					log.Error("Failed to sync time with NTP Server: ", err)
+					continue
 				}
+				t.setAdjustBool()
 			case <-t.tickerCtx.Done():
 				break loop
 			case <-t.ctx.Done():
@@ -115,4 +117,25 @@ func (t *TimeSync) Offset() time.Duration {
 
 func (t *TimeSync) WaitForDone() {
 	t.wg.Wait()
+}
+
+func (t *TimeSync) setAdjustBool() {
+	// TODO: select sensible values for when it's appropriate to adjust timedrift
+	t.Lock()
+	defer t.Unlock()
+	if t.delta > 3*time.Second || t.delta < -500*time.Millisecond {
+		t.shouldAdjust = true
+	} else {
+		t.shouldAdjust = false
+	}
+}
+
+func (t *TimeSync) Now() time.Time {
+	t.Lock()
+	defer t.Unlock()
+
+	if t.shouldAdjust {
+		return time.Now().Add(t.delta)
+	}
+	return time.Now()
 }
