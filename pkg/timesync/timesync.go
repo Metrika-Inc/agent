@@ -19,17 +19,25 @@ type TimeSync struct {
 	wg             *sync.WaitGroup
 	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
 	shouldAdjust   bool
+	retries        int
 	*sync.RWMutex
 }
 
-const defaultSyncInterval = 120 * time.Second
+const (
+	defaultSyncInterval = 120 * time.Second
+	defaultRetryCount   = 3
+)
 
-func NewTimeSync(host string, ctx context.Context) *TimeSync {
+func NewTimeSync(host string, retries int, ctx context.Context) *TimeSync {
+	if retries <= 0 {
+		retries = defaultRetryCount
+	}
 	return &TimeSync{
 		host:     host,
 		ctx:      ctx,
 		wg:       &sync.WaitGroup{},
 		queryNTP: ntp.Query,
+		retries:  retries,
 		RWMutex:  &sync.RWMutex{},
 	}
 }
@@ -101,16 +109,24 @@ func (t *TimeSync) SyncNow() error {
 }
 
 func (t *TimeSync) QueryNTP() error {
-	q, err := t.queryNTP(t.host)
+	var resp *ntp.Response
+	var err error
+	for i := 0; i < t.retries; i++ {
+		resp, err = t.queryNTP(t.host)
+		if err == nil {
+			break
+		}
+		log.Warnf("Error querying NTP server (attempt %d of %d): %v", i+1, t.retries, err)
+	}
 	if err != nil {
 		return err
 	}
+
 	t.Lock()
-	t.delta = q.ClockOffset
+	t.delta = resp.ClockOffset
 	t.Unlock()
-	log.Infof("Response: %+v", q)
-	log.Infof("NTP time: %v", q.Time)
-	log.Infof("System offset: %v", q.ClockOffset)
+	log.Debugf("NTP server response: %+v", resp)
+	log.Infof("[NTP] Time synced. System offset: %v", resp.ClockOffset)
 	return nil
 }
 
