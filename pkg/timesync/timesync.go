@@ -19,7 +19,7 @@ type TimeSync struct {
 	wg             *sync.WaitGroup
 	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
 	shouldAdjust   bool
-	sync.Mutex
+	*sync.RWMutex
 }
 
 const defaultSyncInterval = 120 * time.Second
@@ -30,6 +30,7 @@ func NewTimeSync(host string, ctx context.Context) *TimeSync {
 		ctx:      ctx,
 		wg:       &sync.WaitGroup{},
 		queryNTP: ntp.Query,
+		RWMutex:  &sync.RWMutex{},
 	}
 }
 
@@ -94,8 +95,8 @@ func (t *TimeSync) stop() {
 
 func (t *TimeSync) SyncNow() error {
 	t.Lock()
-	defer t.Unlock()
 	t.ticker.Reset(t.interval)
+	t.Unlock()
 	return t.QueryNTP()
 }
 
@@ -104,7 +105,9 @@ func (t *TimeSync) QueryNTP() error {
 	if err != nil {
 		return err
 	}
+	t.Lock()
 	t.delta = q.ClockOffset
+	t.Unlock()
 	log.Infof("Response: %+v", q)
 	log.Infof("NTP time: %v", q.Time)
 	log.Infof("System offset: %v", q.ClockOffset)
@@ -112,6 +115,8 @@ func (t *TimeSync) QueryNTP() error {
 }
 
 func (t *TimeSync) Offset() time.Duration {
+	t.RLock()
+	defer t.RUnlock()
 	return t.delta
 }
 
@@ -131,9 +136,8 @@ func (t *TimeSync) setAdjustBool() {
 }
 
 func (t *TimeSync) Now() time.Time {
-	t.Lock()
-	defer t.Unlock()
-
+	t.RLock()
+	defer t.RUnlock()
 	if t.shouldAdjust {
 		return time.Now().Add(t.delta)
 	}
