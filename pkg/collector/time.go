@@ -63,9 +63,9 @@ func (c *timeCollector) Update(ch chan<- prometheus.Metric) error {
 	nowSec := float64(now.UnixNano()) / 1e9
 	zone, zoneOffset := now.Zone()
 
-	log.Debug("msg", "Return time", "now", nowSec)
+	log.Trace("msg", "Return time", "now", nowSec)
 	ch <- c.now.mustNewConstMetric(nowSec)
-	log.Debug("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
+	log.Trace("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
 	ch <- c.zone.mustNewConstMetric(float64(zoneOffset), zone)
 	return c.update(ch)
 }

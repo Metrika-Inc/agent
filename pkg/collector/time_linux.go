@@ -35,7 +35,7 @@ func (c *timeCollector) update(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		return fmt.Errorf("couldn't get clocksources: %w", err)
 	}
-	log.Debug("msg", "in Update", "clocksources", fmt.Sprintf("%v", clocksources))
+	log.Trace("msg", "in Update", "clocksources", fmt.Sprintf("%v", clocksources))
 
 	for i, clocksource := range clocksources {
 		is := strconv.Itoa(i)

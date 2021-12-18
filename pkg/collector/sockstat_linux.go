@@ -52,7 +52,7 @@ func (c *sockStatCollector) Update(ch chan<- prometheus.Metric) error {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Debug("msg", "IPv4 sockstat statistics not found, skipping")
+		log.Trace("msg", "IPv4 sockstat statistics not found, skipping")
 	default:
 		return fmt.Errorf("failed to get IPv4 sockstat data: %w", err)
 	}
@@ -61,7 +61,7 @@ func (c *sockStatCollector) Update(ch chan<- prometheus.Metric) error {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Debug("msg", "IPv6 sockstat statistics not found, skipping")
+		log.Trace("msg", "IPv6 sockstat statistics not found, skipping")
 	default:
 		return fmt.Errorf("failed to get IPv6 sockstat data: %w", err)
 	}

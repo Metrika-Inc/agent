@@ -184,14 +184,14 @@ func (c *diskstatsCollector) Update(ch chan<- prometheus.Metric) error {
 	for _, stats := range diskStats {
 		dev := stats.DeviceName
 		if c.ignoredDevicesPattern.MatchString(dev) {
-			log.Debug("msg", "Ignoring device", "device", dev, "pattern", c.ignoredDevicesPattern)
+			log.Trace("msg", "Ignoring device", "device", dev, "pattern", c.ignoredDevicesPattern)
 			continue
 		}
 
 		diskSectorSize := 512.0
 		blockQueue, err := c.fs.SysBlockDeviceQueueStats(dev)
 		if err != nil {
-			log.Debug("msg", "Error getting queue stats", "device", dev, "err", err)
+			log.Trace("msg", "Error getting queue stats", "device", dev, "err", err)
 		} else {
 			diskSectorSize = float64(blockQueue.LogicalBlockSize)
 		}

@@ -106,7 +106,7 @@ func NewCPUCollector() (Collector, error) {
 func (c *cpuCollector) compileIncludeFlags(flagsIncludeFlag, bugsIncludeFlag *string) error {
 	if (*flagsIncludeFlag != "" || *bugsIncludeFlag != "") && !*enableCPUInfo {
 		*enableCPUInfo = true
-		log.Debug("msg", "--collector.cpu.info has been set to `true` because you set the following flags, like --collector.cpu.info.flags-include and --collector.cpu.info.bugs-include")
+		log.Trace("msg", "--collector.cpu.info has been set to `true` because you set the following flags, like --collector.cpu.info.flags-include and --collector.cpu.info.bugs-include")
 	}
 
 	var err error
@@ -212,12 +212,12 @@ func (c *cpuCollector) updateThermalThrottle(ch chan<- prometheus.Metric) error 
 
 		// topology/physical_package_id
 		if physicalPackageID, err = readUintFromFile(filepath.Join(cpu, "topology", "physical_package_id")); err != nil {
-			log.Debug("msg", "CPU is missing physical_package_id", "cpu", cpu)
+			log.Trace("msg", "CPU is missing physical_package_id", "cpu", cpu)
 			continue
 		}
 		// topology/core_id
 		if coreID, err = readUintFromFile(filepath.Join(cpu, "topology", "core_id")); err != nil {
-			log.Debug("msg", "CPU is missing core_id", "cpu", cpu)
+			log.Trace("msg", "CPU is missing core_id", "cpu", cpu)
 			continue
 		}
 
@@ -235,7 +235,7 @@ func (c *cpuCollector) updateThermalThrottle(ch chan<- prometheus.Metric) error 
 			if coreThrottleCount, err := readUintFromFile(filepath.Join(cpu, "thermal_throttle", "core_throttle_count")); err == nil {
 				packageCoreThrottles[physicalPackageID][coreID] = coreThrottleCount
 			} else {
-				log.Debug("msg", "CPU is missing core_throttle_count", "cpu", cpu)
+				log.Trace("msg", "CPU is missing core_throttle_count", "cpu", cpu)
 			}
 		}
 
@@ -245,7 +245,7 @@ func (c *cpuCollector) updateThermalThrottle(ch chan<- prometheus.Metric) error 
 			if packageThrottleCount, err := readUintFromFile(filepath.Join(cpu, "thermal_throttle", "package_throttle_count")); err == nil {
 				packageThrottles[physicalPackageID] = packageThrottleCount
 			} else {
-				log.Debug("msg", "CPU is missing package_throttle_count", "cpu", cpu)
+				log.Trace("msg", "CPU is missing package_throttle_count", "cpu", cpu)
 			}
 		}
 	}
@@ -317,68 +317,68 @@ func (c *cpuCollector) updateCPUStats(newStats []procfs.CPUStat) {
 	for i, n := range newStats {
 		// If idle jumps backwards by more than X seconds, assume we had a hotplug event and reset the stats for this CPU.
 		if (c.cpuStats[i].Idle - n.Idle) >= jumpBackSeconds {
-			log.Debug("msg", jumpBackDebugMessage, "cpu", i, "old_value", c.cpuStats[i].Idle, "new_value", n.Idle)
+			log.Trace("msg", jumpBackDebugMessage, "cpu", i, "old_value", c.cpuStats[i].Idle, "new_value", n.Idle)
 			c.cpuStats[i] = procfs.CPUStat{}
 		}
 
 		if n.Idle >= c.cpuStats[i].Idle {
 			c.cpuStats[i].Idle = n.Idle
 		} else {
-			log.Debug("msg", "CPU Idle counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Idle, "new_value", n.Idle)
+			log.Trace("msg", "CPU Idle counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Idle, "new_value", n.Idle)
 		}
 
 		if n.User >= c.cpuStats[i].User {
 			c.cpuStats[i].User = n.User
 		} else {
-			log.Debug("msg", "CPU User counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].User, "new_value", n.User)
+			log.Trace("msg", "CPU User counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].User, "new_value", n.User)
 		}
 
 		if n.Nice >= c.cpuStats[i].Nice {
 			c.cpuStats[i].Nice = n.Nice
 		} else {
-			log.Debug("msg", "CPU Nice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Nice, "new_value", n.Nice)
+			log.Trace("msg", "CPU Nice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Nice, "new_value", n.Nice)
 		}
 
 		if n.System >= c.cpuStats[i].System {
 			c.cpuStats[i].System = n.System
 		} else {
-			log.Debug("msg", "CPU System counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].System, "new_value", n.System)
+			log.Trace("msg", "CPU System counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].System, "new_value", n.System)
 		}
 
 		if n.Iowait >= c.cpuStats[i].Iowait {
 			c.cpuStats[i].Iowait = n.Iowait
 		} else {
-			log.Debug("msg", "CPU Iowait counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Iowait, "new_value", n.Iowait)
+			log.Trace("msg", "CPU Iowait counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Iowait, "new_value", n.Iowait)
 		}
 
 		if n.IRQ >= c.cpuStats[i].IRQ {
 			c.cpuStats[i].IRQ = n.IRQ
 		} else {
-			log.Debug("msg", "CPU IRQ counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].IRQ, "new_value", n.IRQ)
+			log.Trace("msg", "CPU IRQ counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].IRQ, "new_value", n.IRQ)
 		}
 
 		if n.SoftIRQ >= c.cpuStats[i].SoftIRQ {
 			c.cpuStats[i].SoftIRQ = n.SoftIRQ
 		} else {
-			log.Debug("msg", "CPU SoftIRQ counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].SoftIRQ, "new_value", n.SoftIRQ)
+			log.Trace("msg", "CPU SoftIRQ counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].SoftIRQ, "new_value", n.SoftIRQ)
 		}
 
 		if n.Steal >= c.cpuStats[i].Steal {
 			c.cpuStats[i].Steal = n.Steal
 		} else {
-			log.Debug("msg", "CPU Steal counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Steal, "new_value", n.Steal)
+			log.Trace("msg", "CPU Steal counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Steal, "new_value", n.Steal)
 		}
 
 		if n.Guest >= c.cpuStats[i].Guest {
 			c.cpuStats[i].Guest = n.Guest
 		} else {
-			log.Debug("msg", "CPU Guest counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Guest, "new_value", n.Guest)
+			log.Trace("msg", "CPU Guest counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].Guest, "new_value", n.Guest)
 		}
 
 		if n.GuestNice >= c.cpuStats[i].GuestNice {
 			c.cpuStats[i].GuestNice = n.GuestNice
 		} else {
-			log.Debug("msg", "CPU GuestNice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].GuestNice, "new_value", n.GuestNice)
+			log.Trace("msg", "CPU GuestNice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].GuestNice, "new_value", n.GuestNice)
 		}
 	}
 }

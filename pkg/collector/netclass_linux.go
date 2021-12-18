@@ -64,7 +64,7 @@ func (c *netClassCollector) Update(ch chan<- prometheus.Metric) error {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
-			log.Debug("msg", "Could not read netclass file", "err", err)
+			log.Trace("msg", "Could not read netclass file", "err", err)
 			return ErrNoData
 		}
 		return fmt.Errorf("could not get net class info: %w", err)

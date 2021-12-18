@@ -45,7 +45,7 @@ Sync
 func init() {
 	rand.Seed(time.Now().UnixNano())
 
-	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	go func() {

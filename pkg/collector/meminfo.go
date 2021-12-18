@@ -45,7 +45,7 @@ func (c *meminfoCollector) Update(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		return fmt.Errorf("couldn't get meminfo: %w", err)
 	}
-	log.Debug("msg", "Set node_mem", "memInfo", memInfo)
+	log.Trace("msg", "Set node_mem", "memInfo", memInfo)
 	for k, v := range memInfo {
 		if strings.HasSuffix(k, "_total") {
 			metricType = prometheus.CounterValue
