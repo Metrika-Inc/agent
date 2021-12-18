@@ -7,10 +7,10 @@ platform:
   uri: /
 buffer:
   size: 52428800
-  ttl: 0
+  ttl: 0s
 runtime:
   metrics_addr: :9000
-  sampling_interval: 1s
+  sampling_interval: 5s
   watchers:
     - type: algorand.node.restart
     - type: prometheus.proc.net.netstat_linux

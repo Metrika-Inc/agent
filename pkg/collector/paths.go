@@ -16,12 +16,15 @@ package collector
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/prometheus/procfs"
+	"github.com/prometheus/procfs/sysfs"
 )
 
 var (
 	// The path of the proc filesystem.
-	procPath   = "/proc"
-	sysPath    = "/sys"
+	procPath   = procfs.DefaultMountPoint
+	sysPath    = sysfs.DefaultMountPoint
 	rootfsPath = "/"
 )
 

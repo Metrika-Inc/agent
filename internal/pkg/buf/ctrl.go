@@ -32,7 +32,7 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 }
 
 func (c *Controller) Start(ctx context.Context) {
-	logrus.Warn("[bufCtrl] starting buffer controller")
+	logrus.Info("[bufCtrl] starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire

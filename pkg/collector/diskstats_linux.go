@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs/blockdevice"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -31,7 +30,11 @@ const (
 )
 
 var (
-	ignoredDevices = kingpin.Flag("collector.diskstats.ignored-devices", "Regexp of devices to ignore for diskstats.").Default("^(ram|loop|fd|(h|s|v|xv)d[a-z]|nvme\\d+n\\d+p)\\d+$").String()
+
+	// ignoredDevices
+	// Regexp of devices to ignore for diskstats
+	// collector.diskstats.ignored-devices
+	ignoredDevices = "^(ram|loop|fd|(h|s|v|xv)d[a-z]|nvme\\d+n\\d+p)\\d+$"
 )
 
 type typedFactorDesc struct {
@@ -60,7 +63,7 @@ func NewDiskstatsCollector() (Collector, error) {
 	}
 
 	return &diskstatsCollector{
-		ignoredDevicesPattern: regexp.MustCompile(*ignoredDevices),
+		ignoredDevicesPattern: regexp.MustCompile(ignoredDevices),
 		fs:                    fs,
 		infoDesc: typedFactorDesc{
 			desc: prometheus.NewDesc(prometheus.BuildFQName(namespace, diskSubsystem, "info"),

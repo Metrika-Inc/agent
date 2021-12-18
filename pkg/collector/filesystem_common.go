@@ -23,7 +23,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 // Arch-dependent implementation must define:
@@ -33,31 +32,26 @@ import (
 // * filesystemCollector.GetStats
 
 var (
-	mountPointsExcludeSet bool
-	mountPointsExclude    = kingpin.Flag(
-		"collector.filesystem.mount-points-exclude",
-		"Regexp of mount points to exclude for filesystem collector.",
-	).Default(defMountPointsExcluded).PreAction(func(c *kingpin.ParseContext) error {
-		mountPointsExcludeSet = true
-		return nil
-	}).String()
-	oldMountPointsExcluded = kingpin.Flag(
-		"collector.filesystem.ignored-mount-points",
-		"Regexp of mount points to ignore for filesystem collector.",
-	).Hidden().String()
+	mountPointsExcludeSet = true
 
-	fsTypesExcludeSet bool
-	fsTypesExclude    = kingpin.Flag(
-		"collector.filesystem.fs-types-exclude",
-		"Regexp of filesystem types to exclude for filesystem collector.",
-	).Default(defFSTypesExcluded).PreAction(func(c *kingpin.ParseContext) error {
-		fsTypesExcludeSet = true
-		return nil
-	}).String()
-	oldFSTypesExcluded = kingpin.Flag(
-		"collector.filesystem.ignored-fs-types",
-		"Regexp of filesystem types to ignore for filesystem collector.",
-	).Hidden().String()
+	// mountPointsExclude Regexp of mount points to exclude for filesystem collector
+	// collector.filesystem.mount-points-exclude
+	mountPointsExclude = defMountPointsExcluded
+
+	// oldMountPointsExcluded Regexp of mount points to ignore for filesystem collector
+	// "collector.filesystem.ignored-mount-points",
+	oldMountPointsExcluded = ""
+
+	fsTypesExcludeSet = true
+
+	// fsTypesExclude Regexp of filesystem types to exclude for filesystem collector
+	// "collector.filesystem.fs-types-exclude",
+	fsTypesExclude = defFSTypesExcluded
+
+	// oldFSTypesExcluded
+	// Regexp of filesystem types to ignore for filesystem collector
+	// collector.filesystem.ignored-fs-types
+	oldFSTypesExcluded = ""
 
 	filesystemLabelNames = []string{"device", "mountpoint", "fstype"}
 )
@@ -83,29 +77,29 @@ type filesystemStats struct {
 
 // NewFilesystemCollector returns a new Collector exposing filesystems stats.
 func NewFilesystemCollector() (Collector, error) {
-	if *oldMountPointsExcluded != "" {
+	if oldMountPointsExcluded != "" {
 		if !mountPointsExcludeSet {
 			log.Warn("msg", "--collector.filesystem.ignored-mount-points is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.mount-points-exclude")
-			*mountPointsExclude = *oldMountPointsExcluded
+			mountPointsExclude = oldMountPointsExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-mount-points and --collector.filesystem.mount-points-exclude are mutually exclusive")
 		}
 	}
 
-	if *oldFSTypesExcluded != "" {
+	if oldFSTypesExcluded != "" {
 		if !fsTypesExcludeSet {
 			log.Warn("msg", "--collector.filesystem.ignored-fs-types is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.fs-types-exclude")
-			*fsTypesExclude = *oldFSTypesExcluded
+			fsTypesExclude = oldFSTypesExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-fs-types and --collector.filesystem.fs-types-exclude are mutually exclusive")
 		}
 	}
 
 	subsystem := "filesystem"
-	log.Debug("msg", "Parsed flag --collector.filesystem.mount-points-exclude", "flag", *mountPointsExclude)
-	mountPointPattern := regexp.MustCompile(*mountPointsExclude)
-	log.Debug("msg", "Parsed flag --collector.filesystem.fs-types-exclude", "flag", *fsTypesExclude)
-	filesystemsTypesPattern := regexp.MustCompile(*fsTypesExclude)
+	log.Trace("msg", "Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
+	mountPointPattern := regexp.MustCompile(mountPointsExclude)
+	log.Trace("msg", "Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
+	filesystemsTypesPattern := regexp.MustCompile(fsTypesExclude)
 
 	sizeDesc := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "size_bytes"),

@@ -28,7 +28,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -36,9 +35,9 @@ const (
 	defFSTypesExcluded     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
 )
 
-var mountTimeout = kingpin.Flag("collector.filesystem.mount-timeout",
-	"how long to wait for a mount to respond before marking it as stale").
-	Hidden().Default("5s").Duration()
+// mountTimeout how long to wait for a mount to respond before marking it as stale
+// collector.filesystem.mount-timeout
+var mountTimeout = 5 * time.Second
 var stuckMounts = make(map[string]struct{})
 var stuckMountsMtx = &sync.Mutex{}
 
@@ -121,7 +120,7 @@ func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
 // then the watcher does nothing. If instead the timeout is reached, the
 // mount point that is being watched is marked as stuck.
 func stuckMountWatcher(mountPoint string, success chan struct{}) {
-	mountCheckTimer := time.NewTimer(*mountTimeout)
+	mountCheckTimer := time.NewTimer(mountTimeout)
 	defer mountCheckTimer.Stop()
 	select {
 	case <-success:

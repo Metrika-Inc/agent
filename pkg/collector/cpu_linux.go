@@ -26,7 +26,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 type cpuCollector struct {
@@ -49,10 +48,24 @@ type cpuCollector struct {
 const jumpBackSeconds = 3.0
 
 var (
-	enableCPUGuest       = kingpin.Flag("collector.cpu.guest", "Enables metric node_cpu_guest_seconds_total").Default("true").Bool()
-	enableCPUInfo        = kingpin.Flag("collector.cpu.info", "Enables metric cpu_info").Bool()
-	flagsInclude         = kingpin.Flag("collector.cpu.info.flags-include", "Filter the `flags` field in cpuInfo with a value that must be a regular expression").String()
-	bugsInclude          = kingpin.Flag("collector.cpu.info.bugs-include", "Filter the `bugs` field in cpuInfo with a value that must be a regular expression").String()
+	// enableCPUGuest Enables metric node_cpu_guest_seconds_total
+	// collector.cpu.guest
+	enableCPUGuest = true
+
+	// enableCPUInfo Enables metric cpu_info
+	// collector.cpu.info
+	enableCPUInfo = true
+
+	// flagsInclude Filter the `flags` field in cpuInfo with a value
+	// that must be a regular expression"
+	// collector.cpu.info.flags-include
+	flagsInclude = ""
+
+	// bugsInclude Filter the `bugs` field in cpuInfo with a value
+	// that must be a regular expression
+	// collector.cpu.info.bugs-include
+	bugsInclude = ""
+
 	jumpBackDebugMessage = fmt.Sprintf("CPU Idle counter jumped backwards more than %f seconds, possible hotplug event, resetting CPU stats", jumpBackSeconds)
 )
 
@@ -96,7 +109,7 @@ func NewCPUCollector() (Collector, error) {
 			[]string{"package"}, nil,
 		),
 	}
-	err = c.compileIncludeFlags(flagsInclude, bugsInclude)
+	err = c.compileIncludeFlags(&flagsInclude, &bugsInclude)
 	if err != nil {
 		return nil, fmt.Errorf("fail to compile --collector.cpu.info.flags-include and --collector.cpu.info.bugs-include, the values of them must be regular expressions: %w", err)
 	}
@@ -104,8 +117,8 @@ func NewCPUCollector() (Collector, error) {
 }
 
 func (c *cpuCollector) compileIncludeFlags(flagsIncludeFlag, bugsIncludeFlag *string) error {
-	if (*flagsIncludeFlag != "" || *bugsIncludeFlag != "") && !*enableCPUInfo {
-		*enableCPUInfo = true
+	if (*flagsIncludeFlag != "" || *bugsIncludeFlag != "") && !enableCPUInfo {
+		enableCPUInfo = true
 		log.Trace("msg", "--collector.cpu.info has been set to `true` because you set the following flags, like --collector.cpu.info.flags-include and --collector.cpu.info.bugs-include")
 	}
 
@@ -127,7 +140,7 @@ func (c *cpuCollector) compileIncludeFlags(flagsIncludeFlag, bugsIncludeFlag *st
 
 // Update implements Collector and exposes cpu related metrics from /proc/stat and /sys/.../cpu/.
 func (c *cpuCollector) Update(ch chan<- prometheus.Metric) error {
-	if *enableCPUInfo {
+	if enableCPUInfo {
 		if err := c.updateInfo(ch); err != nil {
 			return err
 		}
@@ -292,7 +305,7 @@ func (c *cpuCollector) updateStat(ch chan<- prometheus.Metric) error {
 		ch <- prometheus.MustNewConstMetric(c.cpu, prometheus.CounterValue, cpuStat.SoftIRQ, cpuNum, "softirq")
 		ch <- prometheus.MustNewConstMetric(c.cpu, prometheus.CounterValue, cpuStat.Steal, cpuNum, "steal")
 
-		if *enableCPUGuest {
+		if enableCPUGuest {
 			// Guest CPU is also accounted for in cpuStat.User and cpuStat.Nice, expose these as separate metrics.
 			ch <- prometheus.MustNewConstMetric(c.cpuGuest, prometheus.CounterValue, cpuStat.Guest, cpuNum, "user")
 			ch <- prometheus.MustNewConstMetric(c.cpuGuest, prometheus.CounterValue, cpuStat.GuestNice, cpuNum, "nice")
