@@ -11,10 +11,25 @@ var (
 	defaultConfigPath  = "./internal/pkg/global/agent.yml"
 	AgentRuntimeConfig AgentConfig
 
-	PrometheusNetNetstatLinux WatchType = "prometheus.proc.net.netstat_linux"
-	PrometheusNetARPLinux     WatchType = "prometheus.proc.net.arp_linux"
-	PrometheusStatLinux       WatchType = "prometheus.proc.stat_linux"
-	AlgorandNodeRestart       WatchType = "algorand.node.restart"
+	PrometheusNetNetstat WatchType = "prometheus.proc.net.netstat_linux"
+	PrometheusNetARP     WatchType = "prometheus.proc.net.arp_linux"
+	PrometheusStat       WatchType = "prometheus.proc.stat_linux"
+	PrometheusConntrack  WatchType = "prometheus.proc.conntrack_linux"
+	PrometheusCPU        WatchType = "prometheus.proc.cpu"
+	PrometheusDiskStats  WatchType = "prometheus.proc.diskstats"
+	PrometheusEntropy    WatchType = "prometheus.proc.entropy"
+	PrometheusFileFD     WatchType = "prometheus.proc.filefd"
+	PrometheusFilesystem WatchType = "prometheus.proc.filesystem"
+	PrometheusLoadAvg    WatchType = "prometheus.proc.loadavg"
+	PrometheusMemInfo    WatchType = "prometheus.proc.meminfo"
+	PrometheusNetClass   WatchType = "prometheus.proc.netclass"
+	PrometheusNetDev     WatchType = "prometheus.proc.netdev"
+	PrometheusSockStat   WatchType = "prometheus.proc.sockstat"
+	PrometheusTextfile   WatchType = "prometheus.proc.textfile"
+	PrometheusTime       WatchType = "prometheus.time"
+	PrometheusUname      WatchType = "prometheus.uname"
+	PrometheusVMStat     WatchType = "prometheus.vmstat"
+	AlgorandNodeRestart  WatchType = "algorand.node.restart"
 )
 
 type WatchType string
@@ -39,9 +54,9 @@ type WatchConfig struct {
 }
 
 type RuntimeConfig struct {
-	MetricsAddr      string        `yaml:"metrics_addr"`
-	SamplingInterval time.Duration `yaml:"sampling_interval"`
-	Watchers         []WatchConfig `yaml:"watchers"`
+	MetricsAddr      string         `yaml:"metrics_addr"`
+	SamplingInterval time.Duration  `yaml:"sampling_interval"`
+	Watchers         []*WatchConfig `yaml:"watchers"`
 }
 
 type AgentConfig struct {
@@ -58,5 +73,11 @@ func init() {
 
 	if err := yaml.Unmarshal(content, &AgentRuntimeConfig); err != nil {
 		panic(err)
+	}
+
+	for _, watchConf := range AgentRuntimeConfig.Runtime.Watchers {
+		if watchConf.SamplingInterval == 0*time.Second {
+			watchConf.SamplingInterval = AgentRuntimeConfig.Runtime.SamplingInterval
+		}
 	}
 }

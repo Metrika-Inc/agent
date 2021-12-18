@@ -10,7 +10,7 @@ import (
 
 	algorandWatch "agent/algorand/pkg/watch"
 	"agent/internal/pkg/global"
-	collector "agent/pkg/collector"
+	"agent/pkg/collector"
 	"agent/pkg/timesync"
 	"agent/pkg/watch"
 	"agent/publisher"
@@ -45,7 +45,7 @@ Sync
 func init() {
 	rand.Seed(time.Now().UnixNano())
 
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	go func() {
@@ -67,11 +67,41 @@ func collectorsFactory(t global.WatchType) collector.Collector {
 	var clr collector.Collector
 	var err error
 	switch t {
-	case global.PrometheusNetNetstatLinux:
+	case global.PrometheusConntrack:
+		clr, err = collector.NewConntrackCollector()
+	case global.PrometheusCPU:
+		clr, err = collector.NewCPUCollector()
+	case global.PrometheusDiskStats:
+		clr, err = collector.NewDiskstatsCollector()
+	case global.PrometheusEntropy:
+		clr, err = collector.NewEntropyCollector()
+	case global.PrometheusFileFD:
+		clr, err = collector.NewFileFDStatCollector()
+	case global.PrometheusFilesystem:
+		clr, err = collector.NewFilesystemCollector()
+	case global.PrometheusLoadAvg:
+		clr, err = collector.NewLoadavgCollector()
+	case global.PrometheusMemInfo:
+		clr, err = collector.NewMeminfoCollector()
+	case global.PrometheusNetClass:
+		clr, err = collector.NewNetClassCollector()
+	case global.PrometheusNetDev:
+		clr, err = collector.NewNetDevCollector()
+	case global.PrometheusSockStat:
+		clr, err = collector.NewSockStatCollector()
+	case global.PrometheusTextfile:
+		clr, err = collector.NewTextFileCollector()
+	case global.PrometheusTime:
+		clr, err = collector.NewTimeCollector()
+	case global.PrometheusUname:
+		clr, err = collector.NewUnameCollector()
+	case global.PrometheusVMStat:
+		clr, err = collector.NewvmStatCollector()
+	case global.PrometheusNetNetstat:
 		clr, err = collector.NewNetStatCollector()
-	case global.PrometheusNetARPLinux:
+	case global.PrometheusNetARP:
 		clr, err = collector.NewARPCollector()
-	case global.PrometheusStatLinux:
+	case global.PrometheusStat:
 		clr, err = collector.NewStatCollector()
 	default:
 		logrus.Fatal(fmt.Errorf("collector for type %q not found", t))
@@ -93,11 +123,41 @@ func watchersFactory(conf global.WatchConfig) watch.Watcher {
 		w = algorandWatch.NewAlgodRestartWatch(algorandWatch.AlgodRestartWatchConf{
 			Path: "/var/lib/algorand/algod.pid",
 		}, nil)
-	case global.PrometheusStatLinux:
+	case global.PrometheusConntrack:
 		fallthrough
-	case global.PrometheusNetNetstatLinux: // prometheus collectors
+	case global.PrometheusCPU:
 		fallthrough
-	case global.PrometheusNetARPLinux:
+	case global.PrometheusDiskStats:
+		fallthrough
+	case global.PrometheusEntropy:
+		fallthrough
+	case global.PrometheusFileFD:
+		fallthrough
+	case global.PrometheusFilesystem:
+		fallthrough
+	case global.PrometheusLoadAvg:
+		fallthrough
+	case global.PrometheusMemInfo:
+		fallthrough
+	case global.PrometheusNetClass:
+		fallthrough
+	case global.PrometheusNetDev:
+		fallthrough
+	case global.PrometheusSockStat:
+		fallthrough
+	case global.PrometheusTextfile:
+		fallthrough
+	case global.PrometheusTime:
+		fallthrough
+	case global.PrometheusUname:
+		fallthrough
+	case global.PrometheusVMStat:
+		fallthrough
+	case global.PrometheusNetNetstat:
+		fallthrough
+	case global.PrometheusNetARP:
+		fallthrough
+	case global.PrometheusStat:
 		clr = collectorsFactory(conf.Type)
 		w = collector.NewCollectorWatch(collector.CollectorWatchConf{
 			Type:      global.CollectorType(conf.Type),
@@ -119,7 +179,7 @@ func registerWatchers() error {
 	watchersEnabled := []watch.Watcher{}
 
 	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
-		w := watchersFactory(watcherConf)
+		w := watchersFactory(*watcherConf)
 		watchersEnabled = append(watchersEnabled, w)
 	}
 

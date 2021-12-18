@@ -10,13 +10,24 @@ buffer:
   ttl: 0
 runtime:
   metrics_addr: :9000
-  sampling_interval: 5s
+  sampling_interval: 1s
   watchers:
     - type: algorand.node.restart
-      sampling_interval: 1s
     - type: prometheus.proc.net.netstat_linux
-      sampling_interval: 1s
     - type: prometheus.proc.net.arp_linux
-      sampling_interval: 1s
     - type: prometheus.proc.stat_linux
-      sampling_interval: 1s
+    - type: prometheus.proc.conntrack_linux
+    - type: prometheus.proc.cpu
+    - type: prometheus.proc.diskstats
+    - type: prometheus.proc.entropy
+    - type: prometheus.proc.filefd
+    - type: prometheus.proc.filesystem
+    - type: prometheus.proc.loadavg
+    - type: prometheus.proc.meminfo
+    - type: prometheus.proc.netclass
+    - type: prometheus.proc.netdev
+    - type: prometheus.proc.sockstat
+    - type: prometheus.proc.textfile
+    - type: prometheus.time
+    - type: prometheus.uname
+    - type: prometheus.vmstat
