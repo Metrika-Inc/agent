@@ -1,8 +1,6 @@
 package global
 
-import (
-	"agent/pkg/watch"
-)
+import "agent/pkg/watch"
 
 var (
 	WatcherRegistrar WatchersRegisterer

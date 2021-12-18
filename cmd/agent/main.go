@@ -63,45 +63,45 @@ type SpecificThing struct {
 	OtherField string `json:"other_field"`
 }
 
-func collectorsFactory(t global.WatchType) collector.Collector {
+func collectorsFactory(t watch.WatchType) collector.Collector {
 	var clr collector.Collector
 	var err error
 	switch t {
-	case global.PrometheusConntrack:
+	case watch.PrometheusConntrack:
 		clr, err = collector.NewConntrackCollector()
-	case global.PrometheusCPU:
+	case watch.PrometheusCPU:
 		clr, err = collector.NewCPUCollector()
-	case global.PrometheusDiskStats:
+	case watch.PrometheusDiskStats:
 		clr, err = collector.NewDiskstatsCollector()
-	case global.PrometheusEntropy:
+	case watch.PrometheusEntropy:
 		clr, err = collector.NewEntropyCollector()
-	case global.PrometheusFileFD:
+	case watch.PrometheusFileFD:
 		clr, err = collector.NewFileFDStatCollector()
-	case global.PrometheusFilesystem:
+	case watch.PrometheusFilesystem:
 		clr, err = collector.NewFilesystemCollector()
-	case global.PrometheusLoadAvg:
+	case watch.PrometheusLoadAvg:
 		clr, err = collector.NewLoadavgCollector()
-	case global.PrometheusMemInfo:
+	case watch.PrometheusMemInfo:
 		clr, err = collector.NewMeminfoCollector()
-	case global.PrometheusNetClass:
+	case watch.PrometheusNetClass:
 		clr, err = collector.NewNetClassCollector()
-	case global.PrometheusNetDev:
+	case watch.PrometheusNetDev:
 		clr, err = collector.NewNetDevCollector()
-	case global.PrometheusSockStat:
+	case watch.PrometheusSockStat:
 		clr, err = collector.NewSockStatCollector()
-	case global.PrometheusTextfile:
+	case watch.PrometheusTextfile:
 		clr, err = collector.NewTextFileCollector()
-	case global.PrometheusTime:
+	case watch.PrometheusTime:
 		clr, err = collector.NewTimeCollector()
-	case global.PrometheusUname:
+	case watch.PrometheusUname:
 		clr, err = collector.NewUnameCollector()
-	case global.PrometheusVMStat:
+	case watch.PrometheusVMStat:
 		clr, err = collector.NewvmStatCollector()
-	case global.PrometheusNetNetstat:
+	case watch.PrometheusNetNetstat:
 		clr, err = collector.NewNetStatCollector()
-	case global.PrometheusNetARP:
+	case watch.PrometheusNetARP:
 		clr, err = collector.NewARPCollector()
-	case global.PrometheusStat:
+	case watch.PrometheusStat:
 		clr, err = collector.NewStatCollector()
 	default:
 		logrus.Fatal(fmt.Errorf("collector for type %q not found", t))
@@ -119,48 +119,48 @@ func watchersFactory(conf global.WatchConfig) watch.Watcher {
 	var clr collector.Collector
 	var err error
 	switch conf.Type {
-	case global.AlgorandNodeRestart: // algorand
+	case watch.AlgorandNodeRestart: // algorand
 		w = algorandWatch.NewAlgodRestartWatch(algorandWatch.AlgodRestartWatchConf{
 			Path: "/var/lib/algorand/algod.pid",
 		}, nil)
-	case global.PrometheusConntrack:
+	case watch.PrometheusConntrack:
 		fallthrough
-	case global.PrometheusCPU:
+	case watch.PrometheusCPU:
 		fallthrough
-	case global.PrometheusDiskStats:
+	case watch.PrometheusDiskStats:
 		fallthrough
-	case global.PrometheusEntropy:
+	case watch.PrometheusEntropy:
 		fallthrough
-	case global.PrometheusFileFD:
+	case watch.PrometheusFileFD:
 		fallthrough
-	case global.PrometheusFilesystem:
+	case watch.PrometheusFilesystem:
 		fallthrough
-	case global.PrometheusLoadAvg:
+	case watch.PrometheusLoadAvg:
 		fallthrough
-	case global.PrometheusMemInfo:
+	case watch.PrometheusMemInfo:
 		fallthrough
-	case global.PrometheusNetClass:
+	case watch.PrometheusNetClass:
 		fallthrough
-	case global.PrometheusNetDev:
+	case watch.PrometheusNetDev:
 		fallthrough
-	case global.PrometheusSockStat:
+	case watch.PrometheusSockStat:
 		fallthrough
-	case global.PrometheusTextfile:
+	case watch.PrometheusTextfile:
 		fallthrough
-	case global.PrometheusTime:
+	case watch.PrometheusTime:
 		fallthrough
-	case global.PrometheusUname:
+	case watch.PrometheusUname:
 		fallthrough
-	case global.PrometheusVMStat:
+	case watch.PrometheusVMStat:
 		fallthrough
-	case global.PrometheusNetNetstat:
+	case watch.PrometheusNetNetstat:
 		fallthrough
-	case global.PrometheusNetARP:
+	case watch.PrometheusNetARP:
 		fallthrough
-	case global.PrometheusStat:
+	case watch.PrometheusStat:
 		clr = collectorsFactory(conf.Type)
-		w = collector.NewCollectorWatch(collector.CollectorWatchConf{
-			Type:      global.CollectorType(conf.Type),
+		w = watch.NewCollectorWatch(watch.CollectorWatchConf{
+			Type:      watch.WatchType(conf.Type),
 			Collector: clr,
 			Interval:  conf.SamplingInterval,
 		})
