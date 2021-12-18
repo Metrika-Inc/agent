@@ -31,11 +31,11 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    n / 2,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    5 * time.Second,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    5 * time.Second,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
@@ -88,11 +88,11 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    10000,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    500 * time.Millisecond,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    500 * time.Millisecond,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
@@ -116,7 +116,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	<-time.After(100 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
-	<-time.After(conf.PublishFreq)
+	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
 }
 
@@ -144,11 +144,11 @@ func TestPublisher_Error(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    10,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    healthyAfter,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    healthyAfter,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
@@ -178,7 +178,7 @@ func TestPublisher_Error(t *testing.T) {
 		t.Error("timeout waiting for platform message")
 	}
 
-	<-time.After(conf.PublishFreq)
+	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
 
 	select {
@@ -203,11 +203,11 @@ func TestPublisher_Stop(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    100,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    5 * time.Second,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    5 * time.Second,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)

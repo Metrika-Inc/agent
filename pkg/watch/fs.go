@@ -1,11 +1,12 @@
 package watch
 
 import (
-	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 type FileWatchConf struct {

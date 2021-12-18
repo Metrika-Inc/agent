@@ -43,8 +43,8 @@ type HTTPConf struct {
 	// UUID the agent's unique identifier
 	UUID string
 
-	// DefaultTimeout default timeout for HTTP requests to the platform
-	DefaultTimeout time.Duration
+	// Timeout default timeout for HTTP requests to the platform
+	Timeout time.Duration
 
 	// MaxBatchLen max number of metrics published at once to the platform
 	MaxBatchLen int
@@ -52,11 +52,11 @@ type HTTPConf struct {
 	// MaxBufferBytes max size of the buffer
 	MaxBufferBytes uint
 
-	// PublishFreq is the (periodic) publishing interval
-	PublishFreq time.Duration
+	// PublishIntv is the (periodic) publishing interval
+	PublishIntv time.Duration
 
-	// MetricTTL max duration a metric can stay in the buffer
-	MetricTTL time.Duration
+	// BufferTTL max duration a metric can stay in the buffer
+	BufferTTL time.Duration
 }
 
 type HTTP struct {
@@ -76,7 +76,7 @@ func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
 		client:    http.DefaultClient,
 		conf:      conf,
 		receiveCh: ch,
-		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
+		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
 	}
 }
@@ -191,7 +191,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 	conf := buf.ControllerConf{
 		MaxDrainBatchLen: h.conf.MaxBatchLen,
 		DrainOp:          h.NewPublishFuncWithContext(ctx),
-		DrainFreq:        h.conf.PublishFreq,
+		DrainFreq:        h.conf.PublishIntv,
 	}
 	bufCtrl := buf.NewController(conf, h.buffer)
 

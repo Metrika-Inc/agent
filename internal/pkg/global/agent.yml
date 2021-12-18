@@ -1,0 +1,22 @@
+---
+platform:
+  batch_n: 1000
+  http_timeout: 10s
+  max_publish_interval: 5s
+  addr: http://localhost:8000
+  uri: /
+buffer:
+  size: 52428800
+  ttl: 0
+runtime:
+  metrics_addr: :9000
+  sampling_interval: 5s
+  watchers:
+    - type: algorand.node.restart
+      sampling_interval: 1s
+    - type: prometheus.proc.net.netstat_linux
+      sampling_interval: 1s
+    - type: prometheus.proc.net.arp_linux
+      sampling_interval: 1s
+    - type: prometheus.proc.stat_linux
+      sampling_interval: 1s

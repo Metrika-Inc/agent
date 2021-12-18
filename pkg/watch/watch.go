@@ -1,6 +1,8 @@
 package watch
 
-import "sync"
+import (
+	"sync"
+)
 
 type Watcher interface {
 	StartUnsafe()
