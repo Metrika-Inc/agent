@@ -20,6 +20,7 @@ type TimeSync struct {
 	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
 	shouldAdjust   bool
 	retries        int
+	tickerLock     *sync.Mutex
 	*sync.RWMutex
 }
 
@@ -33,12 +34,13 @@ func NewTimeSync(host string, retries int, ctx context.Context) *TimeSync {
 		retries = defaultRetryCount
 	}
 	return &TimeSync{
-		host:     host,
-		ctx:      ctx,
-		wg:       &sync.WaitGroup{},
-		queryNTP: ntp.Query,
-		retries:  retries,
-		RWMutex:  &sync.RWMutex{},
+		host:       host,
+		ctx:        ctx,
+		wg:         &sync.WaitGroup{},
+		queryNTP:   ntp.Query,
+		retries:    retries,
+		RWMutex:    &sync.RWMutex{},
+		tickerLock: &sync.Mutex{},
 	}
 }
 
@@ -64,11 +66,13 @@ func (t *TimeSync) Start() {
 			t.stop()
 		}
 
+		t.tickerLock.Lock()
+		defer t.tickerLock.Unlock()
+
 		t.tickerCtx, t.tickerStop = context.WithCancel(context.Background())
 		t.ticker = time.NewTicker(t.interval)
 		t.Unlock()
 
-	loop:
 		for {
 			select {
 			case <-t.ticker.C:
@@ -79,9 +83,9 @@ func (t *TimeSync) Start() {
 				}
 				t.setAdjustBool()
 			case <-t.tickerCtx.Done():
-				break loop
+				return
 			case <-t.ctx.Done():
-				break loop
+				return
 			}
 		}
 	}()

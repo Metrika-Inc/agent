@@ -2,80 +2,97 @@ package publisher
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
-	"net/url"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
+
+	"agent/api/v1/model"
+	"agent/internal/pkg/buf"
 
 	"github.com/sirupsen/logrus"
 )
 
+type platformState int32
+
 var (
-	defaultTimeout      = 10 * time.Second
-	maxAccumulatorMsg   = 1000
-	maxAccumulatorMsgSz = uint(1024 * 1024) // 1MB
-	publishFreq         = 5 * time.Second
+	state *AgentState
 )
 
-type Metric struct {
-	Type string `json:"type"`
-	Body []byte `json:"body"`
+func init() {
+	state = new(AgentState)
+	state.Reset()
 }
 
-type MetrikaMessage struct {
-	Data []Metric `json:"data"`
-	UUID string   `json:"uid" binding:"required,uuid"`
-}
+const (
+	platformStateUknown platformState = iota
+	platformStateUp                   = iota
+	platformStateDown                 = iota
+)
 
 type HTTPConf struct {
-	// PublishURL is the publisher's endpoint URL
-	URL  *url.URL
+	// URL where the publisher will be pushing metrics to.
+	URL string
+
+	// UUID the agent's unique identifier
 	UUID string
+
+	// DefaultTimeout default timeout for HTTP requests to the platform
+	DefaultTimeout time.Duration
+
+	// MaxBatchLen max number of metrics published at once to the platform
+	MaxBatchLen int
+
+	// MaxBufferBytes max size of the buffer
+	MaxBufferBytes uint
+
+	// PublishFreq is the (periodic) publishing interval
+	PublishFreq time.Duration
+
+	// MetricTTL max duration a metric can stay in the buffer
+	MetricTTL time.Duration
 }
 
 type HTTP struct {
 	receiveCh <-chan interface{}
 
-	conf   HTTPConf
-	client *http.Client
+	conf    HTTPConf
+	client  *http.Client
+	buffer  buf.Buffer
+	closeCh chan interface{}
 }
 
 func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
+	state := new(AgentState)
+	state.Reset()
+
 	return &HTTP{
 		client:    http.DefaultClient,
 		conf:      conf,
 		receiveCh: ch,
+		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
+		closeCh:   make(chan interface{}),
 	}
 }
 
-func (h *HTTP) newRequestJSON(ctx context.Context, msg MetrikaMessage) (*http.Request, error) {
-	body, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", h.conf.URL.String(), strings.NewReader(string(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-func (h *HTTP) publish(ctx context.Context, acc accumulator) error {
-	reqCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+func publish(ctx context.Context, data model.MetricBatch) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	metrikaMsg := MetrikaMessage{
-		Data: acc,
-		UUID: h.conf.UUID,
+	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
+	if err != nil {
+		return err
 	}
 
-	req, err := h.newRequestJSON(reqCtx, metrikaMsg)
+	metrikaMsg := model.MetrikaMessage{
+		Data: data,
+		UUID: uuid,
+	}
+
+	req, err := newHTTPRequestFromContext(reqCtx, metrikaMsg)
 	if err != nil {
 		return err
 	}
@@ -86,86 +103,161 @@ func (h *HTTP) publish(ctx context.Context, acc accumulator) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("POST %s returned %d", req.URL, resp.StatusCode)
+		return fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
 	}
 
 	return nil
 }
 
+func NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+	publishFunc := func(b buf.ItemBatch) error {
+		// TODO: consider reusing batch slice
+		batch := make(model.MetricBatch, 0, len(b)+1)
+		for _, item := range b {
+			m, ok := item.Data.(model.MetricPlatform)
+			if !ok {
+				logrus.Warnf("unrecognised type %T", item.Data)
+
+				// ignore
+				continue
+			}
+			batch = append(batch, m)
+		}
+
+		errCh := make(chan error)
+		go func() {
+			if err := publish(ctx, batch); err != nil {
+				PlatformHTTPRequestErrors.Inc()
+				state.SetPublishState(platformStateDown)
+
+				errCh <- err
+				return
+			}
+			MetricsPublishedCnt.Add(float64(len(batch)))
+			state.SetPublishState(platformStateUp)
+
+			errCh <- nil
+			return
+		}()
+
+		select {
+		case err := <-errCh:
+			return err // might be nil
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("publish goroutine timeout (30s)")
+		}
+	}
+
+	return publishFunc
+}
+
+type AgentState struct {
+	publishState platformState
+}
+
+func (a *AgentState) PublishState() platformState {
+	return platformState(atomic.LoadInt32((*int32)(&a.publishState)))
+}
+
+func (a *AgentState) SetPublishState(st platformState) {
+	atomic.StoreInt32((*int32)(&a.publishState), int32(st))
+}
+
+func (a *AgentState) Reset() {
+	atomic.StoreInt32((*int32)(&a.publishState), int32(platformStateUp))
+}
+
 func (h *HTTP) Start(wg *sync.WaitGroup) {
 	ctx := context.Background()
-	acc := accumulator{}
-	publishTicker := time.NewTicker(publishFreq)
-	var lastPublishT time.Time
+	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
+	ctx = context.WithValue(ctx, PlatformAddrContextKey, h.conf.URL)
 
-	logrus.Debug("[http] start publisher")
+	conf := buf.ControllerConf{
+		MaxDrainBatchLen: h.conf.MaxBatchLen,
+		DrainOp:          NewPublishFuncWithContext(ctx),
+		DrainFreq:        h.conf.PublishFreq,
+	}
+	bufCtrl := buf.NewController(conf, h.buffer)
+
+	//
+	// start buffer controller
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
+		bufCtrl.Start(ctx)
+	}()
+
+	//
+	// start goroutine for metric ingestion
+	wg.Add(1)
+
+	rand.Seed(time.Now().UnixNano())
+	go func() {
+		defer wg.Done()
+
+		logrus.Debug("[pub] starting metric ingestion")
+
+		var prevErr error
 		for {
 			select {
 			case msg, ok := <-h.receiveCh:
-				// accumulate the metric and if accumulator is full
-				// publish a message to Metrika's platform
 				if !ok {
-					logrus.Error("[http] receive channel closed")
+					logrus.Error("[pub] receive channel closed")
 
 					return
 				}
 
-				metric, ok := msg.(Metric)
+				m, ok := msg.(model.MetricPlatform)
 				if !ok {
-					logrus.Error("[http] type assertion failed")
-				}
-				acc.Add(metric)
+					logrus.Error("[pub] type assertion failed")
 
-				logrus.Debug("[http] got metric, new acc len: ", len(acc))
+					continue
+				}
 
-				if acc.IsFull() || len(acc) > maxAccumulatorMsg {
-					logrus.Info("[http] accumulator full, publishing")
-					if err := h.publish(ctx, acc); err != nil {
-						logrus.Error("[http] publish error: ", err)
-					}
-					lastPublishT = time.Now()
-					acc.Clear()
+				item := buf.Item{
+					Priority:  0,
+					Timestamp: m.Timestamp,
+					Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
+					Data:      m,
 				}
-			case <-publishTicker.C:
-				// ensure we publish any accumulated metric
-				// within a reasonable period
-				pubDiffT := time.Now().Sub(lastPublishT)
-				if len(acc) > 0 && pubDiffT > publishFreq {
-					logrus.Info("[http] periodic publishing")
-					if err := h.publish(ctx, acc); err != nil {
-						logrus.Error("[http] publish error: ", err)
+
+				_, err := h.buffer.Insert(item)
+				if err != nil {
+					MetricsDropCnt.Inc()
+					if prevErr == nil {
+						logrus.Error("[pub] metric dropped, buffer unavailable: ", err)
+						prevErr = err
 					}
-					acc.Clear()
+					continue
 				}
+
+				publishState := state.PublishState()
+				if publishState == platformStateUp {
+					if h.buffer.Len() >= h.conf.MaxBatchLen {
+						logrus.Debug("[pub] eager drain kick in")
+
+						drainErr := bufCtrl.Drain()
+						if drainErr != nil {
+							logrus.Warn("[pub] eager drain error ", drainErr)
+							prevErr = drainErr
+
+							continue
+						}
+						logrus.Debug("[pub] eager drain ok")
+					}
+				}
+				prevErr = nil
+			case <-h.closeCh:
+				logrus.Debug("[pub] stopping buf controller, ingestion goroutine exit ")
+				bufCtrl.Stop()
+
+				return
 			}
 		}
-
 	}()
 }
 
-type accumulator []Metric
-
-func (a *accumulator) Add(msg Metric) {
-	*a = append(*a, msg)
-}
-
-func (a *accumulator) Clear() {
-	*a = (*a)[:0]
-}
-
-func (a accumulator) IsFull() bool {
-	var sz uint
-	for _, m := range a {
-		sz += uint(unsafe.Sizeof(m))
-
-		if sz >= maxAccumulatorMsgSz {
-			return true
-		}
-	}
-
-	return false
+func (h *HTTP) Stop() {
+	close(h.closeCh)
 }

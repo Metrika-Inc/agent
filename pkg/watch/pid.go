@@ -1,11 +1,12 @@
 package watch
 
 import (
-	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 type DotPidWatchConf struct {

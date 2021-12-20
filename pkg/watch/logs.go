@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
-	"os"
 )
 
 type JsonLogWatchConf struct {

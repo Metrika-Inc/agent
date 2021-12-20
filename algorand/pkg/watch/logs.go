@@ -1,8 +1,10 @@
 package watch
 
 import (
-	. "agent/pkg/watch"
 	"encoding/json"
+
+	. "agent/pkg/watch"
+
 	log "github.com/sirupsen/logrus"
 )
 

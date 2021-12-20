@@ -1,10 +1,11 @@
 package openmetrics
 
 import (
-	"agent/api/v1/model"
 	"io/ioutil"
 	"math"
 	"testing"
+
+	"agent/api/v1/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

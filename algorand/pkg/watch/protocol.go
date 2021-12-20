@@ -3,9 +3,10 @@ package watch
 import (
 	algorand "agent/algorand/api/v1/model"
 	"agent/api/v1/model"
-	. "agent/pkg/watch"
-	"agent/publisher"
 	"encoding/json"
+
+	. "agent/pkg/watch"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,7 +72,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 					return
 				}
 
-				metric := publisher.Metric{
+				metric := model.MetricPlatform{
 					Type: "protocol.new_block",
 					Body: newBlockMetricJson,
 				}
