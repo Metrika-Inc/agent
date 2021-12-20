@@ -49,6 +49,7 @@ func TestControllerDrainBatch(t *testing.T) {
 	case b := <-drainCh:
 		require.Len(t, b, conf.MaxDrainBatchLen)
 		require.Equal(t, b, m)
+		require.Len(t, drainCh, 0)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("timeout waiting for drain callback")
 	}
