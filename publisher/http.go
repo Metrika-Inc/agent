@@ -3,8 +3,10 @@ package publisher
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +14,7 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
+	"agent/pkg/timesync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -104,6 +107,24 @@ func publish(ctx context.Context, data model.MetricBatch) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+	timestamp, err := strconv.ParseInt(string(body), 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse body: %v", err)
+	}
+	if ok := timesync.RegisterAndCheck(timestamp); !ok {
+		prevDelta, currDelta := timesync.LastDeltas()
+		logrus.Warnf("Delta between platform and local time passed the threshold. Prev: %v, curr: %v", prevDelta, currDelta)
+		if err := timesync.Default.SyncNow(); err != nil {
+			logrus.Error("failed to resync: %v", err)
+		} else {
+			timesync.Clear()
+		}
 	}
 
 	return nil

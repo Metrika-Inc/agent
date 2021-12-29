@@ -21,6 +21,7 @@ type TimeSync struct {
 	shouldAdjust   bool
 	retries        int
 	tickerLock     *sync.Mutex
+	PlatformSync
 	*sync.RWMutex
 }
 
@@ -28,6 +29,8 @@ const (
 	defaultSyncInterval = 120 * time.Second
 	defaultRetryCount   = 3
 )
+
+var Default = NewTimeSync("pool.ntp.org", 0, context.Background())
 
 func NewTimeSync(host string, retries int, ctx context.Context) *TimeSync {
 	if retries <= 0 {
@@ -106,9 +109,11 @@ func (t *TimeSync) stop() {
 }
 
 func (t *TimeSync) SyncNow() error {
-	t.Lock()
-	t.ticker.Reset(t.interval)
-	t.Unlock()
+	if t.ticker != nil {
+		t.Lock()
+		t.ticker.Reset(t.interval)
+		t.Unlock()
+	}
 	return t.QueryNTP()
 }
 
@@ -162,4 +167,11 @@ func (t *TimeSync) Now() time.Time {
 		return time.Now().Add(t.delta)
 	}
 	return time.Now()
+}
+
+func Now() time.Time {
+	if Default.ticker == nil {
+		Default.Start()
+	}
+	return Default.Now()
 }
