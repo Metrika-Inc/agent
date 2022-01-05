@@ -105,12 +105,13 @@ func TrackTimestamps(ctx context.Context) chan<- int64 {
 					prevDelta, currDelta := LastDeltas()
 					logrus.Warnf("Delta between platform and local time passed the threshold. Prev: %v, curr: %v", prevDelta, currDelta)
 					if err := Default.SyncNow(); err != nil {
-						logrus.Error("failed to resync: %v", err)
+						logrus.Error("failed to resync: ", err)
 					} else {
 						Clear()
 					}
 				}
 			case <-ctx.Done():
+				close(c)
 				return
 			}
 		}

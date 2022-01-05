@@ -21,7 +21,7 @@ type TimeSync struct {
 	shouldAdjust   bool
 	retries        int
 	tickerLock     *sync.Mutex
-	PlatformSync
+	*PlatformSync
 	*sync.RWMutex
 }
 
@@ -37,13 +37,14 @@ func NewTimeSync(host string, retries int, ctx context.Context) *TimeSync {
 		retries = defaultRetryCount
 	}
 	return &TimeSync{
-		host:       host,
-		ctx:        ctx,
-		wg:         &sync.WaitGroup{},
-		queryNTP:   ntp.Query,
-		retries:    retries,
-		RWMutex:    &sync.RWMutex{},
-		tickerLock: &sync.Mutex{},
+		host:         host,
+		ctx:          ctx,
+		wg:           &sync.WaitGroup{},
+		queryNTP:     ntp.Query,
+		retries:      retries,
+		RWMutex:      &sync.RWMutex{},
+		tickerLock:   &sync.Mutex{},
+		PlatformSync: &PlatformSync{RWMutex: &sync.RWMutex{}},
 	}
 }
 
@@ -109,11 +110,9 @@ func (t *TimeSync) stop() {
 }
 
 func (t *TimeSync) SyncNow() error {
-	if t.ticker != nil {
-		t.Lock()
-		t.ticker.Reset(t.interval)
-		t.Unlock()
-	}
+	t.Lock()
+	t.ticker.Reset(t.interval)
+	t.Unlock()
 	return t.QueryNTP()
 }
 
@@ -163,6 +162,10 @@ func (t *TimeSync) setAdjustBool() {
 func (t *TimeSync) Now() time.Time {
 	t.RLock()
 	defer t.RUnlock()
+	return t.now()
+}
+
+func (t *TimeSync) now() time.Time {
 	if t.shouldAdjust {
 		return time.Now().Add(t.delta)
 	}
@@ -170,8 +173,10 @@ func (t *TimeSync) Now() time.Time {
 }
 
 func Now() time.Time {
+	Default.RLock()
+	defer Default.RUnlock()
 	if Default.ticker == nil {
 		Default.Start()
 	}
-	return Default.Now()
+	return Default.now()
 }
