@@ -1,14 +1,18 @@
 package publisher
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,6 +25,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
@@ -36,8 +41,8 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-
-	pub := NewHTTP(pubCh, conf)
+	tsCh := timesync.TrackTimestamps(context.Background())
+	pub := NewHTTP(pubCh, tsCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -94,8 +99,9 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
+	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewHTTP(pubCh, tsCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -150,8 +156,9 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
+	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewHTTP(pubCh, tsCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -209,8 +216,9 @@ func TestPublisher_Stop(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
+	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewHTTP(pubCh, tsCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
