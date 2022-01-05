@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -88,6 +89,7 @@ func main() {
 		logrus.Error("Could not sync with NTP server: ", err)
 	}
 	timesync.Default.Start()
+	timestampCh := timesync.TrackTimestamps(context.Background())
 
 	conf := publisher.HTTPConf{
 		URL:            url.String(),
@@ -100,7 +102,7 @@ func main() {
 	}
 
 	ch := make(chan interface{}, 10000)
-	pub := publisher.NewHTTP(ch, conf)
+	pub := publisher.NewHTTP(ch, timestampCh, conf)
 
 	wg := &sync.WaitGroup{}
 	pub.Start(wg)

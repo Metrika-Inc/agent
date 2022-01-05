@@ -14,7 +14,6 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
-	"agent/pkg/timesync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -60,7 +59,8 @@ type HTTPConf struct {
 }
 
 type HTTP struct {
-	receiveCh <-chan interface{}
+	receiveCh   <-chan interface{}
+	timestampCh chan<- int64
 
 	conf    HTTPConf
 	client  *http.Client
@@ -68,26 +68,27 @@ type HTTP struct {
 	closeCh chan interface{}
 }
 
-func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
+func NewHTTP(ch <-chan interface{}, timestampCh chan<- int64, conf HTTPConf) *HTTP {
 	state := new(AgentState)
 	state.Reset()
 
 	return &HTTP{
-		client:    http.DefaultClient,
-		conf:      conf,
-		receiveCh: ch,
-		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
-		closeCh:   make(chan interface{}),
+		client:      http.DefaultClient,
+		conf:        conf,
+		receiveCh:   ch,
+		timestampCh: timestampCh,
+		buffer:      buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
+		closeCh:     make(chan interface{}),
 	}
 }
 
-func publish(ctx context.Context, data model.MetricBatch) error {
+func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	metrikaMsg := model.MetrikaMessage{
@@ -97,40 +98,32 @@ func publish(ctx context.Context, data model.MetricBatch) error {
 
 	req, err := newHTTPRequestFromContext(reqCtx, metrikaMsg)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
+		return 0, fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %v", err)
+		logrus.Error("failed to read response body: ", err)
+		return 0, nil
 	}
 	timestamp, err := strconv.ParseInt(string(body), 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse body: %v", err)
-	}
-	if ok := timesync.RegisterAndCheck(timestamp); !ok {
-		prevDelta, currDelta := timesync.LastDeltas()
-		logrus.Warnf("Delta between platform and local time passed the threshold. Prev: %v, curr: %v", prevDelta, currDelta)
-		if err := timesync.Default.SyncNow(); err != nil {
-			logrus.Error("failed to resync: %v", err)
-		} else {
-			timesync.Clear()
-		}
+		logrus.Errorf("parseInt on response body failed: %v", err)
 	}
 
-	return nil
+	return timestamp, nil
 }
 
-func NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
 		// TODO: consider reusing batch slice
 		batch := make(model.MetricBatch, 0, len(b)+1)
@@ -147,12 +140,16 @@ func NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error 
 
 		errCh := make(chan error)
 		go func() {
-			if err := publish(ctx, batch); err != nil {
+			timestamp, err := publish(ctx, batch)
+			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
 				state.SetPublishState(platformStateDown)
 
 				errCh <- err
 				return
+			}
+			if timestamp != 0 {
+				h.timestampCh <- timestamp
 			}
 			MetricsPublishedCnt.Add(float64(len(batch)))
 			state.SetPublishState(platformStateUp)
@@ -195,7 +192,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 
 	conf := buf.ControllerConf{
 		MaxDrainBatchLen: h.conf.MaxBatchLen,
-		DrainOp:          NewPublishFuncWithContext(ctx),
+		DrainOp:          h.NewPublishFuncWithContext(ctx),
 		DrainFreq:        h.conf.PublishFreq,
 	}
 	bufCtrl := buf.NewController(conf, h.buffer)

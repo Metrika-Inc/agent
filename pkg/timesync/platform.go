@@ -1,6 +1,7 @@
 package timesync
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -92,6 +93,29 @@ func LastDeltas() (time.Duration, time.Duration) {
 
 func Clear() {
 	Default.Clear()
+}
+
+func TrackTimestamps(ctx context.Context) chan<- int64 {
+	c := make(chan int64, 5)
+	go func() {
+		for {
+			select {
+			case timestamp := <-c:
+				if ok := RegisterAndCheck(timestamp); !ok {
+					prevDelta, currDelta := LastDeltas()
+					logrus.Warnf("Delta between platform and local time passed the threshold. Prev: %v, curr: %v", prevDelta, currDelta)
+					if err := Default.SyncNow(); err != nil {
+						logrus.Error("failed to resync: %v", err)
+					} else {
+						Clear()
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return c
 }
 
 func abs(i time.Duration) time.Duration {
