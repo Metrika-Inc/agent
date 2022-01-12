@@ -109,6 +109,8 @@ func (t *TimeSync) stop() {
 	t.tickerStop()
 }
 
+// SyncNow queries the NTP server right away and resets
+// the periodic timer.
 func (t *TimeSync) SyncNow() error {
 	t.Lock()
 	t.ticker.Reset(t.interval)
@@ -116,6 +118,8 @@ func (t *TimeSync) SyncNow() error {
 	return t.QueryNTP()
 }
 
+// QueryNTP queries the NTP server at address of TimeSync.host
+// It stores the clock offset in TimeSync.delta.
 func (t *TimeSync) QueryNTP() error {
 	var resp *ntp.Response
 	var err error
@@ -159,6 +163,8 @@ func (t *TimeSync) setAdjustBool() {
 	}
 }
 
+// Now returns the current time. May be adjusted
+// based on the offset received from NTP server.
 func (t *TimeSync) Now() time.Time {
 	t.RLock()
 	defer t.RUnlock()
@@ -172,6 +178,7 @@ func (t *TimeSync) now() time.Time {
 	return time.Now()
 }
 
+// Now is a convenience wrapper for calling timesync.Default.Now()
 func Now() time.Time {
 	Default.RLock()
 	defer Default.RUnlock()

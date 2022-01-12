@@ -1,7 +1,6 @@
 package publisher
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
 )
@@ -41,8 +39,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-	tsCh := timesync.TrackTimestamps(context.Background())
-	pub := NewHTTP(pubCh, tsCh, conf)
+	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -99,9 +96,8 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, tsCh, conf)
+	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -156,9 +152,8 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, tsCh, conf)
+	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {
@@ -216,9 +211,8 @@ func TestPublisher_Stop(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-	tsCh := timesync.TrackTimestamps(context.Background())
 
-	pub := NewHTTP(pubCh, tsCh, conf)
+	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)
 	go func() {

@@ -14,6 +14,7 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
+	"agent/pkg/timesync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -59,8 +60,7 @@ type HTTPConf struct {
 }
 
 type HTTP struct {
-	receiveCh   <-chan interface{}
-	timestampCh chan<- int64
+	receiveCh <-chan interface{}
 
 	conf    HTTPConf
 	client  *http.Client
@@ -68,17 +68,16 @@ type HTTP struct {
 	closeCh chan interface{}
 }
 
-func NewHTTP(ch <-chan interface{}, timestampCh chan<- int64, conf HTTPConf) *HTTP {
+func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
 	state := new(AgentState)
 	state.Reset()
 
 	return &HTTP{
-		client:      http.DefaultClient,
-		conf:        conf,
-		receiveCh:   ch,
-		timestampCh: timestampCh,
-		buffer:      buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
-		closeCh:     make(chan interface{}),
+		client:    http.DefaultClient,
+		conf:      conf,
+		receiveCh: ch,
+		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.MetricTTL),
+		closeCh:   make(chan interface{}),
 	}
 }
 
@@ -149,13 +148,12 @@ func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBat
 				return
 			}
 			if timestamp != 0 {
-				h.timestampCh <- timestamp
+				timesync.Refresh(timestamp)
 			}
 			MetricsPublishedCnt.Add(float64(len(batch)))
 			state.SetPublishState(platformStateUp)
 
 			errCh <- nil
-			return
 		}()
 
 		select {
