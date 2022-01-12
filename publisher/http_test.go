@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"agent/api/v1/model"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,6 +23,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
@@ -36,7 +39,6 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
 	pub.Start(wg)

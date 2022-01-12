@@ -3,8 +3,10 @@ package publisher
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +14,7 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
+	"agent/pkg/timesync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -78,13 +81,13 @@ func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
 	}
 }
 
-func publish(ctx context.Context, data model.MetricBatch) error {
+func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	metrikaMsg := model.MetrikaMessage{
@@ -94,22 +97,32 @@ func publish(ctx context.Context, data model.MetricBatch) error {
 
 	req, err := newHTTPRequestFromContext(reqCtx, metrikaMsg)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
+		return 0, fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
 	}
 
-	return nil
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logrus.Error("failed to read response body: ", err)
+		return 0, nil
+	}
+	timestamp, err := strconv.ParseInt(string(body), 10, 64)
+	if err != nil {
+		logrus.Errorf("parseInt on response body failed: %v", err)
+	}
+
+	return timestamp, nil
 }
 
-func NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
 		// TODO: consider reusing batch slice
 		batch := make(model.MetricBatch, 0, len(b)+1)
@@ -126,18 +139,21 @@ func NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error 
 
 		errCh := make(chan error)
 		go func() {
-			if err := publish(ctx, batch); err != nil {
+			timestamp, err := publish(ctx, batch)
+			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
 				state.SetPublishState(platformStateDown)
 
 				errCh <- err
 				return
 			}
+			if timestamp != 0 {
+				timesync.Refresh(timestamp)
+			}
 			MetricsPublishedCnt.Add(float64(len(batch)))
 			state.SetPublishState(platformStateUp)
 
 			errCh <- nil
-			return
 		}()
 
 		select {
@@ -174,7 +190,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 
 	conf := buf.ControllerConf{
 		MaxDrainBatchLen: h.conf.MaxBatchLen,
-		DrainOp:          NewPublishFuncWithContext(ctx),
+		DrainOp:          h.NewPublishFuncWithContext(ctx),
 		DrainFreq:        h.conf.PublishFreq,
 	}
 	bufCtrl := buf.NewController(conf, h.buffer)

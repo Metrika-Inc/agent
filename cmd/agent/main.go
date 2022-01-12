@@ -11,6 +11,7 @@ import (
 
 	"agent/algorand/pkg/watch"
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
 	watch2 "agent/pkg/watch"
 	"agent/publisher"
 
@@ -82,6 +83,11 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+
+	if timesync.Default.SyncNow(); err != nil {
+		logrus.Error("Could not sync with NTP server: ", err)
+	}
+	timesync.Default.Start()
 
 	conf := publisher.HTTPConf{
 		URL:            url.String(),
