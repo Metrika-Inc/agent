@@ -61,7 +61,7 @@ type netDevCollector struct {
 type netDevStats map[string]map[string]uint64
 
 // NewNetDevCollector returns a new Collector exposing network device stats.
-func NewNetDevCollector() (Collector, error) {
+func NewNetDevCollector() (prometheus.Collector, error) {
 	if oldNetdevDeviceInclude != "" {
 		if netdevDeviceInclude == "" {
 			log.Trace("msg", "--collector.netdev.device-whitelist is DEPRECATED and will be removed in 2.0.0, use --collector.netdev.device-include")
@@ -99,10 +99,13 @@ func NewNetDevCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *netDevCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *netDevCollector) Collect(ch chan<- prometheus.Metric) {
 	netDev, err := getNetDevStats(&c.deviceFilter)
 	if err != nil {
-		return fmt.Errorf("couldn't get netstats: %w", err)
+		err = fmt.Errorf("couldn't get netstats: %w", err)
+		log.Error(err)
+
+		return
 	}
 	for dev, devStats := range netDev {
 		for key, value := range devStats {
@@ -122,7 +125,10 @@ func (c *netDevCollector) Update(ch chan<- prometheus.Metric) error {
 	if netdevAddressInfo {
 		interfaces, err := net.Interfaces()
 		if err != nil {
-			return fmt.Errorf("could not get network interfaces: %w", err)
+			err = fmt.Errorf("could not get network interfaces: %w", err)
+			log.Error(err)
+
+			return
 		}
 
 		desc := prometheus.NewDesc(prometheus.BuildFQName(namespace, "network_address",
@@ -134,7 +140,6 @@ func (c *netDevCollector) Update(ch chan<- prometheus.Metric) error {
 				addr.device, addr.addr, addr.netmask, addr.scope)
 		}
 	}
-	return nil
 }
 
 type addrInfo struct {
@@ -183,4 +188,35 @@ func getAddrsInfo(interfaces []net.Interface) []addrInfo {
 	}
 
 	return res
+}
+
+func (c *netDevCollector) Describe(ch chan<- *prometheus.Desc) {
+	netDev, err := getNetDevStats(&c.deviceFilter)
+	if err != nil {
+		err = fmt.Errorf("couldn't get netstats: %w", err)
+		log.Error(err)
+
+		return
+	}
+	for _, devStats := range netDev {
+		for key := range devStats {
+			desc, ok := c.metricDescs[key]
+			if !ok {
+				desc = prometheus.NewDesc(
+					prometheus.BuildFQName(namespace, c.subsystem, key+"_total"),
+					fmt.Sprintf("Network device statistic %s.", key),
+					[]string{"device"},
+					nil,
+				)
+			}
+			ch <- desc
+		}
+	}
+	if netdevAddressInfo {
+		desc := prometheus.NewDesc(prometheus.BuildFQName(namespace, "network_address",
+			"info"), "node network address by device",
+			[]string{"device", "address", "netmask", "scope"}, nil)
+
+		ch <- desc
+	}
 }

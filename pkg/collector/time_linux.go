@@ -46,3 +46,20 @@ func (c *timeCollector) update(ch chan<- prometheus.Metric) error {
 	}
 	return nil
 }
+
+func (c *timeCollector) updateDesc(ch chan<- *prometheus.Desc) error {
+	fs, err := sysfs.NewFS(sysPath)
+	if err != nil {
+		return fmt.Errorf("failed to open procfs: %w", err)
+	}
+
+	clocksources, err := fs.ClockSources()
+	if err != nil {
+		return fmt.Errorf("couldn't get clocksources: %w", err)
+	}
+	log.Trace("msg", "in Update", "clocksources", fmt.Sprintf("%v", clocksources))
+
+	ch <- c.clocksourcesAvailable.desc
+	ch <- c.clocksourceCurrent.desc
+	return nil
+}

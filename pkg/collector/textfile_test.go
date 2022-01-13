@@ -14,7 +14,6 @@
 package collector
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -23,24 +22,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-type collectorAdapter struct {
-	Collector
-}
-
-// Describe implements the prometheus.Collector interface.
-func (a collectorAdapter) Describe(ch chan<- *prometheus.Desc) {
-	// We have to send *some* metric in Describe, but we don't know which ones
-	// we're going to get, so just send a dummy metric.
-	ch <- prometheus.NewDesc("dummy_metric", "Dummy metric.", nil, nil)
-}
-
-// Collect implements the prometheus.Collector interface.
-func (a collectorAdapter) Collect(ch chan<- prometheus.Metric) {
-	if err := a.Update(ch); err != nil {
-		panic(fmt.Sprintf("failed to update collector: %v", err))
-	}
-}
 
 func TestTextfileCollector(t *testing.T) {
 	tests := []struct {
@@ -101,7 +82,7 @@ func TestTextfileCollector(t *testing.T) {
 		}
 
 		registry := prometheus.NewRegistry()
-		registry.MustRegister(collectorAdapter{c})
+		registry.MustRegister(c)
 
 		rw := httptest.NewRecorder()
 		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(rw, &http.Request{})

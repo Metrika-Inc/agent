@@ -32,7 +32,7 @@ type timeCollector struct {
 
 // NewTimeCollector returns a new Collector exposing the current system time in
 // seconds since epoch.
-func NewTimeCollector() (Collector, error) {
+func NewTimeCollector() (prometheus.Collector, error) {
 	const subsystem = "time"
 	return &timeCollector{
 		now: typedDesc{prometheus.NewDesc(
@@ -58,7 +58,7 @@ func NewTimeCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *timeCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *timeCollector) Collect(ch chan<- prometheus.Metric) {
 	now := time.Now()
 	nowSec := float64(now.UnixNano()) / 1e9
 	zone, zoneOffset := now.Zone()
@@ -67,5 +67,14 @@ func (c *timeCollector) Update(ch chan<- prometheus.Metric) error {
 	ch <- c.now.mustNewConstMetric(nowSec)
 	log.Trace("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
 	ch <- c.zone.mustNewConstMetric(float64(zoneOffset), zone)
-	return c.update(ch)
+	c.update(ch)
+
+	return
+}
+
+func (c *timeCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.now.desc
+	ch <- c.zone.desc
+	ch <- c.clocksourcesAvailable.desc
+	ch <- c.clocksourceCurrent.desc
 }

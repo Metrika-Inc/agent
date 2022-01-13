@@ -29,7 +29,7 @@ type loadavgCollector struct {
 }
 
 // NewLoadavgCollector returns a new Collector exposing load average stats.
-func NewLoadavgCollector() (Collector, error) {
+func NewLoadavgCollector() (prometheus.Collector, error) {
 	return &loadavgCollector{
 		metric: []typedDesc{
 			{prometheus.NewDesc(namespace+"_load1", "1m load average.", nil, nil), prometheus.GaugeValue},
@@ -39,14 +39,42 @@ func NewLoadavgCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *loadavgCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *loadavgCollector) Collect(ch chan<- prometheus.Metric) {
 	loads, err := getLoad()
 	if err != nil {
-		return fmt.Errorf("couldn't get load: %w", err)
+		err = fmt.Errorf("couldn't get load: %w", err)
+		log.Error(err)
+
+		return
 	}
 	for i, load := range loads {
 		log.Trace("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].mustNewConstMetric(load)
 	}
-	return err
+
+	if err != nil {
+		log.Error(err)
+
+		return
+	}
+}
+
+func (c *loadavgCollector) Describe(ch chan<- *prometheus.Desc) {
+	loads, err := getLoad()
+	if err != nil {
+		err = fmt.Errorf("couldn't get load: %w", err)
+		log.Error(err)
+
+		return
+	}
+	for i, load := range loads {
+		log.Trace("msg", "return load", "index", i, "load", load)
+		ch <- c.metric[i].desc
+	}
+
+	if err != nil {
+		log.Error(err)
+
+		return
+	}
 }

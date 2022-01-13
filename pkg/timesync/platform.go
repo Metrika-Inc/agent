@@ -59,7 +59,7 @@ func (p *PlatformSync) Register(ns int64) {
 	p.prevDelta = p.currentDelta
 	p.currentTimestamp = ts
 	p.currentDelta = d
-
+	logrus.Debugf("[timesync] currentTimestamp: %v, currentDelta: %v", p.currentTimestamp.String(), p.currentDelta.String())
 }
 
 // Healthy calculates if agent time is in sync with Metrika Platform
@@ -68,7 +68,9 @@ func (p *PlatformSync) Healthy() bool {
 	difference := abs(p.currentDelta - p.prevDelta)
 	p.RUnlock()
 
-	if difference > subsequentMax || p.currentDelta > maxDelta {
+	behind := difference > subsequentMax || p.currentDelta > maxDelta
+	logrus.Debug("[timesync] healthy: ", behind)
+	if behind {
 		logrus.Warn("[timesync] we are behind")
 		return false
 	}

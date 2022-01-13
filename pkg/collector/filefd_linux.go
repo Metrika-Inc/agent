@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -34,19 +35,23 @@ type fileFDStatCollector struct {
 }
 
 // NewFileFDStatCollector returns a new Collector exposing file-nr stats.
-func NewFileFDStatCollector() (Collector, error) {
+func NewFileFDStatCollector() (prometheus.Collector, error) {
 	return &fileFDStatCollector{}, nil
 }
 
-func (c *fileFDStatCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *fileFDStatCollector) Collect(ch chan<- prometheus.Metric) {
 	fileFDStat, err := parseFileFDStats(procFilePath("sys/fs/file-nr"))
 	if err != nil {
-		return fmt.Errorf("couldn't get file-nr: %w", err)
+		err = fmt.Errorf("couldn't get file-nr: %w", err)
+		log.Error(err)
+
+		return
 	}
 	for name, value := range fileFDStat {
 		v, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return fmt.Errorf("invalid value %s in file-nr: %w", value, err)
+			err = fmt.Errorf("invalid value %s in file-nr: %w", value, err)
+			return
 		}
 		ch <- prometheus.MustNewConstMetric(
 			prometheus.NewDesc(
@@ -57,7 +62,7 @@ func (c *fileFDStatCollector) Update(ch chan<- prometheus.Metric) error {
 			prometheus.GaugeValue, v,
 		)
 	}
-	return nil
+	return
 }
 
 func parseFileFDStats(filename string) (map[string]string, error) {
@@ -83,4 +88,21 @@ func parseFileFDStats(filename string) (map[string]string, error) {
 	fileFDStat["maximum"] = string(parts[2])
 
 	return fileFDStat, nil
+}
+
+func (c *fileFDStatCollector) Describe(ch chan<- *prometheus.Desc) {
+	fileFDStat, err := parseFileFDStats(procFilePath("sys/fs/file-nr"))
+	if err != nil {
+		err = fmt.Errorf("couldn't get file-nr: %w", err)
+		log.Error(err)
+
+		return
+	}
+	for name := range fileFDStat {
+		ch <- prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, fileFDStatSubsystem, name),
+			fmt.Sprintf("File descriptor statistics: %s.", name),
+			nil, nil,
+		)
+	}
 }

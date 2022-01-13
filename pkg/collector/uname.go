@@ -19,6 +19,7 @@ package collector
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 var unameDesc = prometheus.NewDesc(
@@ -46,14 +47,16 @@ type uname struct {
 }
 
 // NewUnameCollector returns new unameCollector.
-func NewUnameCollector() (Collector, error) {
+func NewUnameCollector() (prometheus.Collector, error) {
 	return &unameCollector{}, nil
 }
 
-func (c *unameCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *unameCollector) Collect(ch chan<- prometheus.Metric) {
 	uname, err := getUname()
 	if err != nil {
-		return err
+		log.Error(err)
+
+		return
 	}
 
 	ch <- prometheus.MustNewConstMetric(unameDesc, prometheus.GaugeValue, 1,
@@ -64,6 +67,8 @@ func (c *unameCollector) Update(ch chan<- prometheus.Metric) error {
 		uname.NodeName,
 		uname.DomainName,
 	)
+}
 
-	return nil
+func (c *unameCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- unameDesc
 }

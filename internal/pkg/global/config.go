@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	defaultConfigPath  = "./internal/pkg/global/agent.yml"
+	DefaultConfigPath  = "./internal/pkg/global/agent.yml"
 	AgentRuntimeConfig AgentConfig
 )
 
@@ -43,14 +43,14 @@ type AgentConfig struct {
 	Runtime  RuntimeConfig  `yaml:"runtime"`
 }
 
-func init() {
-	content, err := ioutil.ReadFile(defaultConfigPath)
+func LoadDefaultConfig() error {
+	content, err := ioutil.ReadFile(DefaultConfigPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if err := yaml.Unmarshal(content, &AgentRuntimeConfig); err != nil {
-		panic(err)
+		return err
 	}
 
 	for _, watchConf := range AgentRuntimeConfig.Runtime.Watchers {
@@ -58,4 +58,6 @@ func init() {
 			watchConf.SamplingInterval = AgentRuntimeConfig.Runtime.SamplingInterval
 		}
 	}
+
+	return nil
 }

@@ -13,11 +13,11 @@ runtime:
   sampling_interval: 5s
   watchers:
     - type: algorand.node.restart
+    - type: prometheus.proc.cpu
     - type: prometheus.proc.net.netstat_linux
     - type: prometheus.proc.net.arp_linux
     - type: prometheus.proc.stat_linux
     - type: prometheus.proc.conntrack_linux
-    - type: prometheus.proc.cpu
     - type: prometheus.proc.diskstats
     - type: prometheus.proc.entropy
     - type: prometheus.proc.filefd

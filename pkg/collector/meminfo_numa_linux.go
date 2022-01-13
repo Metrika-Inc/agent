@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -47,16 +48,19 @@ type meminfoNumaCollector struct {
 }
 
 // NewMeminfoNumaCollector returns a new Collector exposing memory stats.
-func NewMeminfoNumaCollector() (Collector, error) {
+func NewMeminfoNumaCollector() (prometheus.Collector, error) {
 	return &meminfoNumaCollector{
 		metricDescs: map[string]*prometheus.Desc{},
 	}, nil
 }
 
-func (c *meminfoNumaCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *meminfoNumaCollector) Collect(ch chan<- prometheus.Metric) {
 	metrics, err := getMemInfoNuma()
 	if err != nil {
-		return fmt.Errorf("couldn't get NUMA meminfo: %w", err)
+		err = fmt.Errorf("couldn't get NUMA meminfo: %w", err)
+		log.Error(err)
+
+		return
 	}
 	for _, v := range metrics {
 		desc, ok := c.metricDescs[v.metricName]
@@ -69,7 +73,7 @@ func (c *meminfoNumaCollector) Update(ch chan<- prometheus.Metric) error {
 		}
 		ch <- prometheus.MustNewConstMetric(desc, v.metricType, v.value, v.numaNode)
 	}
-	return nil
+	return
 }
 
 func getMemInfoNuma() ([]meminfoMetric, error) {
@@ -174,4 +178,25 @@ func parseMemInfoNumaStat(r io.Reader, nodeNumber string) ([]meminfoMetric, erro
 		numaStat = append(numaStat, meminfoMetric{parts[0] + "_total", prometheus.CounterValue, nodeNumber, fv})
 	}
 	return numaStat, scanner.Err()
+}
+
+func (c *meminfoNumaCollector) Describe(ch chan<- *prometheus.Desc) {
+	metrics, err := getMemInfoNuma()
+	if err != nil {
+		err = fmt.Errorf("couldn't get NUMA meminfo: %w", err)
+		log.Error(err)
+
+		return
+	}
+	for _, v := range metrics {
+		desc, ok := c.metricDescs[v.metricName]
+		if !ok {
+			desc = prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, memInfoNumaSubsystem, v.metricName),
+				fmt.Sprintf("Memory information field %s.", v.metricName),
+				[]string{"node"}, nil)
+		}
+		ch <- desc
+	}
+	return
 }

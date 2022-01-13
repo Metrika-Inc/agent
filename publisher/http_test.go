@@ -55,7 +55,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 		}
 	}()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, 0, pub.buffer.Len())
 
 	select {
@@ -81,6 +81,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
@@ -113,7 +114,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 		}
 	}()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	<-time.After(conf.PublishIntv)
@@ -134,7 +135,7 @@ func TestPublisher_Error(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Something bad happened!"))
 		} else {
-			w.Write([]byte("hello client"))
+			w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 		}
 		platformCh <- nil
 	})
@@ -169,7 +170,7 @@ func TestPublisher_Error(t *testing.T) {
 		}
 	}()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	select {
@@ -195,6 +196,7 @@ func TestPublisher_Stop(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 
 	ts := httptest.NewServer(handleFunc)
@@ -227,7 +229,7 @@ func TestPublisher_Stop(t *testing.T) {
 			pubCh <- m
 		}
 	}()
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	pub.Stop()

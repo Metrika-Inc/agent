@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	log "github.com/sirupsen/logrus"
 )
 
 type entropyCollector struct {
@@ -30,7 +31,7 @@ type entropyCollector struct {
 }
 
 // NewEntropyCollector returns a new Collector exposing entropy stats.
-func NewEntropyCollector() (Collector, error) {
+func NewEntropyCollector() (prometheus.Collector, error) {
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -51,23 +52,33 @@ func NewEntropyCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *entropyCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *entropyCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.fs.KernelRandom()
 	if err != nil {
-		return fmt.Errorf("failed to get kernel random stats: %w", err)
+		err = fmt.Errorf("failed to get kernel random stats: %w", err)
+		log.Error(err)
+
+		return
 	}
 
 	if stats.EntropyAvaliable == nil {
-		return fmt.Errorf("couldn't get entropy_avail")
+		log.Errorf("couldn't get entropy_avail")
+
+		return
 	}
 	ch <- prometheus.MustNewConstMetric(
 		c.entropyAvail, prometheus.GaugeValue, float64(*stats.EntropyAvaliable))
 
 	if stats.PoolSize == nil {
-		return fmt.Errorf("couldn't get entropy poolsize")
+		log.Errorf("couldn't get entropy poolsize")
+
+		return
 	}
 	ch <- prometheus.MustNewConstMetric(
 		c.entropyPoolSize, prometheus.GaugeValue, float64(*stats.PoolSize))
+}
 
-	return nil
+func (c *entropyCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.entropyAvail
+	ch <- c.entropyPoolSize
 }

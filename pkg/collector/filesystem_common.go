@@ -76,7 +76,7 @@ type filesystemStats struct {
 }
 
 // NewFilesystemCollector returns a new Collector exposing filesystems stats.
-func NewFilesystemCollector() (Collector, error) {
+func NewFilesystemCollector() (prometheus.Collector, error) {
 	if oldMountPointsExcluded != "" {
 		if !mountPointsExcludeSet {
 			log.Warn("msg", "--collector.filesystem.ignored-mount-points is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.mount-points-exclude")
@@ -156,10 +156,10 @@ func NewFilesystemCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *filesystemCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *filesystemCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.GetStats()
 	if err != nil {
-		return err
+		log.Error(err)
 	}
 	// Make sure we expose a metric once, even if there are multiple mounts
 	seen := map[filesystemLabels]bool{}
@@ -202,5 +202,32 @@ func (c *filesystemCollector) Update(ch chan<- prometheus.Metric) error {
 			s.ro, s.labels.device, s.labels.mountPoint, s.labels.fsType,
 		)
 	}
-	return nil
+}
+
+func (c *filesystemCollector) Describe(ch chan<- *prometheus.Desc) {
+	stats, err := c.GetStats()
+	if err != nil {
+		log.Error(err)
+	}
+	// Make sure we expose a metric once, even if there are multiple mounts
+	seen := map[filesystemLabels]bool{}
+	for _, s := range stats {
+		if seen[s.labels] {
+			continue
+		}
+		seen[s.labels] = true
+
+		ch <- c.deviceErrorDesc
+
+		if s.deviceError > 0 {
+			continue
+		}
+
+		ch <- c.sizeDesc
+		ch <- c.freeDesc
+		ch <- c.availDesc
+		ch <- c.filesDesc
+		ch <- c.filesFreeDesc
+		ch <- c.roDesc
+	}
 }

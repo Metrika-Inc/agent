@@ -25,6 +25,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -70,7 +71,8 @@ var (
 )
 
 // NewCPUCollector returns a new Collector exposing kernel/system statistics.
-func NewCPUCollector() (Collector, error) {
+func NewCPUCollector() (prometheus.Collector, error) {
+
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -138,17 +140,27 @@ func (c *cpuCollector) compileIncludeFlags(flagsIncludeFlag, bugsIncludeFlag *st
 	return nil
 }
 
-// Update implements Collector and exposes cpu related metrics from /proc/stat and /sys/.../cpu/.
-func (c *cpuCollector) Update(ch chan<- prometheus.Metric) error {
+// Update exposes cpu related metrics from /proc/stat and /sys/.../cpu/.
+func (c *cpuCollector) Collect(ch chan<- prometheus.Metric) {
 	if enableCPUInfo {
 		if err := c.updateInfo(ch); err != nil {
-			return err
+			logrus.Warn(NodeExporterCollectErr{err})
+
+			return
 		}
 	}
 	if err := c.updateStat(ch); err != nil {
-		return err
+		logrus.Warn(NodeExporterCollectErr{err})
+
+		return
 	}
-	return c.updateThermalThrottle(ch)
+	if err := c.updateThermalThrottle(ch); err != nil {
+		logrus.Warn(NodeExporterCollectErr{err})
+
+		return
+	}
+
+	return
 }
 
 // updateInfo reads /proc/cpuinfo
@@ -394,4 +406,16 @@ func (c *cpuCollector) updateCPUStats(newStats []procfs.CPUStat) {
 			log.Trace("msg", "CPU GuestNice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].GuestNice, "new_value", n.GuestNice)
 		}
 	}
+}
+
+// Describe exposes descriptors for this collector.
+func (c *cpuCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- nodeCPUSecondsDesc
+	ch <- c.cpuInfo
+	ch <- c.cpuFlagsInfo
+	ch <- c.cpuBugsInfo
+	ch <- c.cpuGuest
+	ch <- c.cpuCoreThrottle
+	ch <- c.cpuPackageThrottle
+	return
 }

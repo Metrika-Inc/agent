@@ -16,7 +16,6 @@ package watch
 
 import (
 	"agent/api/v1/model"
-	"agent/pkg/collector"
 	"encoding/json"
 	"sync"
 	"time"
@@ -28,45 +27,10 @@ import (
 
 const namespace = "node"
 
-var (
-	scrapeDurationDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "scrape", "collector_duration_seconds"),
-		"node_exporter: Duration of a collector scrape.",
-		[]string{"collector"},
-		nil,
-	)
-	scrapeSuccessDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "scrape", "collector_success"),
-		"node_exporter: Whether a collector succeeded.",
-		[]string{"collector"},
-		nil,
-	)
-)
-
-func execute(name string, c collector.Collector, ch chan<- prometheus.Metric) {
-	begin := time.Now()
-	err := c.Update(ch)
-	duration := time.Since(begin)
-	var success float64
-
-	if err != nil {
-		if collector.IsNoDataError(err) {
-			log.Debug("msg", "collector returned no data", "name", name, "duration_seconds", duration.Seconds(), "err", err)
-		} else {
-			log.Error("msg", "collector failed", "name", name, "duration_seconds", duration.Seconds(), "err", err)
-		}
-		success = 0
-	} else {
-		log.Debug("msg", "collector succeeded", "name", name, "duration_seconds", duration.Seconds())
-		success = 1
-	}
-	ch <- prometheus.MustNewConstMetric(scrapeDurationDesc, prometheus.GaugeValue, duration.Seconds(), name)
-	ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, success, name)
-}
-
 type CollectorWatchConf struct {
 	Type      WatchType
-	Collector collector.Collector
+	Collector prometheus.Collector
+	Gatherer  prometheus.Gatherer
 	Interval  time.Duration
 }
 
@@ -76,6 +40,7 @@ type CollectorWatch struct {
 
 	wg              *sync.WaitGroup
 	ch              chan prometheus.Metric
+	ch1             chan []*dto.MetricFamily
 	stopCollectorCh chan bool
 }
 
@@ -86,6 +51,7 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 
 	w.wg = new(sync.WaitGroup)
 	w.ch = make(chan prometheus.Metric, 1000)
+	w.ch1 = make(chan []*dto.MetricFamily, 1000)
 	w.stopCollectorCh = make(chan bool, 1)
 
 	return w
@@ -100,12 +66,13 @@ func (c *CollectorWatch) StartUnsafe() {
 		for {
 			select {
 			case <-time.After(c.Interval):
-				err := c.Collector.Update(c.ch)
+				metricFamilies, err := c.Gatherer.Gather()
 				if err != nil {
-					log.Errorf("[%T] collector update error: %v", c.Collector, err)
+					log.Errorf("[%T] gather error: %v", c.Collector, err)
 
 					continue
 				}
+				c.ch1 <- metricFamilies
 			case <-c.stopCollectorCh:
 			}
 		}
@@ -118,30 +85,25 @@ func (c *CollectorWatch) StartUnsafe() {
 func (c *CollectorWatch) handlePrometheusMetric() {
 	for {
 		select {
-		case metric := <-c.ch:
-			dtoMetric := dto.Metric{}
-			err := metric.Write(&dtoMetric)
-			if err != nil {
-				log.Errorf("[%T] cannot write dto.Metric: %v", c.Collector, err)
+		case metricFams := <-c.ch1:
+			for _, metricFam := range metricFams {
+				body, err := json.Marshal(metricFam)
+				if err != nil {
+					log.Errorf("[%T] cannot marshal dto.Metric: %v", c.Collector, err)
 
-				continue
+					continue
+				}
+
+				// Create & emit the metric
+				metricInternal := model.MetricPlatform{
+					Type:      string(c.Type),
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Body:      body,
+				}
+
+				c.Emit(metricInternal)
+
 			}
-
-			body, err := json.Marshal(dtoMetric)
-			if err != nil {
-				log.Errorf("[%T] cannot marshal dto.Metric: %v", c.Collector, err)
-
-				continue
-			}
-
-			// Create & emit the metric
-			metricInternal := model.MetricPlatform{
-				Type:      string(c.Type),
-				Timestamp: time.Now().UTC().UnixMilli(),
-				Body:      body,
-			}
-
-			c.Emit(metricInternal)
 		case <-c.StopKey:
 			c.stopCollectorCh <- true
 		}

@@ -51,7 +51,7 @@ type conntrackStatistics struct {
 }
 
 // NewConntrackCollector returns a new Collector exposing conntrack stats.
-func NewConntrackCollector() (Collector, error) {
+func NewConntrackCollector() (prometheus.Collector, error) {
 	return &conntrackCollector{
 		current: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "", "nf_conntrack_entries"),
@@ -106,24 +106,30 @@ func NewConntrackCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *conntrackCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 	value, err := readUintFromFile(procFilePath("sys/net/netfilter/nf_conntrack_count"))
 	if err != nil {
-		return c.handleErr(err)
+		log.Error(c.handleErr(err))
+
+		return
 	}
 	ch <- prometheus.MustNewConstMetric(
 		c.current, prometheus.GaugeValue, float64(value))
 
 	value, err = readUintFromFile(procFilePath("sys/net/netfilter/nf_conntrack_max"))
 	if err != nil {
-		return c.handleErr(err)
+		log.Error(c.handleErr(err))
+
+		return
 	}
 	ch <- prometheus.MustNewConstMetric(
 		c.limit, prometheus.GaugeValue, float64(value))
 
 	conntrackStats, err := getConntrackStatistics()
 	if err != nil {
-		return c.handleErr(err)
+		log.Error(c.handleErr(err))
+
+		return
 	}
 
 	ch <- prometheus.MustNewConstMetric(
@@ -142,7 +148,7 @@ func (c *conntrackCollector) Update(ch chan<- prometheus.Metric) error {
 		c.earlyDrop, prometheus.GaugeValue, float64(conntrackStats.earlyDrop))
 	ch <- prometheus.MustNewConstMetric(
 		c.searchRestart, prometheus.GaugeValue, float64(conntrackStats.searchRestart))
-	return nil
+	return
 }
 
 func (c *conntrackCollector) handleErr(err error) error {
@@ -178,4 +184,17 @@ func getConntrackStatistics() (*conntrackStatistics, error) {
 	}
 
 	return &c, nil
+}
+
+func (c *conntrackCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.current
+	ch <- c.limit
+	ch <- c.found
+	ch <- c.invalid
+	ch <- c.ignore
+	ch <- c.insert
+	ch <- c.insertFailed
+	ch <- c.drop
+	ch <- c.earlyDrop
+	ch <- c.searchRestart
 }

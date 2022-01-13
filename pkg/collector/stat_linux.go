@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	log "github.com/sirupsen/logrus"
 )
 
 type statCollector struct {
@@ -37,7 +38,7 @@ type statCollector struct {
 var statSoftirqFlag = false
 
 // NewStatCollector returns a new Collector exposing kernel/system statistics.
-func NewStatCollector() (Collector, error) {
+func NewStatCollector() (prometheus.Collector, error) {
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -82,11 +83,13 @@ func NewStatCollector() (Collector, error) {
 	}, nil
 }
 
-// Update implements Collector and exposes kernel and system statistics.
-func (c *statCollector) Update(ch chan<- prometheus.Metric) error {
+// Collect implements Collector and exposes kernel and system statistics.
+func (c *statCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.fs.Stat()
 	if err != nil {
-		return err
+		log.Error(err)
+
+		return
 	}
 
 	ch <- prometheus.MustNewConstMetric(c.intr, prometheus.CounterValue, float64(stats.IRQTotal))
@@ -119,6 +122,42 @@ func (c *statCollector) Update(ch chan<- prometheus.Metric) error {
 			ch <- prometheus.MustNewConstMetric(c.softIRQ, prometheus.CounterValue, float64(vec.value), vec.name)
 		}
 	}
+}
 
-	return nil
+func (c *statCollector) Describe(ch chan<- *prometheus.Desc) {
+	stats, err := c.fs.Stat()
+	if err != nil {
+		log.Error(err)
+
+		return
+	}
+
+	ch <- c.intr
+	ch <- c.ctxt
+	ch <- c.forks
+	ch <- c.btime
+	ch <- c.procsRunning
+	ch <- c.procsBlocked
+
+	if statSoftirqFlag {
+		si := stats.SoftIRQ
+
+		for range []struct {
+			name  string
+			value uint64
+		}{
+			{name: "hi", value: si.Hi},
+			{name: "timer", value: si.Timer},
+			{name: "net_tx", value: si.NetTx},
+			{name: "net_rx", value: si.NetRx},
+			{name: "block", value: si.Block},
+			{name: "block_iopoll", value: si.BlockIoPoll},
+			{name: "tasklet", value: si.Tasklet},
+			{name: "sched", value: si.Sched},
+			{name: "hrtimer", value: si.Hrtimer},
+			{name: "rcu", value: si.Rcu},
+		} {
+			ch <- c.softIRQ
+		}
+	}
 }

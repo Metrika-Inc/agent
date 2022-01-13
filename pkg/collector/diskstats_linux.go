@@ -11,9 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !nodiskstats
-// +build !nodiskstats
-
 package collector
 
 import (
@@ -55,7 +52,7 @@ type diskstatsCollector struct {
 
 // NewDiskstatsCollector returns a new Collector exposing disk device stats.
 // Docs from https://www.kernel.org/doc/Documentation/iostats.txt
-func NewDiskstatsCollector() (Collector, error) {
+func NewDiskstatsCollector() (prometheus.Collector, error) {
 	var diskLabelNames = []string{"device"}
 	fs, err := blockdevice.NewFS(procPath, sysPath)
 	if err != nil {
@@ -178,10 +175,13 @@ func NewDiskstatsCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *diskstatsCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *diskstatsCollector) Collect(ch chan<- prometheus.Metric) {
 	diskStats, err := c.fs.ProcDiskstats()
 	if err != nil {
-		return fmt.Errorf("couldn't get diskstats: %w", err)
+		err = fmt.Errorf("couldn't get diskstats: %w", err)
+		log.Error(err)
+
+		return
 	}
 
 	for _, stats := range diskStats {
@@ -228,5 +228,11 @@ func (c *diskstatsCollector) Update(ch chan<- prometheus.Metric) error {
 			ch <- c.descs[i].mustNewConstMetric(val, dev)
 		}
 	}
-	return nil
+}
+
+func (c *diskstatsCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.infoDesc.desc
+	for _, tf := range c.descs {
+		ch <- tf.desc
+	}
 }

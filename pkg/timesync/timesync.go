@@ -56,27 +56,27 @@ func (t *TimeSync) SetSyncInterval(interval time.Duration) {
 }
 
 func (t *TimeSync) Start() {
+	t.Lock()
+	t.wg.Add(1)
+	defer t.wg.Done()
+
+	if t.interval == 0 {
+		t.interval = defaultSyncInterval
+	}
+
+	// Ensure only single ticker routine is running
+	if t.ticker != nil {
+		t.stop()
+	}
+
+	t.tickerLock.Lock()
+	defer t.tickerLock.Unlock()
+
+	t.tickerCtx, t.tickerStop = context.WithCancel(context.Background())
+	t.ticker = time.NewTicker(t.interval)
+	t.Unlock()
+
 	go func() {
-		t.Lock()
-		t.wg.Add(1)
-		defer t.wg.Done()
-
-		if t.interval == 0 {
-			t.interval = defaultSyncInterval
-		}
-
-		// Ensure only single ticker routine is running
-		if t.ticker != nil {
-			t.stop()
-		}
-
-		t.tickerLock.Lock()
-		defer t.tickerLock.Unlock()
-
-		t.tickerCtx, t.tickerStop = context.WithCancel(context.Background())
-		t.ticker = time.NewTicker(t.interval)
-		t.Unlock()
-
 		for {
 			select {
 			case <-t.ticker.C:

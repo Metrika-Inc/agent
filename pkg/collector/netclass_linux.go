@@ -46,7 +46,7 @@ type netClassCollector struct {
 }
 
 // NewNetClassCollector returns a new Collector exposing network class stats.
-func NewNetClassCollector() (Collector, error) {
+func NewNetClassCollector() (prometheus.Collector, error) {
 	fs, err := sysfs.NewFS(sysPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sysfs: %w", err)
@@ -60,14 +60,19 @@ func NewNetClassCollector() (Collector, error) {
 	}, nil
 }
 
-func (c *netClassCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *netClassCollector) Collect(ch chan<- prometheus.Metric) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
 			log.Trace("msg", "Could not read netclass file", "err", err)
-			return ErrNoData
+			log.Error(ErrNoData)
+
+			return
 		}
-		return fmt.Errorf("could not get net class info: %w", err)
+		err = fmt.Errorf("could not get net class info: %w", err)
+		log.Error(err)
+
+		return
 	}
 	for _, ifaceInfo := range netClass {
 		upDesc := prometheus.NewDesc(
@@ -166,7 +171,18 @@ func (c *netClassCollector) Update(ch chan<- prometheus.Metric) error {
 		}
 	}
 
-	return nil
+	return
+}
+
+func pushDesc(ch chan<- *prometheus.Desc, subsystem string, name string) {
+	fieldDesc := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, name),
+		fmt.Sprintf("%s value of /sys/class/net/<iface>.", name),
+		[]string{"device"},
+		nil,
+	)
+
+	ch <- fieldDesc
 }
 
 func pushMetric(ch chan<- prometheus.Metric, subsystem string, name string, value int64, ifaceName string, valueType prometheus.ValueType) {
@@ -199,4 +215,112 @@ func (c *netClassCollector) getNetClassInfo() (sysfs.NetClass, error) {
 	}
 
 	return netClass, nil
+}
+
+func (c *netClassCollector) Describe(ch chan<- *prometheus.Desc) {
+	netClass, err := c.getNetClassInfo()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+			log.Trace("msg", "Could not read netclass file", "err", err)
+			log.Error(ErrNoData)
+
+			return
+		}
+		err = fmt.Errorf("could not get net class info: %w", err)
+		log.Error(err)
+
+		return
+	}
+	for _, ifaceInfo := range netClass {
+		upDesc := prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, c.subsystem, "up"),
+			"Value is 1 if operstate is 'up', 0 otherwise.",
+			[]string{"device"},
+			nil,
+		)
+
+		ch <- upDesc
+
+		infoDesc := prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, c.subsystem, "info"),
+			"Non-numeric data from /sys/class/net/<iface>, value is always 1.",
+			[]string{"device", "address", "broadcast", "duplex", "operstate", "ifalias"},
+			nil,
+		)
+
+		ch <- infoDesc
+
+		if ifaceInfo.AddrAssignType != nil {
+			pushDesc(ch, c.subsystem, "address_assign_type")
+		}
+
+		if ifaceInfo.Carrier != nil {
+			pushDesc(ch, c.subsystem, "carrier")
+		}
+
+		if ifaceInfo.CarrierChanges != nil {
+			pushDesc(ch, c.subsystem, "carrier_changes_total")
+		}
+
+		if ifaceInfo.CarrierUpCount != nil {
+			pushDesc(ch, c.subsystem, "carrier_up_changes_total")
+		}
+
+		if ifaceInfo.CarrierDownCount != nil {
+			pushDesc(ch, c.subsystem, "carrier_down_changes_total")
+		}
+
+		if ifaceInfo.DevID != nil {
+			pushDesc(ch, c.subsystem, "device_id")
+		}
+
+		if ifaceInfo.Dormant != nil {
+			pushDesc(ch, c.subsystem, "dormant")
+		}
+
+		if ifaceInfo.Flags != nil {
+			pushDesc(ch, c.subsystem, "flags")
+		}
+
+		if ifaceInfo.IfIndex != nil {
+			pushDesc(ch, c.subsystem, "iface_id")
+		}
+
+		if ifaceInfo.IfLink != nil {
+			pushDesc(ch, c.subsystem, "iface_link")
+		}
+
+		if ifaceInfo.LinkMode != nil {
+			pushDesc(ch, c.subsystem, "iface_link_mode")
+		}
+
+		if ifaceInfo.MTU != nil {
+			pushDesc(ch, c.subsystem, "mtu_bytes")
+		}
+
+		if ifaceInfo.NameAssignType != nil {
+			pushDesc(ch, c.subsystem, "name_assign_type")
+		}
+
+		if ifaceInfo.NetDevGroup != nil {
+			pushDesc(ch, c.subsystem, "net_dev_group")
+		}
+
+		if ifaceInfo.Speed != nil {
+			// Some devices return -1 if the speed is unknown.
+			if *ifaceInfo.Speed >= 0 || !netclassInvalidSpeed {
+				pushDesc(ch, c.subsystem, "speed_bytes")
+			}
+		}
+
+		if ifaceInfo.TxQueueLen != nil {
+			pushDesc(ch, c.subsystem, "transmit_queue_length")
+		}
+
+		if ifaceInfo.Type != nil {
+			pushDesc(ch, c.subsystem, "protocol_type")
+		}
+	}
+
+	return
 }

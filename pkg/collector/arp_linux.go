@@ -11,9 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noarp
-// +build !noarp
-
 package collector
 
 import (
@@ -24,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 type arpCollector struct {
@@ -31,7 +29,7 @@ type arpCollector struct {
 }
 
 // NewARPCollector returns a new Collector exposing ARP stats.
-func NewARPCollector() (Collector, error) {
+func NewARPCollector() (prometheus.Collector, error) {
 	return &arpCollector{
 		entries: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "arp", "entries"),
@@ -84,10 +82,13 @@ func parseARPEntries(data io.Reader) (map[string]uint32, error) {
 	return entries, nil
 }
 
-func (c *arpCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *arpCollector) Collect(ch chan<- prometheus.Metric) {
 	entries, err := getARPEntries()
 	if err != nil {
-		return fmt.Errorf("could not get ARP entries: %w", err)
+		err = fmt.Errorf("could not get ARP entries: %w", err)
+		log.Error(err)
+
+		return
 	}
 
 	for device, entryCount := range entries {
@@ -95,5 +96,12 @@ func (c *arpCollector) Update(ch chan<- prometheus.Metric) error {
 			c.entries, prometheus.GaugeValue, float64(entryCount), device)
 	}
 
-	return nil
+	return
+}
+
+// Describe exposes descriptors for this collector.
+func (c *arpCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.entries
+
+	return
 }

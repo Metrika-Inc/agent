@@ -1,9 +1,15 @@
 package global
 
-import "agent/pkg/watch"
+import (
+	"agent/pkg/watch"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
-	WatcherRegistrar WatchersRegisterer
+	WatcherRegistry    WatchersRegisterer
+	PrometheusRegistry prometheus.Registerer
+	PrometheusGatherer prometheus.Gatherer
 )
 
 type WatchersRegisterer interface {
@@ -40,5 +46,8 @@ func (r *DefaultWatcherRegistrar) Stop() {
 func init() {
 	defaultWatcherRegistrar := new(DefaultWatcherRegistrar)
 	defaultWatcherRegistrar.watchers = []watch.Watcher{}
-	WatcherRegistrar = defaultWatcherRegistrar
+	WatcherRegistry = defaultWatcherRegistrar
+
+	PrometheusRegistry = prometheus.NewPedanticRegistry()
+	PrometheusGatherer = PrometheusRegistry.(prometheus.Gatherer)
 }

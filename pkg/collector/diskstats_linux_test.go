@@ -14,7 +14,6 @@
 package collector
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -23,11 +22,11 @@ import (
 )
 
 type testDiskStatsCollector struct {
-	dsc Collector
+	dsc prometheus.Collector
 }
 
 func (c testDiskStatsCollector) Collect(ch chan<- prometheus.Metric) {
-	c.dsc.Update(ch)
+	c.dsc.Collect(ch)
 }
 
 func (c testDiskStatsCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -299,10 +298,7 @@ node_disk_written_bytes_total{device="vda"} 1.0938236928e+11
 
 	sink := make(chan prometheus.Metric)
 	go func() {
-		err = collector.Update(sink)
-		if err != nil {
-			panic(fmt.Errorf("failed to update collector: %s", err))
-		}
+		collector.Collect(sink)
 		close(sink)
 	}()
 

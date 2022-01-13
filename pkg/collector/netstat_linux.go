@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,25 +45,34 @@ type netStatCollector struct {
 
 // NewNetStatCollector takes and returns
 // a new Collector exposing network stats.
-func NewNetStatCollector() (Collector, error) {
+func NewNetStatCollector() (prometheus.Collector, error) {
 	pattern := regexp.MustCompile(netStatFields)
 	return &netStatCollector{
 		fieldPattern: pattern,
 	}, nil
 }
 
-func (c *netStatCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *netStatCollector) Collect(ch chan<- prometheus.Metric) {
 	netStats, err := getNetStats(procFilePath("net/netstat"))
 	if err != nil {
-		return fmt.Errorf("couldn't get netstats: %w", err)
+		err = fmt.Errorf("couldn't get netstats: %w", err)
+		log.Error(err)
+
+		return
 	}
 	snmpStats, err := getNetStats(procFilePath("net/snmp"))
 	if err != nil {
-		return fmt.Errorf("couldn't get SNMP stats: %w", err)
+		err = fmt.Errorf("couldn't get SNMP stats: %w", err)
+		log.Error(err)
+
+		return
 	}
 	snmp6Stats, err := getSNMP6Stats(procFilePath("net/snmp6"))
 	if err != nil {
-		return fmt.Errorf("couldn't get SNMP6 stats: %w", err)
+		err = fmt.Errorf("couldn't get SNMP6 stats: %w", err)
+		log.Error(err)
+
+		return
 	}
 	// Merge the results of snmpStats into netStats (collisions are possible, but
 	// we know that the keys are always unique for the given use case).
@@ -77,7 +87,10 @@ func (c *netStatCollector) Update(ch chan<- prometheus.Metric) error {
 			key := protocol + "_" + name
 			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				return fmt.Errorf("invalid value %s in netstats: %w", value, err)
+				err = fmt.Errorf("invalid value %s in netstats: %w", value, err)
+				log.Error(err)
+
+				return
 			}
 			if !c.fieldPattern.MatchString(key) {
 				continue
@@ -92,7 +105,7 @@ func (c *netStatCollector) Update(ch chan<- prometheus.Metric) error {
 			)
 		}
 	}
-	return nil
+	return
 }
 
 func getNetStats(fileName string) (map[string]map[string]string, error) {
@@ -169,4 +182,50 @@ func parseSNMP6Stats(r io.Reader) (map[string]map[string]string, error) {
 	}
 
 	return netStats, scanner.Err()
+}
+
+// Describe exposes descriptors for this collector.
+func (c *netStatCollector) Describe(ch chan<- *prometheus.Desc) {
+	netStats, err := getNetStats(procFilePath("net/netstat"))
+	if err != nil {
+		err = fmt.Errorf("couldn't get netstats: %w", err)
+		log.Error(err)
+
+		return
+	}
+	snmpStats, err := getNetStats(procFilePath("net/snmp"))
+	if err != nil {
+		err = fmt.Errorf("couldn't get SNMP stats: %w", err)
+		log.Error(err)
+
+		return
+	}
+	snmp6Stats, err := getSNMP6Stats(procFilePath("net/snmp6"))
+	if err != nil {
+		err = fmt.Errorf("couldn't get SNMP6 stats: %w", err)
+		log.Error(err)
+
+		return
+	}
+	// Merge the results of snmpStats into netStats (collisions are possible, but
+	// we know that the keys are always unique for the given use case).
+	for k, v := range snmpStats {
+		netStats[k] = v
+	}
+	for k, v := range snmp6Stats {
+		netStats[k] = v
+	}
+	for protocol, protocolStats := range netStats {
+		for name := range protocolStats {
+			key := protocol + "_" + name
+			if !c.fieldPattern.MatchString(key) {
+				continue
+			}
+			ch <- prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, netStatsSubsystem, key),
+				fmt.Sprintf("Statistic %s.", protocol+name),
+				nil, nil,
+			)
+		}
+	}
 }

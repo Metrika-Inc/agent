@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -41,17 +42,19 @@ type vmStatCollector struct {
 }
 
 // NewvmStatCollector returns a new Collector exposing vmstat stats.
-func NewvmStatCollector() (Collector, error) {
+func NewvmStatCollector() (prometheus.Collector, error) {
 	pattern := regexp.MustCompile(vmStatFields)
 	return &vmStatCollector{
 		fieldPattern: pattern,
 	}, nil
 }
 
-func (c *vmStatCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *vmStatCollector) Collect(ch chan<- prometheus.Metric) {
 	file, err := os.Open(procFilePath("vmstat"))
 	if err != nil {
-		return err
+		log.Error(err)
+
+		return
 	}
 	defer file.Close()
 
@@ -60,7 +63,9 @@ func (c *vmStatCollector) Update(ch chan<- prometheus.Metric) error {
 		parts := strings.Fields(scanner.Text())
 		value, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			return err
+			log.Error(err)
+
+			return
 		}
 		if !c.fieldPattern.MatchString(parts[0]) {
 			continue
@@ -75,5 +80,43 @@ func (c *vmStatCollector) Update(ch chan<- prometheus.Metric) error {
 			value,
 		)
 	}
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		log.Error(err)
+
+		return
+	}
+}
+
+func (c *vmStatCollector) Describe(ch chan<- *prometheus.Desc) {
+	file, err := os.Open(procFilePath("vmstat"))
+	if err != nil {
+		log.Error(err)
+
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		parts := strings.Fields(scanner.Text())
+		_, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			log.Error(err)
+
+			return
+		}
+		if !c.fieldPattern.MatchString(parts[0]) {
+			continue
+		}
+
+		ch <- prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, vmStatSubsystem, parts[0]),
+			fmt.Sprintf("/proc/vmstat information field %s.", parts[0]),
+			nil, nil)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Error(err)
+
+		return
+	}
 }

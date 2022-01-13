@@ -33,17 +33,20 @@ type meminfoCollector struct {
 }
 
 // NewMeminfoCollector returns a new Collector exposing memory stats.
-func NewMeminfoCollector() (Collector, error) {
+func NewMeminfoCollector() (prometheus.Collector, error) {
 	return &meminfoCollector{}, nil
 }
 
 // Update calls (*meminfoCollector).getMemInfo to get the platform specific
 // memory metrics.
-func (c *meminfoCollector) Update(ch chan<- prometheus.Metric) error {
+func (c *meminfoCollector) Collect(ch chan<- prometheus.Metric) {
 	var metricType prometheus.ValueType
 	memInfo, err := c.getMemInfo()
 	if err != nil {
-		return fmt.Errorf("couldn't get meminfo: %w", err)
+		err = fmt.Errorf("couldn't get meminfo: %w", err)
+		log.Error(err)
+
+		return
 	}
 	log.Trace("msg", "Set node_mem", "memInfo", memInfo)
 	for k, v := range memInfo {
@@ -61,5 +64,22 @@ func (c *meminfoCollector) Update(ch chan<- prometheus.Metric) error {
 			metricType, v,
 		)
 	}
-	return nil
+}
+
+func (c *meminfoCollector) Describe(ch chan<- *prometheus.Desc) {
+	memInfo, err := c.getMemInfo()
+	if err != nil {
+		err = fmt.Errorf("couldn't get meminfo: %w", err)
+		log.Error(err)
+
+		return
+	}
+	log.Trace("msg", "Set node_mem", "memInfo", memInfo)
+	for k := range memInfo {
+		ch <- prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, memInfoSubsystem, k),
+			fmt.Sprintf("Memory information field %s.", k),
+			nil, nil,
+		)
+	}
 }
