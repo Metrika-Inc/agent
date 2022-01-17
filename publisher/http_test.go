@@ -41,9 +41,12 @@ func TestPublisher_EagerDrain(t *testing.T) {
 
 	pubCh := make(chan interface{}, n)
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
+	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(wg)
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
@@ -54,8 +57,12 @@ func TestPublisher_EagerDrain(t *testing.T) {
 				Body:      body,
 			}
 			pubCh <- m
+			if i == n/2 {
+				wg.Done()
+			}
 		}
 	}()
+	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
 	require.Equal(t, 0, pub.buffer.Len())
@@ -101,10 +108,15 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
+	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(wg)
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
 			m := model.MetricPlatform{
@@ -116,6 +128,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 			pubCh <- m
 		}
 	}()
+	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
@@ -219,10 +232,15 @@ func TestPublisher_Stop(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
+	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(wg)
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
 			m := model.MetricPlatform{
@@ -234,11 +252,13 @@ func TestPublisher_Stop(t *testing.T) {
 			pubCh <- m
 		}
 	}()
+	wg.Wait()
+
 	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	pub.Stop()
-	wg.Wait()
+	pubWg.Wait()
 
 	select {
 	case <-platformCh:
