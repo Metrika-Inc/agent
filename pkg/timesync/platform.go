@@ -92,6 +92,14 @@ func (p *PlatformSync) Clear() {
 	p.firstTimestamp = time.Time{}
 }
 
+func (p *PlatformSync) Listen() {
+	Default.PlatformSync.Lock()
+	defer Default.PlatformSync.Unlock()
+	if Default.tsChan == nil {
+		Default.tsChan = TrackTimestamps(Default.ctx)
+	}
+}
+
 // Register is a convenience wrapper for calling timesync.Default.Register()
 func Register(ts int64) {
 	Default.Register(ts)

@@ -58,7 +58,6 @@ func (t *TimeSync) SetSyncInterval(interval time.Duration) {
 func (t *TimeSync) Start() {
 	t.Lock()
 	t.wg.Add(1)
-	defer t.wg.Done()
 
 	if t.interval == 0 {
 		t.interval = defaultSyncInterval
@@ -70,13 +69,16 @@ func (t *TimeSync) Start() {
 	}
 
 	t.tickerLock.Lock()
-	defer t.tickerLock.Unlock()
 
 	t.tickerCtx, t.tickerStop = context.WithCancel(context.Background())
 	t.ticker = time.NewTicker(t.interval)
 	t.Unlock()
 
+	// Setup PlatformSync
+	t.Listen()
 	go func() {
+		defer t.wg.Done()
+		defer t.tickerLock.Unlock()
 		for {
 			select {
 			case <-t.ticker.C:
@@ -182,8 +184,5 @@ func (t *TimeSync) now() time.Time {
 func Now() time.Time {
 	Default.RLock()
 	defer Default.RUnlock()
-	if Default.ticker == nil {
-		Default.Start()
-	}
 	return Default.now()
 }
