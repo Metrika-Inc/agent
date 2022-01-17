@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +42,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
+	timesync.Listen()
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {
@@ -100,6 +102,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
+	timesync.Listen()
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {
@@ -156,6 +159,7 @@ func TestPublisher_Error(t *testing.T) {
 
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
+	timesync.Listen()
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {
@@ -216,6 +220,7 @@ func TestPublisher_Stop(t *testing.T) {
 
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
+	timesync.Listen()
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {

@@ -92,9 +92,11 @@ func (p *PlatformSync) Clear() {
 	p.firstTimestamp = time.Time{}
 }
 
+// Listen instantiates the goroutine to listen to timestamps from the platform
+// in case it was not yet instantiated.
 func (p *PlatformSync) Listen() {
-	Default.PlatformSync.Lock()
-	defer Default.PlatformSync.Unlock()
+	p.Lock()
+	defer p.Unlock()
 	if Default.tsChan == nil {
 		Default.tsChan = TrackTimestamps(Default.ctx)
 	}
@@ -127,13 +129,15 @@ func Clear() {
 	Default.Clear()
 }
 
+// Refresh takes in a timestamp and forwards it to the timesync.tsChan., where it gets processed
+// and determines the time offset from the platform.
 func Refresh(ts int64) {
-	if Default.tsChan == nil {
-		Default.PlatformSync.Lock()
-		Default.tsChan = TrackTimestamps(Default.ctx)
-		Default.PlatformSync.Unlock()
-	}
 	Default.tsChan <- ts
+}
+
+// Listen is a convenience wrapper for calling timesync.Default.Listen()
+func Listen() {
+	Default.Listen()
 }
 
 // TrackTimestamps returns a channel for sending the incoming timestamps.
