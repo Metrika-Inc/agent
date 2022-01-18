@@ -69,7 +69,7 @@ func (p *PlatformSync) Healthy() bool {
 	p.RUnlock()
 
 	behind := difference > subsequentMax || p.currentDelta > maxDelta
-	logrus.Debug("[timesync] healthy: ", behind)
+	logrus.Debug("[timesync] healthy: ", !behind)
 	if behind {
 		logrus.Warn("[timesync] we are behind")
 		return false
