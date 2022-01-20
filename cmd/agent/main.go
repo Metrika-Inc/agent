@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -9,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"agent/algorand/pkg/watch"
-	"agent/api/v1/model"
+	"agent/internal/pkg/factory"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
-	watch2 "agent/pkg/watch"
+	"agent/pkg/watch"
 	"agent/publisher"
 
 	"github.com/google/uuid"
@@ -42,61 +41,68 @@ Sync
   HttpGetWatch(/v2/status) > `sync_time == 0` > sample slowly, send `sync_end`
 */
 
-var (
-	// metrikaPlatformAddr = "http://d42e-195-167-104-122.eu.ngrok.io"
-	metrikaPlatformAddr = "http://localhost:8000"
-	// metrikaPlatformURI  = "/api/v1/algorand/testnet"
-	metrikaPlatformURI = "/"
-
-	// agentMetricsAddr HTTP address for serving prometheus metrics
-	agentMetricsAddr = ":9000"
-)
-
 func init() {
-	logrus.SetLevel(logrus.TraceLevel)
+	rand.Seed(time.Now().UnixNano())
+
+	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(agentMetricsAddr, nil)
+		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
 	}()
 }
 
-type GenericThing struct {
-	Timestamp int64 `json:"timestamp"`
-}
+func registerWatchers() error {
+	watchersEnabled := []watch.Watcher{}
 
-type SpecificThing struct {
-	GenericThing
-	OtherField string `json:"other_field"`
+	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
+		w := factory.NewWatcherByType(*watcherConf)
+		if w == nil {
+			logrus.Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+		}
+
+		watchersEnabled = append(watchersEnabled, w)
+	}
+
+	if err := global.WatcherRegistry.Register(watchersEnabled...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func main() {
 	fmt.Println("Hello, Agent!")
+
+	if err := global.LoadDefaultConfig(); err != nil {
+		logrus.Fatal(err)
+	}
 
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
-	url, err := url.Parse(metrikaPlatformAddr + metrikaPlatformURI)
+	url, err := url.Parse(global.AgentRuntimeConfig.Platform.Addr +
+		global.AgentRuntimeConfig.Platform.URI)
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
+	timesync.Default.Start()
 	if timesync.Default.SyncNow(); err != nil {
 		logrus.Error("Could not sync with NTP server: ", err)
 	}
-	timesync.Default.Start()
 
 	conf := publisher.HTTPConf{
 		URL:            url.String(),
 		UUID:           agentUUID.String(),
-		DefaultTimeout: 10 * time.Second,
-		MaxBatchLen:    1000,
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    5 * time.Second,
-		MetricTTL:      30 * time.Minute,
+		Timeout:        global.AgentRuntimeConfig.Platform.HTTPTimeout,
+		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
+		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,
+		PublishIntv:    global.AgentRuntimeConfig.Platform.MaxPublishInterval,
+		BufferTTL:      global.AgentRuntimeConfig.Buffer.TTL,
 	}
 
 	ch := make(chan interface{}, 10000)
@@ -105,34 +111,13 @@ func main() {
 	wg := &sync.WaitGroup{}
 	pub.Start(wg)
 
-	w := watch.NewAlgodRestartWatch(watch.AlgodRestartWatchConf{
-		Path: "/var/lib/algorand/algod.pid",
-	}, nil)
+	if err := registerWatchers(); err != nil {
+		logrus.Fatal(err)
+	}
 
-	rand.Seed(time.Now().UnixNano())
-	go func() {
-		for {
-			<-time.After(time.Duration(rand.Intn(5)) * time.Millisecond)
-			health := model.NodeHealthMetric{
-				Metric: model.NewMetric(true),
-				State:  model.NodeStateUp,
-			}
-			body, _ := json.Marshal(health)
-
-			m := model.MetricPlatform{
-				Type:      "foobar-type",
-				Timestamp: time.Now().UnixNano(),
-				NodeState: model.NodeStateUp,
-				Body:      body,
-			}
-			ch <- m
-
-			// logrus.Debug("[test-watch] sending test ", m.Timestamp)
-		}
-	}()
-
-	w.Subscribe(ch)
-	watch2.Start(w)
+	if err := global.WatcherRegistry.Start(ch); err != nil {
+		logrus.Fatal(err)
+	}
 
 	forever := make(chan bool)
 	<-forever

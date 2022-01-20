@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
 )
@@ -31,17 +32,21 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    n / 2,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    5 * time.Second,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    5 * time.Second,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
-	pub.Start(wg)
+	pubWg := new(sync.WaitGroup)
+	timesync.Listen()
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
@@ -52,10 +57,14 @@ func TestPublisher_EagerDrain(t *testing.T) {
 				Body:      body,
 			}
 			pubCh <- m
+			if i == n/2 {
+				wg.Done()
+			}
 		}
 	}()
+	wg.Wait()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, 0, pub.buffer.Len())
 
 	select {
@@ -81,6 +90,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
@@ -88,19 +98,25 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    10000,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    500 * time.Millisecond,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    500 * time.Millisecond,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
-	pub.Start(wg)
+	pubWg := new(sync.WaitGroup)
+	timesync.Listen()
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
 			m := model.MetricPlatform{
@@ -112,11 +128,12 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 			pubCh <- m
 		}
 	}()
+	wg.Wait()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
-	<-time.After(conf.PublishFreq)
+	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
 }
 
@@ -134,7 +151,7 @@ func TestPublisher_Error(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Something bad happened!"))
 		} else {
-			w.Write([]byte("hello client"))
+			w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 		}
 		platformCh <- nil
 	})
@@ -144,17 +161,18 @@ func TestPublisher_Error(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    10,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    healthyAfter,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    healthyAfter,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
 	wg := new(sync.WaitGroup)
+	timesync.Listen()
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {
@@ -169,7 +187,7 @@ func TestPublisher_Error(t *testing.T) {
 		}
 	}()
 
-	<-time.After(100 * time.Millisecond)
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	select {
@@ -178,7 +196,7 @@ func TestPublisher_Error(t *testing.T) {
 		t.Error("timeout waiting for platform message")
 	}
 
-	<-time.After(conf.PublishFreq)
+	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
 
 	select {
@@ -195,6 +213,7 @@ func TestPublisher_Stop(t *testing.T) {
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		platformCh <- nil
+		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
 	})
 
 	ts := httptest.NewServer(handleFunc)
@@ -203,19 +222,25 @@ func TestPublisher_Stop(t *testing.T) {
 	conf := HTTPConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
-		DefaultTimeout: 10 * time.Second,
+		Timeout:        10 * time.Second,
 		MaxBatchLen:    100,
 		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishFreq:    5 * time.Second,
-		MetricTTL:      time.Duration(0),
+		PublishIntv:    5 * time.Second,
+		BufferTTL:      time.Duration(0),
 	}
 
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
-	wg := new(sync.WaitGroup)
-	pub.Start(wg)
+	pubWg := new(sync.WaitGroup)
+	timesync.Listen()
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
 			m := model.MetricPlatform{
@@ -227,11 +252,13 @@ func TestPublisher_Stop(t *testing.T) {
 			pubCh <- m
 		}
 	}()
-	<-time.After(100 * time.Millisecond)
+	wg.Wait()
+
+	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.buffer.Len())
 
 	pub.Stop()
-	wg.Wait()
+	pubWg.Wait()
 
 	select {
 	case <-platformCh:

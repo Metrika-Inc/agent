@@ -1,6 +1,25 @@
 package watch
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
+
+var (
+	PrometheusWatchPrefix           = "prometheus"
+	AlgorandWatchPrefix             = "algorand"
+	AlgorandNodeRestart   WatchType = "algorand.node.restart"
+)
+
+type WatchType string
+
+func (w WatchType) IsPrometheus() bool {
+	return strings.HasPrefix(string(w), PrometheusWatchPrefix)
+}
+
+func (w WatchType) IsAlgorand() bool {
+	return strings.HasPrefix(string(w), AlgorandWatchPrefix)
+}
 
 type Watcher interface {
 	StartUnsafe()
