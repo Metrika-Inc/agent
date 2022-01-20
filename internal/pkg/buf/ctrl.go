@@ -37,16 +37,17 @@ func (c *Controller) Start(ctx context.Context) {
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire
 
-	for {
-		// no errors, reset to periodic timer
-		select {
-		case <-time.After(c.DrainFreq):
-			backof.Reset()
-		case <-c.closeCh:
-			c.Drain()
+	// no errors, reset to periodic timer
+	select {
+	case <-time.After(c.DrainFreq):
+		backof.Reset()
+	case <-c.closeCh:
+		c.Drain()
 
-			return
-		}
+		return
+	}
+
+	for {
 		logrus.Debugf("[bufCtrl] buffer stats %d %dB", c.B.Len(), c.B.Bytes())
 
 		// use exp backoff if errors occur
@@ -65,6 +66,17 @@ func (c *Controller) Start(ctx context.Context) {
 				return
 			}
 		}
+
+		// no errors, reset to periodic timer
+		select {
+		case <-time.After(c.DrainFreq):
+			backof.Reset()
+		case <-c.closeCh:
+			c.Drain()
+
+			return
+		}
+
 		logrus.Debugf("[bufCtrl] scheduled drain ok")
 	}
 }
