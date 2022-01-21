@@ -5,5 +5,4 @@ http_request_duration_seconds_bucket{le="0.1"} 33444
 http_request_duration_seconds_bucket{le="0.2"} 100392
 http_request_duration_seconds_bucket{le="0.5"} 129389
 http_request_duration_seconds_bucket{le="1"} 133988
-http_request_duration_seconds_bucket{le="+Inf"} 144320
 http_request_duration_seconds_sum 53423
