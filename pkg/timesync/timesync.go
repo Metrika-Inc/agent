@@ -173,6 +173,11 @@ func (t *TimeSync) Now() time.Time {
 	return t.now()
 }
 
+// NewTicker implements zapcore.Clock interface.
+func (t *TimeSync) NewTicker(d time.Duration) *time.Ticker {
+	return time.NewTicker(d)
+}
+
 func (t *TimeSync) now() time.Time {
 	if t.shouldAdjust {
 		return time.Now().Add(t.delta)

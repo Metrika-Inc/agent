@@ -9,6 +9,11 @@ buffer:
   size: 52428800
   ttl: 0s
 runtime:
+  logging:
+    outputs:
+      - stdout
+      # - logs/agent.log
+    level: debug
   metrics_addr: :9000
   sampling_interval: 5s
   watchers:

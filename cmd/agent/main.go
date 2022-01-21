@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -17,33 +18,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
-
-/*
-Latest block number
-  JsonLogWatch(node.log) > `type=RoundConcluded`, send `Round`
-Relay Connections
-  NetstatWatch > send outgoing connections to 4160
-  RestartWatch > reload config file
-Latest protocol version
-  HttpGetWatch(/v2/status)
-Latest software version
-  HttpGetWatch(/versions)
-Node restarts
-  PidWatch(algod.pid)
-Error messages
-  JsonLogWatch(node.log) > `type=error`, send all
-VoteBroadcast (https://developer.algorand.org/docs/run-a-node/participate/online/#check-that-the-node-is-participating)
-  JsonLogWatch(node.log) > `type=VoteBroadcast` > incr state
-  TimedWatch > send count, incr state
-Sync
-  HttpGetWatch(/v2/status) > `sync_time != 0` > sample quickly, send `sync_start`
-  HttpGetWatch(/v2/status) > `sync_time == 0` > sample slowly, send `sync_end`
-*/
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 
+	if err := global.LoadDefaultConfig(); err != nil {
+		fmt.Printf("%v", err)
+		os.Exit(1)
+	}
+
+	setupZapLogger()
+
+	timesync.Default.Start()
+	if err := timesync.Default.SyncNow(); err != nil {
+		zap.L().Error("Could not sync with NTP server", zap.Error(err))
+	}
+
+	// TODO: remove when it's all over
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
@@ -51,6 +45,30 @@ func init() {
 		http.Handle("/metrics", promhttp.Handler())
 		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
 	}()
+}
+
+func setupZapLogger() {
+	cfg := zap.NewProductionConfig()
+	cfg.Level = zap.NewAtomicLevelAt(global.AgentRuntimeConfig.Runtime.Log.Level())
+	cfg.OutputPaths = global.AgentRuntimeConfig.Runtime.Log.Outputs
+	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
+	opts := []zap.Option{
+		zap.AddStacktrace(zapcore.WarnLevel),
+		zap.WithClock(timesync.Default),
+	}
+	http.Handle("/loglvl", cfg.Level)
+	l, err := cfg.Build(opts...)
+	if err != nil {
+		panic(fmt.Sprintf("failed to setup zap logging: %v", err))
+	}
+
+	// set newly configured logger as default (access via zap.L())
+	zap.ReplaceGlobals(l)
+}
+
+// logTimestampMSEncoder encodes the log timestamp as an int64 from Time.UnixMilli()
+func logTimestampMSEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendInt64(t.UnixMilli())
 }
 
 func registerWatchers() error {
@@ -73,12 +91,6 @@ func registerWatchers() error {
 }
 
 func main() {
-	fmt.Println("Hello, Agent!")
-
-	if err := global.LoadDefaultConfig(); err != nil {
-		logrus.Fatal(err)
-	}
-
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
 		logrus.Fatal(err)
@@ -88,11 +100,6 @@ func main() {
 		global.AgentRuntimeConfig.Platform.URI)
 	if err != nil {
 		logrus.Fatal(err)
-	}
-
-	timesync.Default.Start()
-	if timesync.Default.SyncNow(); err != nil {
-		logrus.Error("Could not sync with NTP server: ", err)
 	}
 
 	conf := publisher.HTTPConf{

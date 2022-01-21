@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -33,6 +34,7 @@ type WatchConfig struct {
 
 type RuntimeConfig struct {
 	MetricsAddr      string         `yaml:"metrics_addr"`
+	Log              LogConfig      `yaml:"logging"`
 	SamplingInterval time.Duration  `yaml:"sampling_interval"`
 	Watchers         []*WatchConfig `yaml:"watchers"`
 }
@@ -41,6 +43,25 @@ type AgentConfig struct {
 	Platform PlatformConfig `yaml:"platform"`
 	Buffer   BufferConfig   `yaml:"buffer"`
 	Runtime  RuntimeConfig  `yaml:"runtime"`
+}
+
+type LogConfig struct {
+	Lvl     string   `yaml:"level"`
+	Outputs []string `yaml:"outputs"`
+}
+
+var zapLevelMapper = map[string]zapcore.Level{
+	"debug":  zapcore.DebugLevel,
+	"info":   zapcore.InfoLevel,
+	"warn":   zapcore.WarnLevel,
+	"error":  zapcore.ErrorLevel,
+	"dpanic": zapcore.DPanicLevel,
+	"panic":  zapcore.PanicLevel,
+	"fatal":  zapcore.FatalLevel,
+}
+
+func (l LogConfig) Level() zapcore.Level {
+	return zapLevelMapper[l.Lvl]
 }
 
 func LoadDefaultConfig() error {
