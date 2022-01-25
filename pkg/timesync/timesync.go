@@ -98,14 +98,6 @@ func (t *TimeSync) Start() {
 	}()
 }
 
-// NewLogger assigns a new logger to the TimeSync struct.
-// It is necessary, as we're using timesync when building our universal logger.
-// func (t *TimeSync) NewLogger(l *zap.SugaredLogger) {
-// 	t.Lock()
-// 	defer t.Unlock()
-// 	t.log = l
-// }
-
 // Stop is thread-safe way to stop a current ticker
 func (t *TimeSync) Stop() {
 	t.Lock()
