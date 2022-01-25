@@ -22,7 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const namespace = "node"
@@ -48,6 +48,7 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	w := new(CollectorWatch)
 	w.CollectorWatchConf = conf
 	w.Watch = NewWatch()
+	w.Log = w.Log.With("collector", w.Type)
 
 	w.wg = new(sync.WaitGroup)
 	w.ch = make(chan prometheus.Metric, 1000)
@@ -68,7 +69,7 @@ func (c *CollectorWatch) StartUnsafe() {
 			case <-time.After(c.Interval):
 				metricFamilies, err := c.Gatherer.Gather()
 				if err != nil {
-					log.Errorf("[%T] gather error: %v", c.Collector, err)
+					c.Log.Errorw("Failed to gather", zap.Error(err))
 
 					continue
 				}
@@ -89,7 +90,8 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 			for _, metricFam := range metricFams {
 				body, err := json.Marshal(metricFam)
 				if err != nil {
-					log.Errorf("[%T] cannot marshal dto.Metric: %v", c.Collector, err)
+					c.Log.Errorw("Cannot marshal dto.Metric", zap.Error(err))
+					zap.L().Sugar().Error()
 
 					continue
 				}

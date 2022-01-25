@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type JsonLogWatchConf struct {
@@ -31,6 +31,7 @@ func NewJsonLogWatch(conf JsonLogWatchConf, fileNotifyWatch Watcher) *JsonLogWat
 	w := new(JsonLogWatch)
 	w.JsonLogWatchConf = conf
 	w.Watch = NewWatch()
+	w.Log = w.Log.With("path", w.Path)
 	w.FileNotifyWatch = fileNotifyWatch
 	w.fileWatchCh = make(chan interface{}, 1)
 	return w
@@ -48,14 +49,14 @@ func (w *JsonLogWatch) StartUnsafe() {
 	var err error
 	w.file, err = os.OpenFile(w.Path, os.O_RDONLY, 0)
 	if err != nil {
-		log.Errorf("[JsonLogWatch] Failed to open file '%s': %e\n", w.Path, err)
+		w.Log.Errorw("Failed to open file", w.Path, zap.Error(err))
 		return //todo need to retry here
 	}
 
 	// Read the starting length todo should come from agent cache and only use file size when there is no size present
 	w.lastFilePos, err = GetEnd(w.file)
 	if err != nil {
-		log.Errorf("[JsonLogWatch] Failed to read file length of '%s': %e\n", w.Path, err)
+		w.Log.Errorw("Failed to read file length", zap.Error(err))
 		return //todo need to retry here
 	}
 
@@ -76,7 +77,7 @@ func (w *JsonLogWatch) Stop() {
 
 	err := w.file.Close()
 	if err != nil {
-		log.Errorf("[JsonLogWatch] Failed to close target file '%s': %v\n", w.Path, err)
+		w.Log.Errorw("Failed to close file", zap.Error(err))
 	}
 }
 
@@ -87,7 +88,7 @@ func (w *JsonLogWatch) handleFileChanges() {
 			// Read data from last checkpoint to end
 			data, err := ReadFromXToEnd(w.file, w.lastFilePos)
 			if err != nil {
-				log.Errorf("[JsonLogWatch] Failed to read new data from file '%s': %e\n", w.Path, err)
+				w.Log.Errorw("Failed to read new data from file", zap.Error(err))
 				continue
 			}
 			w.lastFilePos += int64(len(data))
@@ -118,7 +119,7 @@ func (w *JsonLogWatch) parseAndEmit(buffer []byte) {
 				w.partialString = nil
 				err := json.Unmarshal(attempt2, &jsonResult)
 				if err != nil {
-					log.Errorf("[JsonLogWatch] Failed to unmarshall JSON data (%d): %v\n%#v\n", len(jsonString), err, string(jsonString))
+					w.Log.Errorw("Failed to unmarshal JSON.", "length", len(jsonString), "body", string(jsonString), zap.Error(err))
 					fmt.Printf(">>> %#v\n", string(buffer))
 					continue
 				}

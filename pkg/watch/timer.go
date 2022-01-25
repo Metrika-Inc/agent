@@ -1,7 +1,6 @@
 package watch
 
 import (
-	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -22,7 +21,7 @@ func NewTimerWatch(conf TimerWatchConf) *TimerWatch {
 	w.TimerWatchConf = conf
 
 	if w.Interval < 1 {
-		log.Traceln("[TimerWatch] Using default interval of one second since none was provided.")
+		w.Log.Debug("Using default interval of one second since none was provided.")
 		w.Interval = time.Second
 	}
 
