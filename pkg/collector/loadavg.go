@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 type loadavgCollector struct {
@@ -42,17 +43,17 @@ func (c *loadavgCollector) Collect(ch chan<- prometheus.Metric) {
 	loads, err := getLoad()
 	if err != nil {
 		err = fmt.Errorf("couldn't get load: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	for i, load := range loads {
-		log.Debug("msg", "return load", "index", i, "load", load)
+		zap.S().Debug("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].mustNewConstMetric(load)
 	}
 
 	if err != nil {
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -62,17 +63,17 @@ func (c *loadavgCollector) Describe(ch chan<- *prometheus.Desc) {
 	loads, err := getLoad()
 	if err != nil {
 		err = fmt.Errorf("couldn't get load: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	for i, load := range loads {
-		log.Debug("msg", "return load", "index", i, "load", load)
+		zap.S().Debug("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].desc
 	}
 
 	if err != nil {
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

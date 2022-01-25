@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -55,21 +56,21 @@ func (c *netStatCollector) Collect(ch chan<- prometheus.Metric) {
 	netStats, err := getNetStats(procFilePath("net/netstat"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get netstats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	snmpStats, err := getNetStats(procFilePath("net/snmp"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get SNMP stats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	snmp6Stats, err := getSNMP6Stats(procFilePath("net/snmp6"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get SNMP6 stats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -87,7 +88,7 @@ func (c *netStatCollector) Collect(ch chan<- prometheus.Metric) {
 			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
 				err = fmt.Errorf("invalid value %s in netstats: %w", value, err)
-				log.Error(err)
+				zap.S().Error(err)
 
 				return
 			}
@@ -188,21 +189,21 @@ func (c *netStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	netStats, err := getNetStats(procFilePath("net/netstat"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get netstats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	snmpStats, err := getNetStats(procFilePath("net/snmp"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get SNMP stats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 	snmp6Stats, err := getSNMP6Stats(procFilePath("net/snmp6"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get SNMP6 stats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

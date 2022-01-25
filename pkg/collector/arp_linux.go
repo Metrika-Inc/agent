@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 type arpCollector struct {
@@ -85,7 +86,7 @@ func (c *arpCollector) Collect(ch chan<- prometheus.Metric) {
 	entries, err := getARPEntries()
 	if err != nil {
 		err = fmt.Errorf("could not get ARP entries: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

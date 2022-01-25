@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -57,7 +58,7 @@ func (c *meminfoNumaCollector) Collect(ch chan<- prometheus.Metric) {
 	metrics, err := getMemInfoNuma()
 	if err != nil {
 		err = fmt.Errorf("couldn't get NUMA meminfo: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -183,7 +184,7 @@ func (c *meminfoNumaCollector) Describe(ch chan<- *prometheus.Desc) {
 	metrics, err := getMemInfoNuma()
 	if err != nil {
 		err = fmt.Errorf("couldn't get NUMA meminfo: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

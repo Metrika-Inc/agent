@@ -72,7 +72,7 @@ func registerWatchers() error {
 	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
 		w := factory.NewWatcherByType(*watcherConf)
 		if w == nil {
-			zap.L().Sugar().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
 		}
 
 		watchersEnabled = append(watchersEnabled, w)
@@ -86,7 +86,7 @@ func registerWatchers() error {
 }
 
 func main() {
-	log := zap.L().Sugar()
+	log := zap.S()
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
 		log.Fatal(err)

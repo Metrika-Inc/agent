@@ -69,7 +69,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 
 		item, ok := v.(Item)
 		if !ok {
-			zap.L().Sugar().Warnf("Unknown queue item type peeked %T", item)
+			zap.S().Warnf("Unknown queue item type peeked %T", item)
 
 			return 0
 		}
@@ -79,7 +79,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 			v := heap.Pop(pq)
 			item, ok := v.(Item)
 			if !ok {
-				zap.L().Sugar().Warnf("Unknown queue item type popped %T", item)
+				zap.S().Warnf("Unknown queue item type popped %T", item)
 
 				return claimSz
 			}
@@ -125,7 +125,7 @@ func (m multiQueue) Len() int {
 func (m multiQueue) Push(x interface{}) {
 	itemQ, ok := x.(Item)
 	if !ok {
-		zap.L().Sugar().Warnf("unknown queue item type %T", itemQ)
+		zap.S().Warnf("unknown queue item type %T", itemQ)
 
 		return
 	}
@@ -157,7 +157,7 @@ func (m multiQueue) Pop() (interface{}, uint) {
 			v := heap.Pop(m[i])
 			item, ok := v.(Item)
 			if !ok {
-				zap.L().Sugar().Warnf("unknown queue item type %T", item)
+				zap.S().Warnf("unknown queue item type %T", item)
 
 				return nil, 0
 			}

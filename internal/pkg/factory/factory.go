@@ -11,8 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var log = zap.L().Sugar()
-
 // algorandWatchersFactory creates algorand specific watchers
 func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 	var w watch.Watcher
@@ -22,7 +20,7 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 			Path: "/var/lib/algorand/algod.pid",
 		}, nil)
 	default:
-		log.Fatalw("Specified watcher constructor not found", "watcher", conf.Type)
+		zap.S().Fatalw("Specified watcher constructor not found", "watcher", conf.Type)
 	}
 
 	return w
@@ -32,12 +30,12 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 	clrFunc, ok := collector.CollectorsFactory[string(t)]
 	if !ok {
-		log.Fatalw("Specified prometheus collector constructor not found", "collector", t)
+		zap.S().Fatalw("Specified prometheus collector constructor not found", "collector", t)
 	}
 
 	clr, err := clrFunc()
 	if err != nil {
-		log.Fatalw("Collector constructor error", zap.Error(err))
+		zap.S().Fatalw("Collector constructor error", zap.Error(err))
 	}
 
 	return clr
@@ -60,7 +58,7 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 		})
 		registry.MustRegister(clr)
 	default:
-		log.Fatalw("Specified collector type not found", "collector", conf.Type)
+		zap.S().Fatalw("Specified collector type not found", "collector", conf.Type)
 	}
 
 	return w

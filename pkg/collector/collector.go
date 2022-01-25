@@ -15,7 +15,7 @@ var (
 	// ErrNoData indicates the collector found no data to collect, but had no other error.
 	ErrNoData = errors.New("collector returned no data")
 
-	log = zap.L().Sugar()
+	log *zap.SugaredLogger
 )
 
 func IsNoDataError(err error) bool {

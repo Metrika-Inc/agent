@@ -24,16 +24,16 @@ type Controller struct {
 	ControllerConf
 
 	B       Buffer
-	log     *zap.SugaredLogger
 	closeCh chan bool
 }
 
 func NewController(conf ControllerConf, b Buffer) *Controller {
-	return &Controller{conf, b, zap.L().Sugar(), make(chan bool)}
+	return &Controller{conf, b, make(chan bool)}
 }
 
 func (c *Controller) Start(ctx context.Context) {
-	c.log.Info("Starting buffer controller")
+	log := zap.S()
+	log.Info("Starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire
@@ -49,13 +49,13 @@ func (c *Controller) Start(ctx context.Context) {
 	}
 
 	for {
-		c.log.Debugw("Buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
+		log.Debugw("Buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
 
 		// use exp backoff if errors occur
-		c.log.Debug("Scheduled drain kick in")
+		log.Debug("Scheduled drain kick in")
 		if err := c.Drain(); err != nil {
 			nextBo := backof.NextBackOff()
-			c.log.Warnw("Scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
+			log.Warnw("Scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
 
 			select {
 			case <-time.After(nextBo):
@@ -77,7 +77,7 @@ func (c *Controller) Start(ctx context.Context) {
 			return
 		}
 
-		c.log.Debug("Scheduled drain ok")
+		log.Debug("Scheduled drain ok")
 	}
 }
 
@@ -130,7 +130,7 @@ func (c *Controller) Drain() error {
 	}
 
 	if drainedCnt > 0 {
-		c.log.Infow("Buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
+		zap.S().Infow("Buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
 	}
 
 	return nil

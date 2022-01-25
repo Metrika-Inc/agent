@@ -51,7 +51,7 @@ func NewWatch() Watch {
 		Running:   false,
 		StopKey:   make(chan bool, 1),
 		startOnce: &sync.Once{},
-		Log:       zap.L().Sugar(),
+		Log:       zap.S(),
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	"go.uber.org/zap"
 )
 
 type entropyCollector struct {
@@ -55,13 +56,13 @@ func (c *entropyCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.fs.KernelRandom()
 	if err != nil {
 		err = fmt.Errorf("failed to get kernel random stats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
 
 	if stats.EntropyAvaliable == nil {
-		log.Errorf("couldn't get entropy_avail")
+		zap.S().Errorf("couldn't get entropy_avail")
 
 		return
 	}
@@ -69,7 +70,7 @@ func (c *entropyCollector) Collect(ch chan<- prometheus.Metric) {
 		c.entropyAvail, prometheus.GaugeValue, float64(*stats.EntropyAvaliable))
 
 	if stats.PoolSize == nil {
-		log.Errorf("couldn't get entropy poolsize")
+		zap.S().Errorf("couldn't get entropy poolsize")
 
 		return
 	}

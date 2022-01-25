@@ -65,7 +65,6 @@ type HTTP struct {
 	conf    HTTPConf
 	client  *http.Client
 	buffer  buf.Buffer
-	log     *zap.SugaredLogger
 	closeCh chan interface{}
 }
 
@@ -78,7 +77,6 @@ func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
 		conf:      conf,
 		receiveCh: ch,
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
-		log:       zap.L().Sugar(),
 		closeCh:   make(chan interface{}),
 	}
 }
@@ -131,7 +129,7 @@ func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBat
 		for _, item := range b {
 			m, ok := item.Data.(model.MetricPlatform)
 			if !ok {
-				h.log.Warnf("unrecognised type %T", item.Data)
+				zap.S().Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
@@ -186,6 +184,7 @@ func (a *AgentState) Reset() {
 }
 
 func (h *HTTP) Start(wg *sync.WaitGroup) {
+	log := zap.S()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
 	ctx = context.WithValue(ctx, PlatformAddrContextKey, h.conf.URL)
@@ -214,21 +213,21 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 
-		h.log.Debug("starting metric ingestion")
+		log.Debug("starting metric ingestion")
 
 		var prevErr error
 		for {
 			select {
 			case msg, ok := <-h.receiveCh:
 				if !ok {
-					h.log.Error("receive channel closed")
+					log.Error("receive channel closed")
 
 					return
 				}
 
 				m, ok := msg.(model.MetricPlatform)
 				if !ok {
-					h.log.Error("type assertion failed")
+					log.Error("type assertion failed")
 
 					continue
 				}
@@ -244,7 +243,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				if err != nil {
 					MetricsDropCnt.Inc()
 					if prevErr == nil {
-						h.log.Errorw("Metric dropped, buffer unavailable", zap.Error(err))
+						log.Errorw("Metric dropped, buffer unavailable", zap.Error(err))
 						prevErr = err
 					}
 					continue
@@ -253,21 +252,21 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				publishState := state.PublishState()
 				if publishState == platformStateUp {
 					if h.buffer.Len() >= h.conf.MaxBatchLen {
-						h.log.Debug("MaxBatchLen exceeded, eager drain kick in")
+						log.Debug("MaxBatchLen exceeded, eager drain kick in")
 
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
-							h.log.Warn("Eager drain failed", zap.Error(drainErr))
+							log.Warn("Eager drain failed", zap.Error(drainErr))
 							prevErr = drainErr
 
 							continue
 						}
-						h.log.Debug("Eager drain ok")
+						log.Debug("Eager drain ok")
 					}
 				}
 				prevErr = nil
 			case <-h.closeCh:
-				h.log.Debug("Stopping buf controller, ingestion goroutine exiting")
+				log.Debug("Stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
 
 				return

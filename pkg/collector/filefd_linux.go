@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -42,7 +43,7 @@ func (c *fileFDStatCollector) Collect(ch chan<- prometheus.Metric) {
 	fileFDStat, err := parseFileFDStats(procFilePath("sys/fs/file-nr"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get file-nr: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -93,7 +94,7 @@ func (c *fileFDStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	fileFDStat, err := parseFileFDStats(procFilePath("sys/fs/file-nr"))
 	if err != nil {
 		err = fmt.Errorf("couldn't get file-nr: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

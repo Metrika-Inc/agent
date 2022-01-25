@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs/sysfs"
+	"go.uber.org/zap"
 )
 
 var (
@@ -63,13 +64,13 @@ func (c *netClassCollector) Collect(ch chan<- prometheus.Metric) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
-			log.Debug("msg", "Could not read netclass file", "err", err)
-			log.Error(ErrNoData)
+			zap.S().Debug("msg", "Could not read netclass file", "err", err)
+			zap.S().Error(ErrNoData)
 
 			return
 		}
 		err = fmt.Errorf("could not get net class info: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -220,13 +221,13 @@ func (c *netClassCollector) Describe(ch chan<- *prometheus.Desc) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
-			log.Debug("msg", "Could not read netclass file", "err", err)
-			log.Error(ErrNoData)
+			zap.S().Debug("msg", "Could not read netclass file", "err", err)
+			zap.S().Error(ErrNoData)
 
 			return
 		}
 		err = fmt.Errorf("could not get net class info: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
