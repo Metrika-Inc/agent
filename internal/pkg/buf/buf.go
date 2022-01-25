@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type ItemBatch []Item
@@ -98,7 +98,7 @@ func (p *PriorityBuffer) Get(n int) (ItemBatch, uint, error) {
 
 		itemQ, ok := pop.(Item)
 		if !ok {
-			logrus.Warnf("illegal item type %v", pop)
+			zap.L().Sugar().Warn("illegal item type", "item", pop)
 
 			continue
 		}
