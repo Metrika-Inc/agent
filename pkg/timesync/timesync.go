@@ -16,7 +16,6 @@ type TimeSync struct {
 	interval       time.Duration
 	ctx, tickerCtx context.Context
 	tickerStop     context.CancelFunc
-	log            *zap.SugaredLogger
 	wg             *sync.WaitGroup
 	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
 	shouldAdjust   bool
