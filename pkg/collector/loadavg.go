@@ -48,7 +48,6 @@ func (c *loadavgCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	for i, load := range loads {
-		zap.S().Debug("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].mustNewConstMetric(load)
 	}
 
@@ -67,8 +66,7 @@ func (c *loadavgCollector) Describe(ch chan<- *prometheus.Desc) {
 
 		return
 	}
-	for i, load := range loads {
-		zap.S().Debug("msg", "return load", "index", i, "load", load)
+	for i := range loads {
 		ch <- c.metric[i].desc
 	}
 

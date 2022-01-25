@@ -48,7 +48,6 @@ func (c *meminfoCollector) Collect(ch chan<- prometheus.Metric) {
 
 		return
 	}
-	zap.S().Debug("msg", "Set node_mem", "memInfo", memInfo)
 	for k, v := range memInfo {
 		if strings.HasSuffix(k, "_total") {
 			metricType = prometheus.CounterValue
@@ -74,7 +73,6 @@ func (c *meminfoCollector) Describe(ch chan<- *prometheus.Desc) {
 
 		return
 	}
-	zap.S().Debug("msg", "Set node_mem", "memInfo", memInfo)
 	for k := range memInfo {
 		ch <- prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, memInfoSubsystem, k),

@@ -62,7 +62,7 @@ func (c *entropyCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if stats.EntropyAvaliable == nil {
-		zap.S().Errorf("couldn't get entropy_avail")
+		zap.S().Error("couldn't get entropy_avail")
 
 		return
 	}
@@ -70,7 +70,7 @@ func (c *entropyCollector) Collect(ch chan<- prometheus.Metric) {
 		c.entropyAvail, prometheus.GaugeValue, float64(*stats.EntropyAvaliable))
 
 	if stats.PoolSize == nil {
-		zap.S().Errorf("couldn't get entropy poolsize")
+		zap.S().Error("couldn't get entropy poolsize")
 
 		return
 	}
