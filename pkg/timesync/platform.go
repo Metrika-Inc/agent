@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -59,7 +59,8 @@ func (p *PlatformSync) Register(ns int64) {
 	p.prevDelta = p.currentDelta
 	p.currentTimestamp = ts
 	p.currentDelta = d
-	logrus.Debugf("[timesync] currentTimestamp: %v, currentDelta: %v", p.currentTimestamp.String(), p.currentDelta.String())
+	zap.L().Sugar().Debugw("Received new timestamp information.",
+		"current_timestamp", p.currentTimestamp.String(), "current_delta", p.currentDelta.String())
 }
 
 // Healthy calculates if agent time is in sync with Metrika Platform
@@ -69,9 +70,10 @@ func (p *PlatformSync) Healthy() bool {
 	p.RUnlock()
 
 	behind := difference > subsequentMax || p.currentDelta > maxDelta
-	logrus.Debug("[timesync] healthy: ", !behind)
+	log := zap.L().Sugar()
+	log.Debugw("Timesync health check", "healthy", !behind)
 	if behind {
-		logrus.Warn("[timesync] we are behind")
+		log.Warnw("We are out of sync.")
 		return false
 	}
 	return true
@@ -150,10 +152,12 @@ func TrackTimestamps(ctx context.Context) chan<- int64 {
 			select {
 			case timestamp := <-c:
 				if ok := RegisterAndCheck(timestamp); !ok {
+					log := zap.L().Sugar()
 					prevDelta, currDelta := LastDeltas()
-					logrus.Warnf("Delta between platform and local time passed the threshold. Prev: %v, curr: %v", prevDelta, currDelta)
+					log.Warnw("Delta between platform and local time passed the threshold.",
+						"previous_delta", prevDelta, "current_delta", currDelta)
 					if err := Default.SyncNow(); err != nil {
-						logrus.Error("failed to resync: ", err)
+						log.Errorw("Failed to resync", zap.Error(err))
 					} else {
 						Clear()
 					}
