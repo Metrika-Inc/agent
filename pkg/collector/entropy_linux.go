@@ -21,7 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	log "github.com/sirupsen/logrus"
 )
 
 type entropyCollector struct {

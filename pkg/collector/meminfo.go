@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -48,7 +47,7 @@ func (c *meminfoCollector) Collect(ch chan<- prometheus.Metric) {
 
 		return
 	}
-	log.Trace("msg", "Set node_mem", "memInfo", memInfo)
+	log.Debug("msg", "Set node_mem", "memInfo", memInfo)
 	for k, v := range memInfo {
 		if strings.HasSuffix(k, "_total") {
 			metricType = prometheus.CounterValue
@@ -74,7 +73,7 @@ func (c *meminfoCollector) Describe(ch chan<- *prometheus.Desc) {
 
 		return
 	}
-	log.Trace("msg", "Set node_mem", "memInfo", memInfo)
+	log.Debug("msg", "Set node_mem", "memInfo", memInfo)
 	for k := range memInfo {
 		ch <- prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, memInfoSubsystem, k),

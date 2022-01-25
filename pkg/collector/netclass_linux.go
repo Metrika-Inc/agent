@@ -24,7 +24,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs/sysfs"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -64,7 +63,7 @@ func (c *netClassCollector) Collect(ch chan<- prometheus.Metric) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
-			log.Trace("msg", "Could not read netclass file", "err", err)
+			log.Debug("msg", "Could not read netclass file", "err", err)
 			log.Error(ErrNoData)
 
 			return
@@ -221,7 +220,7 @@ func (c *netClassCollector) Describe(ch chan<- *prometheus.Desc) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
-			log.Trace("msg", "Could not read netclass file", "err", err)
+			log.Debug("msg", "Could not read netclass file", "err", err)
 			log.Error(ErrNoData)
 
 			return

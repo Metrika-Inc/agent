@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type loadavgCollector struct {
@@ -48,7 +47,7 @@ func (c *loadavgCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	for i, load := range loads {
-		log.Trace("msg", "return load", "index", i, "load", load)
+		log.Debug("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].mustNewConstMetric(load)
 	}
 
@@ -68,7 +67,7 @@ func (c *loadavgCollector) Describe(ch chan<- *prometheus.Desc) {
 		return
 	}
 	for i, load := range loads {
-		log.Trace("msg", "return load", "index", i, "load", load)
+		log.Debug("msg", "return load", "index", i, "load", load)
 		ch <- c.metric[i].desc
 	}
 

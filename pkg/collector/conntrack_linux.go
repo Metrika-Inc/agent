@@ -23,7 +23,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	log "github.com/sirupsen/logrus"
 )
 
 type conntrackCollector struct {
@@ -153,7 +152,7 @@ func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 
 func (c *conntrackCollector) handleErr(err error) error {
 	if errors.Is(err, os.ErrNotExist) {
-		log.Trace("msg", "conntrack probably not loaded")
+		log.Debug("msg", "conntrack probably not loaded")
 		return ErrNoData
 	}
 	return fmt.Errorf("failed to retrieve conntrack stats: %w", err)

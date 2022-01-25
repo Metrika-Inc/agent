@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type timeCollector struct {
@@ -63,9 +62,9 @@ func (c *timeCollector) Collect(ch chan<- prometheus.Metric) {
 	nowSec := float64(now.UnixNano()) / 1e9
 	zone, zoneOffset := now.Zone()
 
-	log.Trace("msg", "Return time", "now", nowSec)
+	log.Debug("msg", "Return time", "now", nowSec)
 	ch <- c.now.mustNewConstMetric(nowSec)
-	log.Trace("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
+	log.Debug("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
 	ch <- c.zone.mustNewConstMetric(float64(zoneOffset), zone)
 	c.update(ch)
 

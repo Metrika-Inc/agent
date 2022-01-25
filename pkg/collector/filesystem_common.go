@@ -22,7 +22,6 @@ import (
 	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 // Arch-dependent implementation must define:
@@ -96,9 +95,9 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 	}
 
 	subsystem := "filesystem"
-	log.Trace("msg", "Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
+	log.Debug("msg", "Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
 	mountPointPattern := regexp.MustCompile(mountPointsExclude)
-	log.Trace("msg", "Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
+	log.Debug("msg", "Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
 	filesystemsTypesPattern := regexp.MustCompile(fsTypesExclude)
 
 	sizeDesc := prometheus.NewDesc(
