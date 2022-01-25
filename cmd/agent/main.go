@@ -17,7 +17,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -36,10 +35,6 @@ func init() {
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.L().Error("Could not sync with NTP server", zap.Error(err))
 	}
-
-	// TODO: remove when it's all over
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
@@ -77,7 +72,7 @@ func registerWatchers() error {
 	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
 		w := factory.NewWatcherByType(*watcherConf)
 		if w == nil {
-			logrus.Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+			zap.L().Sugar().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
 		}
 
 		watchersEnabled = append(watchersEnabled, w)
@@ -91,15 +86,16 @@ func registerWatchers() error {
 }
 
 func main() {
+	log := zap.L().Sugar()
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	url, err := url.Parse(global.AgentRuntimeConfig.Platform.Addr +
 		global.AgentRuntimeConfig.Platform.URI)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	conf := publisher.HTTPConf{
@@ -119,11 +115,11 @@ func main() {
 	pub.Start(wg)
 
 	if err := registerWatchers(); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if err := global.WatcherRegistry.Start(ch); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	forever := make(chan bool)
