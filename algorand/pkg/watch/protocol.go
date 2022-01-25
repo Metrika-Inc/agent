@@ -7,7 +7,7 @@ import (
 
 	. "agent/pkg/watch"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type AlgorandBlockWatchConf struct {
@@ -58,7 +58,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 			if val, ok := jsonMessage["Type"]; ok && val == "RoundConcluded" {
 				round, ok := jsonMessage["Round"]
 				if !ok {
-					log.Errorln("[AlgorandBlockWatch] detected corrupt log message: missing field 'Round' on 'Type=RoundConcluded'")
+					w.Log.Errorw("Corrupt log message: missing field 'Round'", "type", val)
 					continue
 				}
 
@@ -68,7 +68,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 				}
 				newBlockMetricJson, err := json.Marshal(newBlockMetric)
 				if err != nil {
-					log.Errorln("[AlgorandBlockWatch] failed to marshal new block metric: ", err)
+					w.Log.Error("Failed to marshal new block metric", zap.Error(err))
 					return
 				}
 

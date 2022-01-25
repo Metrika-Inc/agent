@@ -5,7 +5,7 @@ import (
 
 	. "agent/pkg/watch"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // *** AlgorandLogWatch ***
@@ -57,7 +57,7 @@ func (w *AlgorandLogWatch) handleFileChange() {
 
 			body, err := json.Marshal(jsonMap)
 			if err != nil {
-				log.Error("[AlgorandLogWatch] failed to marshal json data: ", err)
+				w.Log.Errorw("Failed to marshal json data", zap.Error(err))
 				continue
 			}
 
