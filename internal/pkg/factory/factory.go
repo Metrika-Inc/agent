@@ -8,8 +8,10 @@ import (
 	algorandWatch "agent/algorand/pkg/watch"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
+
+var log = zap.L().Sugar()
 
 // algorandWatchersFactory creates algorand specific watchers
 func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
@@ -20,7 +22,7 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 			Path: "/var/lib/algorand/algod.pid",
 		}, nil)
 	default:
-		logrus.Fatalf("[algorand] watcher constructor for type %q not found", conf.Type)
+		log.Fatalw("Specified watcher constructor not found", "watcher", conf.Type)
 	}
 
 	return w
@@ -30,12 +32,12 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 	clrFunc, ok := collector.CollectorsFactory[string(t)]
 	if !ok {
-		logrus.Fatalf("[prometheus] collector constructor for type %q not found", t)
+		log.Fatalw("Specified prometheus collector constructor not found", "collector", t)
 	}
 
 	clr, err := clrFunc()
 	if err != nil {
-		logrus.Fatalf("[prometheus] collector contstructor error: %v", err)
+		log.Fatalw("Collector constructor error", zap.Error(err))
 	}
 
 	return clr
@@ -43,7 +45,6 @@ func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 
 func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 	var w watch.Watcher
-	var err error
 	switch {
 	case conf.Type.IsAlgorand(): // algorand
 		w = algorandWatchersFactory(conf)
@@ -59,11 +60,7 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 		})
 		registry.MustRegister(clr)
 	default:
-		logrus.Fatalf("collector for type %q not found", conf.Type)
-	}
-
-	if err != nil {
-		logrus.Fatal(err)
+		log.Fatalw("Specified collector type not found", "collector", conf.Type)
 	}
 
 	return w
