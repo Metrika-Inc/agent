@@ -91,7 +91,6 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				body, err := json.Marshal(metricFam)
 				if err != nil {
 					c.Log.Errorw("Cannot marshal dto.Metric", zap.Error(err))
-					zap.L().Sugar().Error()
 
 					continue
 				}

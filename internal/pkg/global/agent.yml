@@ -13,6 +13,7 @@ runtime:
     outputs:
       - stdout
       # - logs/agent.log
+    # TODO: warning on prod
     level: debug
   metrics_addr: :9000
   sampling_interval: 5s

@@ -52,7 +52,7 @@ func (c *Controller) Start(ctx context.Context) {
 		c.log.Debugw("Buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
 
 		// use exp backoff if errors occur
-		c.log.Debugf("Scheduled drain kick in")
+		c.log.Debug("Scheduled drain kick in")
 		if err := c.Drain(); err != nil {
 			nextBo := backof.NextBackOff()
 			c.log.Warnw("Scheduled drain failed", zap.Error(err), "retry_timer", nextBo)

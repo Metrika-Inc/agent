@@ -98,7 +98,7 @@ func (p *PriorityBuffer) Get(n int) (ItemBatch, uint, error) {
 
 		itemQ, ok := pop.(Item)
 		if !ok {
-			zap.L().Sugar().Warn("illegal item type", "item", pop)
+			zap.L().Sugar().Warnw("illegal item type", "item", pop)
 
 			continue
 		}

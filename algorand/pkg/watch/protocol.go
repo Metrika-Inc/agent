@@ -68,7 +68,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 				}
 				newBlockMetricJson, err := json.Marshal(newBlockMetric)
 				if err != nil {
-					w.Log.Error("Failed to marshal new block metric", zap.Error(err))
+					w.Log.Errorw("Failed to marshal new block metric", zap.Error(err))
 					return
 				}
 
