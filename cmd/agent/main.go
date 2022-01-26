@@ -19,6 +19,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	_ "net/http/pprof"
 )
 
 func init() {
@@ -87,6 +89,7 @@ func registerWatchers() error {
 
 func main() {
 	log := zap.S()
+	defer log.Sync()
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
 		log.Fatal(err)
