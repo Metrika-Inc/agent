@@ -15,6 +15,7 @@ runtime:
       # - logs/agent.log
     # TODO: warning on prod
     level: debug
+  fingerprint: True
   metrics_addr: :9000
   sampling_interval: 5s
   watchers:

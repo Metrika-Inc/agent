@@ -9,16 +9,31 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v3"
 )
 
 var (
+	AgentRuntimeConfig AgentConfig
+	DapperConf         *DapperConfig
 	DefaultConfigPath  = "./internal/pkg/global/agent.yml"
 	DefaultDapperPath  = "./internal/pkg/global/dapper.yml"
 	DefaultAlgoPath    = "./internal/pkg/global/algorand.yml"
-	AgentRuntimeConfig AgentConfig
-	DapperConf         *DapperConfig
+	AgentCacheDir      string
+)
+
+func init() {
+	var err error
+
+	AgentCacheDir, err = os.UserCacheDir()
+	if err != nil {
+		zap.S().Fatalw("user cache directory error: ", zap.Error(err))
+	}
+}
+
+const (
+	DefaultFingerprintFilename = "fingerprint"
 )
 
 type PlatformConfig struct {
@@ -44,6 +59,7 @@ type RuntimeConfig struct {
 	Log              LogConfig      `yaml:"logging"`
 	SamplingInterval time.Duration  `yaml:"sampling_interval"`
 	Watchers         []*WatchConfig `yaml:"watchers"`
+	Fingerprint      bool           `yaml:"fingerprint"`
 }
 
 type AgentConfig struct {
