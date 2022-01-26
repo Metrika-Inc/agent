@@ -106,6 +106,11 @@ func registerWatchers() error {
 func main() {
 	log := zap.S()
 	defer log.Sync()
+
+	if err := global.FingerprintSetup(); err != nil {
+		log.Fatal("fingerprint initialization error: ", err)
+	}
+
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
 		log.Fatal(err)
