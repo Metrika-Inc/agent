@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"agent/internal/pkg/discover"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
@@ -21,6 +23,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	_ "net/http/pprof"
+)
+
+var (
+	reset = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
 )
 
 func init() {
@@ -91,6 +97,10 @@ func registerWatchers() error {
 }
 
 func main() {
+	flag.Parse()
+	discover.AutoConfig(*reset)
+	// TODO: remove exit
+	os.Exit(0)
 	log := zap.S()
 	defer log.Sync()
 	agentUUID, err := uuid.NewUUID()

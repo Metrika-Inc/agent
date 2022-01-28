@@ -1,0 +1,6 @@
+client: flow-go
+nodeID: {{ .NodeID }}
+containerRegex:{{ range .ContainerRegex }}
+  - {{ . }}{{end}}
+pefEndpoints:{{ range .PEFEndpoints }}
+  - {{ . }}{{end}}
