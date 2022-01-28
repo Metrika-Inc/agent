@@ -11,7 +11,10 @@ import (
 
 var (
 	DefaultConfigPath  = "./internal/pkg/global/agent.yml"
+	DefaultDapperPath  = "./internal/pkg/global/dapper.yml"
+	DefaultAlgoPath    = "./internal/pkg/global/algorand.yml"
 	AgentRuntimeConfig AgentConfig
+	DapperConf         *DapperConfig
 )
 
 type PlatformConfig struct {
@@ -50,6 +53,13 @@ type LogConfig struct {
 	Outputs []string `yaml:"outputs"`
 }
 
+type DapperConfig struct {
+	Client         string   `yaml:"client"`
+	ContainerRegex []string `yaml:"containerRegex"`
+	NodeID         string   `yaml:"nodeID"`
+	PEFEndpoints   []string `yaml:"pefEndpoints"`
+}
+
 var zapLevelMapper = map[string]zapcore.Level{
 	"debug":  zapcore.DebugLevel,
 	"info":   zapcore.InfoLevel,
@@ -81,4 +91,30 @@ func LoadDefaultConfig() error {
 	}
 
 	return nil
+}
+
+func LoadDapperConfig() error {
+	var c DapperConfig
+	content, err := ioutil.ReadFile(DefaultDapperPath)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(content, &c); err != nil {
+		return err
+	}
+	DapperConf = &c
+	return nil
+}
+
+func (d *DapperConfig) Default() *DapperConfig {
+	return &DapperConfig{
+		Client: "flow-go",
+		ContainerRegex: []string{
+			"flow-go",
+		},
+		PEFEndpoints: []string{
+			"127.0.0.1:8080/metrics",
+		},
+	}
 }
