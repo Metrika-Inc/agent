@@ -48,6 +48,9 @@ func setupZapLogger() {
 	cfg := zap.NewProductionConfig()
 	cfg.Level = zap.NewAtomicLevelAt(global.AgentRuntimeConfig.Runtime.Log.Level())
 	cfg.OutputPaths = global.AgentRuntimeConfig.Runtime.Log.Outputs
+	if len(cfg.OutputPaths) == 0 {
+		cfg.OutputPaths = []string{"stdout"}
+	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
 	opts := []zap.Option{
 		zap.AddStacktrace(zapcore.WarnLevel),

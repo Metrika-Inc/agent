@@ -2,7 +2,10 @@ package global
 
 import (
 	"agent/pkg/watch"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -77,6 +80,28 @@ func LoadDefaultConfig() error {
 	for _, watchConf := range AgentRuntimeConfig.Runtime.Watchers {
 		if watchConf.SamplingInterval == 0*time.Second {
 			watchConf.SamplingInterval = AgentRuntimeConfig.Runtime.SamplingInterval
+		}
+	}
+
+	if err := createLogFolders(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createLogFolders() error {
+	for _, logPath := range AgentRuntimeConfig.Runtime.Log.Outputs {
+		if strings.HasSuffix(logPath, "/") {
+			return fmt.Errorf("invalid log output path ending with '/': %s", logPath)
+		}
+		pathSplit := strings.Split(logPath, "/")
+		if len(pathSplit) == 1 {
+			continue
+		}
+		folder := strings.Join(pathSplit[:len(pathSplit)-1], "/")
+		if err := os.MkdirAll(folder, 0755); err != nil {
+			return err
 		}
 	}
 
