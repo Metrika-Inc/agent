@@ -84,7 +84,7 @@ func (t *TimeSync) Start() {
 			case <-t.ticker.C:
 				err := t.QueryNTP()
 				if err != nil {
-					zap.L().Error("Failed to sync time with NTP Server: ", zap.Error(err))
+					zap.S().Errorw("failed to sync time with NTP server", zap.Error(err))
 					continue
 				}
 				t.setAdjustBool()
@@ -131,7 +131,7 @@ func (t *TimeSync) QueryNTP() error {
 		if err == nil {
 			break
 		}
-		log.Warnw("Error querying NTP server", "attempt", i+1, zap.Error(err))
+		log.Warnw("error querying NTP server", "attempt", i+1, zap.Error(err))
 	}
 	if err != nil {
 		return err
@@ -140,7 +140,7 @@ func (t *TimeSync) QueryNTP() error {
 	t.Lock()
 	t.delta = resp.ClockOffset
 	t.Unlock()
-	log.Infow("Time synced with NTP server", "clock_offset", resp.ClockOffset)
+	log.Infow("time synced with NTP server", "clock_offset", resp.ClockOffset)
 	return nil
 }
 

@@ -59,7 +59,7 @@ func (p *PlatformSync) Register(ns int64) {
 	p.prevDelta = p.currentDelta
 	p.currentTimestamp = ts
 	p.currentDelta = d
-	zap.S().Debugw("Received new timestamp information.",
+	zap.S().Debugw("received new timestamp information",
 		"current_timestamp", p.currentTimestamp.String(), "current_delta", p.currentDelta.String())
 }
 
@@ -71,9 +71,9 @@ func (p *PlatformSync) Healthy() bool {
 
 	behind := difference > subsequentMax || p.currentDelta > maxDelta
 	log := zap.S()
-	log.Debugw("Timesync health check", "healthy", !behind)
+	log.Debugw("timesync health check", "healthy", !behind)
 	if behind {
-		log.Warnw("We are out of sync.")
+		log.Warnw("we are out of sync")
 		return false
 	}
 	return true
@@ -154,10 +154,10 @@ func TrackTimestamps(ctx context.Context) chan<- int64 {
 				if ok := RegisterAndCheck(timestamp); !ok {
 					log := zap.S()
 					prevDelta, currDelta := LastDeltas()
-					log.Warnw("Delta between platform and local time passed the threshold.",
+					log.Warnw("delta between platform and local time passed the threshold",
 						"previous_delta", prevDelta, "current_delta", currDelta)
 					if err := Default.SyncNow(); err != nil {
-						log.Errorw("Failed to resync", zap.Error(err))
+						log.Errorw("failed to resync", zap.Error(err))
 					} else {
 						Clear()
 					}

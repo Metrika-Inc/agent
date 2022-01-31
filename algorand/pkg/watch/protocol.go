@@ -58,7 +58,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 			if val, ok := jsonMessage["Type"]; ok && val == "RoundConcluded" {
 				round, ok := jsonMessage["Round"]
 				if !ok {
-					w.Log.Errorw("Corrupt log message: missing field 'Round'", "type", val)
+					w.Log.Errorw("corrupt log message: missing field 'Round'", "type", val)
 					continue
 				}
 
@@ -68,7 +68,7 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 				}
 				newBlockMetricJson, err := json.Marshal(newBlockMetric)
 				if err != nil {
-					w.Log.Errorw("Failed to marshal new block metric", zap.Error(err))
+					w.Log.Errorw("failed to marshal new block metric", zap.Error(err))
 					return
 				}
 

@@ -69,7 +69,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 
 		item, ok := v.(Item)
 		if !ok {
-			zap.S().Warnf("Unknown queue item type peeked %T", item)
+			zap.S().Warnf("unknown queue item type peeked %T", item)
 
 			return 0
 		}
@@ -79,7 +79,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 			v := heap.Pop(pq)
 			item, ok := v.(Item)
 			if !ok {
-				zap.S().Warnf("Unknown queue item type popped %T", item)
+				zap.S().Warnf("unknown queue item type popped %T", item)
 
 				return claimSz
 			}
@@ -143,9 +143,7 @@ func (m multiQueue) DrainExpired() uint {
 	}
 
 	if expiredCnt > 0 {
-		zap.L().Warn("Items expired",
-			zap.Int("expired_count", expiredCnt),
-			zap.Uint("expired_bytes", claimSz))
+		zap.S().Warnw("items in buffer expired", "expired_count", expiredCnt, "expired_bytes", claimSz)
 	}
 
 	return claimSz

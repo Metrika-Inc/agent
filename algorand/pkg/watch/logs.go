@@ -57,7 +57,7 @@ func (w *AlgorandLogWatch) handleFileChange() {
 
 			body, err := json.Marshal(jsonMap)
 			if err != nil {
-				w.Log.Errorw("Failed to marshal json data", zap.Error(err))
+				w.Log.Errorw("failed to marshal json data", zap.Error(err))
 				continue
 			}
 

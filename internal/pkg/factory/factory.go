@@ -20,7 +20,7 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 			Path: "/var/lib/algorand/algod.pid",
 		}, nil)
 	default:
-		zap.S().Fatalw("Specified watcher constructor not found", "watcher", conf.Type)
+		zap.S().Fatalw("specified watcher constructor not found", "watcher", conf.Type)
 	}
 
 	return w
@@ -30,12 +30,12 @@ func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 	clrFunc, ok := collector.CollectorsFactory[string(t)]
 	if !ok {
-		zap.S().Fatalw("Specified prometheus collector constructor not found", "collector", t)
+		zap.S().Fatalw("specified prometheus collector constructor not found", "collector", t)
 	}
 
 	clr, err := clrFunc()
 	if err != nil {
-		zap.S().Fatalw("Collector constructor error", zap.Error(err))
+		zap.S().Fatalw("collector constructor error", zap.Error(err))
 	}
 
 	return clr
@@ -58,7 +58,7 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 		})
 		registry.MustRegister(clr)
 	default:
-		zap.S().Fatalw("Specified collector type not found", "collector", conf.Type)
+		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}
 
 	return w

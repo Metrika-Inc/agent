@@ -35,7 +35,7 @@ func init() {
 
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {
-		zap.L().Error("Could not sync with NTP server", zap.Error(err))
+		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
 	}
 
 	go func() {
@@ -59,7 +59,7 @@ func setupZapLogger() {
 		panic(fmt.Sprintf("failed to setup zap logging: %v", err))
 	}
 
-	// set newly configured logger as default (access via zap.L())
+	// set newly configured logger as default (access via zap.L() // zap.S())
 	zap.ReplaceGlobals(l)
 }
 

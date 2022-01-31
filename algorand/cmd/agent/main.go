@@ -41,7 +41,7 @@ func main() {
 	go func() {
 		for {
 			value := <-ch
-			log.Info("Emitted", value.(map[string]interface{}))
+			log.Info("emitted ", value.(map[string]interface{}))
 		}
 	}()
 	w.Subscribe(ch)

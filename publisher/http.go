@@ -111,12 +111,12 @@ func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		zap.L().Error("Failed to read response body", zap.Error(err))
+		zap.S().Errorw("failed to read response body", zap.Error(err))
 		return 0, nil
 	}
 	timestamp, err := strconv.ParseInt(string(body), 10, 64)
 	if err != nil {
-		zap.L().Error("parseInt on response body failed", zap.Error(err))
+		zap.S().Errorw("parseInt on response body failed", zap.Error(err))
 	}
 
 	return timestamp, nil
@@ -243,7 +243,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				if err != nil {
 					MetricsDropCnt.Inc()
 					if prevErr == nil {
-						log.Errorw("Metric dropped, buffer unavailable", zap.Error(err))
+						log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 						prevErr = err
 					}
 					continue
@@ -252,21 +252,21 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				publishState := state.PublishState()
 				if publishState == platformStateUp {
 					if h.buffer.Len() >= h.conf.MaxBatchLen {
-						log.Debug("MaxBatchLen exceeded, eager drain kick in")
+						log.Debug("maxBatchLen exceeded, eager drain kick in")
 
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
-							log.Warn("Eager drain failed", zap.Error(drainErr))
+							log.Warn("eager drain failed", zap.Error(drainErr))
 							prevErr = drainErr
 
 							continue
 						}
-						log.Debug("Eager drain ok")
+						log.Debug("eager drain ok")
 					}
 				}
 				prevErr = nil
 			case <-h.closeCh:
-				log.Debug("Stopping buf controller, ingestion goroutine exiting")
+				log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
 
 				return

@@ -33,7 +33,7 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 
 func (c *Controller) Start(ctx context.Context) {
 	log := zap.S()
-	log.Info("Starting buffer controller")
+	log.Info("starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire
@@ -49,13 +49,13 @@ func (c *Controller) Start(ctx context.Context) {
 	}
 
 	for {
-		log.Debugw("Buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
+		log.Debugw("buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
 
 		// use exp backoff if errors occur
-		log.Debug("Scheduled drain kick in")
+		log.Debug("scheduled drain kick in")
 		if err := c.Drain(); err != nil {
 			nextBo := backof.NextBackOff()
-			log.Warnw("Scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
+			log.Warnw("scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
 
 			select {
 			case <-time.After(nextBo):
@@ -77,7 +77,7 @@ func (c *Controller) Start(ctx context.Context) {
 			return
 		}
 
-		log.Debug("Scheduled drain ok")
+		log.Debug("scheduled drain ok")
 	}
 }
 
@@ -130,7 +130,7 @@ func (c *Controller) Drain() error {
 	}
 
 	if drainedCnt > 0 {
-		zap.S().Infow("Buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
+		zap.S().Infow("buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
 	}
 
 	return nil

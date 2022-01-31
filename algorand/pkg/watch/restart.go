@@ -71,7 +71,7 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			}
 			jsonHealth, err := json.Marshal(health)
 			if err != nil {
-				w.Log.Errorw("Failed to marshal node health info", zap.Error(err))
+				w.Log.Errorw("failed to marshal node health info", zap.Error(err))
 				continue
 			}
 
