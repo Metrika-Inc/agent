@@ -64,6 +64,7 @@ func (c *netClassCollector) Collect(ch chan<- prometheus.Metric) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+			zap.S().Debug("msg", "Could not read netclass file", "err", err)
 			zap.S().Error(ErrNoData)
 
 			return
@@ -220,6 +221,7 @@ func (c *netClassCollector) Describe(ch chan<- *prometheus.Desc) {
 	netClass, err := c.getNetClassInfo()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+			zap.S().Debug("msg", "Could not read netclass file", "err", err)
 			zap.S().Error(ErrNoData)
 
 			return

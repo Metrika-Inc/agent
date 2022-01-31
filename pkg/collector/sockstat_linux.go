@@ -55,6 +55,7 @@ func (c *sockStatCollector) Collect(ch chan<- prometheus.Metric) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
+		zap.S().Debug("msg", "IPv4 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv4 sockstat data: %w", err)
 		zap.S().Error(err)
@@ -66,6 +67,7 @@ func (c *sockStatCollector) Collect(ch chan<- prometheus.Metric) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
+		zap.S().Debug("msg", "IPv6 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv6 sockstat data: %w", err)
 		zap.S().Error(err)
@@ -281,6 +283,7 @@ func (c *sockStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
+		zap.S().Debug("msg", "IPv4 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv4 sockstat data: %w", err)
 		zap.S().Error(err)
@@ -292,6 +295,7 @@ func (c *sockStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
+		zap.S().Debug("msg", "IPv6 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv6 sockstat data: %w", err)
 		zap.S().Error(err)

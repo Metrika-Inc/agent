@@ -153,6 +153,7 @@ func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 
 func (c *conntrackCollector) handleErr(err error) error {
 	if errors.Is(err, os.ErrNotExist) {
+		zap.S().Debug("msg", "conntrack probably not loaded")
 		return ErrNoData
 	}
 	return fmt.Errorf("failed to retrieve conntrack stats: %w", err)

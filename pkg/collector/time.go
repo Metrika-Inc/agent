@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 type timeCollector struct {
@@ -62,7 +63,9 @@ func (c *timeCollector) Collect(ch chan<- prometheus.Metric) {
 	nowSec := float64(now.UnixNano()) / 1e9
 	zone, zoneOffset := now.Zone()
 
+	zap.S().Debug("msg", "Return time", "now", nowSec)
 	ch <- c.now.mustNewConstMetric(nowSec)
+	zap.S().Debug("msg", "Zone offset", "offset", zoneOffset, "time_zone", zone)
 	ch <- c.zone.mustNewConstMetric(float64(zoneOffset), zone)
 	c.update(ch)
 
