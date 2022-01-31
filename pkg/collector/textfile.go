@@ -74,7 +74,7 @@ func convertMetricFamily(metricFamily *dto.MetricFamily, ch chan<- prometheus.Me
 
 	for _, metric := range metricFamily.Metric {
 		if metric.TimestampMs != nil {
-			zap.S().Warn("msg", "Ignoring unsupported custom timestamp on textfile collector metric", "metric", metric)
+			zap.S().Warnw("Ignoring unsupported custom timestamp on textfile collector metric", "metric", metric)
 		}
 
 		labels := metric.GetLabel()
@@ -173,7 +173,7 @@ func convertMetricFamilyDesc(metricFamily *dto.MetricFamily, ch chan<- *promethe
 
 	for _, metric := range metricFamily.Metric {
 		if metric.TimestampMs != nil {
-			zap.S().Warn("msg", "Ignoring unsupported custom timestamp on textfile collector metric", "metric", metric)
+			zap.S().Warnw("Ignoring unsupported custom timestamp on textfile collector metric", "metric", metric)
 		}
 
 		labels := metric.GetLabel()
@@ -292,7 +292,7 @@ func (c *textFileCollector) Collect(ch chan<- prometheus.Metric) {
 		files, err := ioutil.ReadDir(path)
 		if err != nil && path != "" {
 			errored = true
-			zap.S().Error("msg", "failed to read textfile collector directory", "path", path, "err", err)
+			zap.S().Errorw("failed to read textfile collector directory", "path", path, "err", err)
 		}
 
 		for _, f := range files {
@@ -303,7 +303,7 @@ func (c *textFileCollector) Collect(ch chan<- prometheus.Metric) {
 			mtime, err := c.processFile(path, f.Name(), ch)
 			if err != nil {
 				errored = true
-				zap.S().Error("msg", "failed to collect textfile data", "file", f.Name(), "err", err)
+				zap.S().Errorw("failed to collect textfile data", "file", f.Name(), "err", err)
 				continue
 			}
 
@@ -433,7 +433,7 @@ func (c *textFileCollector) Describe(ch chan<- *prometheus.Desc) {
 	for _, path := range paths {
 		files, err := ioutil.ReadDir(path)
 		if err != nil && path != "" {
-			zap.S().Error("msg", "failed to read textfile collector directory", "path", path, "err", err)
+			zap.S().Errorw("failed to read textfile collector directory", "path", path, "err", err)
 		}
 
 		for _, f := range files {
@@ -443,7 +443,7 @@ func (c *textFileCollector) Describe(ch chan<- *prometheus.Desc) {
 
 			mtime, err := c.processFileDesc(path, f.Name(), ch)
 			if err != nil {
-				zap.S().Error("msg", "failed to collect textfile data", "file", f.Name(), "err", err)
+				zap.S().Errorw("failed to collect textfile data", "file", f.Name(), "err", err)
 				continue
 			}
 

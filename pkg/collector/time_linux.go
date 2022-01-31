@@ -35,7 +35,7 @@ func (c *timeCollector) update(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		return fmt.Errorf("couldn't get clocksources: %w", err)
 	}
-	zap.S().Debug("msg", "in Update", "clocksources", fmt.Sprintf("%v", clocksources))
+	zap.S().Debugw("in Update", "clocksources", fmt.Sprintf("%v", clocksources))
 
 	for i, clocksource := range clocksources {
 		is := strconv.Itoa(i)
@@ -57,7 +57,7 @@ func (c *timeCollector) updateDesc(ch chan<- *prometheus.Desc) error {
 	if err != nil {
 		return fmt.Errorf("couldn't get clocksources: %w", err)
 	}
-	zap.S().Debug("msg", "in Update", "clocksources", fmt.Sprintf("%v", clocksources))
+	zap.S().Debugw("in Update", "clocksources", fmt.Sprintf("%v", clocksources))
 
 	ch <- c.clocksourcesAvailable.desc
 	ch <- c.clocksourceCurrent.desc

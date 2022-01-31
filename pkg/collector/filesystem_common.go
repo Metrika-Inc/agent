@@ -79,7 +79,7 @@ type filesystemStats struct {
 func NewFilesystemCollector() (prometheus.Collector, error) {
 	if oldMountPointsExcluded != "" {
 		if !mountPointsExcludeSet {
-			zap.S().Warn("msg", "--collector.filesystem.ignored-mount-points is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.mount-points-exclude")
+			zap.S().Warnw("--collector.filesystem.ignored-mount-points is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.mount-points-exclude")
 			mountPointsExclude = oldMountPointsExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-mount-points and --collector.filesystem.mount-points-exclude are mutually exclusive")
@@ -88,7 +88,7 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 
 	if oldFSTypesExcluded != "" {
 		if !fsTypesExcludeSet {
-			zap.S().Warn("msg", "--collector.filesystem.ignored-fs-types is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.fs-types-exclude")
+			zap.S().Warnw("--collector.filesystem.ignored-fs-types is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.fs-types-exclude")
 			fsTypesExclude = oldFSTypesExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-fs-types and --collector.filesystem.fs-types-exclude are mutually exclusive")
@@ -96,9 +96,9 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 	}
 
 	subsystem := "filesystem"
-	zap.S().Debug("msg", "Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
+	zap.S().Debugw("Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
 	mountPointPattern := regexp.MustCompile(mountPointsExclude)
-	zap.S().Debug("msg", "Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
+	zap.S().Debugw("Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
 	filesystemsTypesPattern := regexp.MustCompile(fsTypesExclude)
 
 	sizeDesc := prometheus.NewDesc(
