@@ -2,12 +2,17 @@ package discover
 
 import (
 	"agent/internal/pkg/global"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"regexp"
+	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -87,7 +92,10 @@ func GetContainer(identifiers []string) (dt.Container, error) {
 
 	for _, container := range containers {
 		for _, rStr := range identifiers {
-			r := regexp.MustCompile(rStr)
+			r, err := regexp.Compile(rStr)
+			if err != nil {
+				return dt.Container{}, err
+			}
 
 			// Try to match the identifier with container names
 			for _, name := range container.Names {
@@ -119,5 +127,43 @@ func generateConfig(templatePath, configPath string, config interface{}) {
 
 	// t.ExecuteTemplate(configFile, "configs/dapper.template", global.DapperConf)
 	t.Execute(configFile, config)
+}
 
+// pidOf returns the PID of a specified process name.
+// If process is not found an os.ExitError is returned.
+// In case of abnormal output, strconv.NumError is returned.
+func pidOf(name string) (int, error) {
+	var err error
+	var ret int
+	// try pidof
+	output, err := exec.Command("pidof", "-s", name).CombinedOutput()
+	if err == nil {
+		ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
+		if err == nil {
+			return ret, nil
+		}
+	}
+	// try pgrep
+	output, err = exec.Command("pgrep", "-n", name).Output()
+	if err == nil {
+		ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
+		if err == nil {
+			return ret, nil
+		}
+	}
+	return 0, err
+}
+
+// pidArgs returns a string slice of the command line arguments
+// of a specifid PID.
+// First element is the executable path.
+func pidArgs(pid int) ([]string, error) {
+	pidStr := strconv.Itoa(pid)
+
+	out, err := ioutil.ReadFile("/proc/" + pidStr + "/cmdline")
+	if err != nil {
+		return nil, err
+	}
+	args := bytes.Replace(out, []byte{0x0}, []byte{' '}, -1)
+	return strings.Fields(string(args)), nil
 }
