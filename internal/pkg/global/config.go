@@ -2,9 +2,13 @@ package global
 
 import (
 	"agent/pkg/watch"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 
+	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -33,6 +37,7 @@ type WatchConfig struct {
 
 type RuntimeConfig struct {
 	MetricsAddr      string         `yaml:"metrics_addr"`
+	Log              LogConfig      `yaml:"logging"`
 	SamplingInterval time.Duration  `yaml:"sampling_interval"`
 	Watchers         []*WatchConfig `yaml:"watchers"`
 }
@@ -41,6 +46,25 @@ type AgentConfig struct {
 	Platform PlatformConfig `yaml:"platform"`
 	Buffer   BufferConfig   `yaml:"buffer"`
 	Runtime  RuntimeConfig  `yaml:"runtime"`
+}
+
+type LogConfig struct {
+	Lvl     string   `yaml:"level"`
+	Outputs []string `yaml:"outputs"`
+}
+
+var zapLevelMapper = map[string]zapcore.Level{
+	"debug":  zapcore.DebugLevel,
+	"info":   zapcore.InfoLevel,
+	"warn":   zapcore.WarnLevel,
+	"error":  zapcore.ErrorLevel,
+	"dpanic": zapcore.DPanicLevel,
+	"panic":  zapcore.PanicLevel,
+	"fatal":  zapcore.FatalLevel,
+}
+
+func (l LogConfig) Level() zapcore.Level {
+	return zapLevelMapper[l.Lvl]
 }
 
 func LoadDefaultConfig() error {
@@ -56,6 +80,28 @@ func LoadDefaultConfig() error {
 	for _, watchConf := range AgentRuntimeConfig.Runtime.Watchers {
 		if watchConf.SamplingInterval == 0*time.Second {
 			watchConf.SamplingInterval = AgentRuntimeConfig.Runtime.SamplingInterval
+		}
+	}
+
+	if err := createLogFolders(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createLogFolders() error {
+	for _, logPath := range AgentRuntimeConfig.Runtime.Log.Outputs {
+		if strings.HasSuffix(logPath, "/") {
+			return fmt.Errorf("invalid log output path ending with '/': %s", logPath)
+		}
+		pathSplit := strings.Split(logPath, "/")
+		if len(pathSplit) == 1 {
+			continue
+		}
+		folder := strings.Join(pathSplit[:len(pathSplit)-1], "/")
+		if err := os.MkdirAll(folder, 0755); err != nil {
+			return err
 		}
 	}
 

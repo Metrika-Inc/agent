@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 func TestMain(m *testing.M) {
@@ -16,7 +16,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	if err := global.LoadDefaultConfig(); err != nil {
-		logrus.Fatal(err)
+		zap.L().Fatal("failed to load config", zap.Error(err))
 	}
 
 	os.Exit(m.Run())

@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -67,7 +67,7 @@ func parseNetDevStats(r io.Reader, filter *netDevFilter) (netDevStats, error) {
 
 		dev := parts[1]
 		if filter.ignored(dev) {
-			log.Trace("msg", "Ignoring device", "device", dev)
+			zap.S().Debugw("Ignoring device", "device", dev)
 			continue
 		}
 
@@ -80,7 +80,7 @@ func parseNetDevStats(r io.Reader, filter *netDevFilter) (netDevStats, error) {
 		addStats := func(key, value string) {
 			v, err := strconv.ParseUint(value, 0, 64)
 			if err != nil {
-				log.Trace("msg", "invalid value in netstats", "key", key, "value", value, "err", err)
+				zap.S().Debugw("invalid value in netstats", "key", key, "value", value, "err", err)
 				return
 			}
 

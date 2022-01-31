@@ -21,7 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type statCollector struct {
@@ -87,7 +87,7 @@ func NewStatCollector() (prometheus.Collector, error) {
 func (c *statCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.fs.Stat()
 	if err != nil {
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -127,7 +127,7 @@ func (c *statCollector) Collect(ch chan<- prometheus.Metric) {
 func (c *statCollector) Describe(ch chan<- *prometheus.Desc) {
 	stats, err := c.fs.Stat()
 	if err != nil {
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

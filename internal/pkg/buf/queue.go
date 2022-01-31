@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // An Item is something we manage in a priority queue.
@@ -69,7 +69,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 
 		item, ok := v.(Item)
 		if !ok {
-			logrus.Warnf("[mqueue] unknown queue item type peeked %T", item)
+			zap.S().Warnf("unknown queue item type peeked %T", item)
 
 			return 0
 		}
@@ -79,7 +79,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 			v := heap.Pop(pq)
 			item, ok := v.(Item)
 			if !ok {
-				logrus.Warnf("[mqueue] unknown queue item type popped %T", item)
+				zap.S().Warnf("unknown queue item type popped %T", item)
 
 				return claimSz
 			}
@@ -125,7 +125,7 @@ func (m multiQueue) Len() int {
 func (m multiQueue) Push(x interface{}) {
 	itemQ, ok := x.(Item)
 	if !ok {
-		logrus.Warnf("unknown queue item type %T", itemQ)
+		zap.S().Warnf("unknown queue item type %T", itemQ)
 
 		return
 	}
@@ -143,7 +143,7 @@ func (m multiQueue) DrainExpired() uint {
 	}
 
 	if expiredCnt > 0 {
-		logrus.Warnf("[mqueue] items expired %d %dB", expiredCnt, claimSz)
+		zap.S().Warnw("items in buffer expired", "expired_count", expiredCnt, "expired_bytes", claimSz)
 	}
 
 	return claimSz
@@ -155,7 +155,7 @@ func (m multiQueue) Pop() (interface{}, uint) {
 			v := heap.Pop(m[i])
 			item, ok := v.(Item)
 			if !ok {
-				logrus.Warnf("unknown queue item type %T", item)
+				zap.S().Warnf("unknown queue item type %T", item)
 
 				return nil, 0
 			}

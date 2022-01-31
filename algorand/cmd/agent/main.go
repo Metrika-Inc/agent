@@ -4,13 +4,15 @@ import (
 	"fmt"
 
 	"agent/pkg/watch"
-	log "github.com/sirupsen/logrus"
+
+	"go.uber.org/zap"
 )
 
 func main() {
 	fmt.Println("Hello, Agent!")
 
-	log.SetLevel(log.WarnLevel)
+	l, _ := zap.NewProduction()
+	log := l.Sugar()
 
 	//w := watch.NewTimerWatch(watch.TimerWatchConf{
 	//	Interval: 1 * time.Second,
@@ -39,7 +41,7 @@ func main() {
 	go func() {
 		for {
 			value := <-ch
-			log.Info("Emitted", value.(map[string]interface{}))
+			log.Info("emitted ", value.(map[string]interface{}))
 		}
 	}()
 	w.Subscribe(ch)

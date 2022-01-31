@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type DotPidWatchConf struct {
@@ -67,18 +67,18 @@ func (w *DotPidWatch) handlePidFileChanges() {
 			if op.(fsnotify.Op)&fsnotify.Create == fsnotify.Create {
 				pid, err := w.readPid()
 				if err != nil {
-					log.Errorf("[DotPidWatch] Failed to read pid file on create: %v\n", err)
+					w.Log.Errorw("Failed to read pid file on create", zap.Error(err))
 					continue
 				}
 
 				// Emit new pid
 				w.Emit(pid)
-				log.Tracef("[DotPidWatch] emitted new pid.\n")
+				w.Log.Debugw("New pid emitted", "pid", pid)
 
 			} else {
 				// op == REMOVE
 				w.Emit(0)
-				log.Tracef("[DotPidWatch] emitted 0 pid.\n")
+				w.Log.Debug("0 pid emitted")
 			}
 
 		case <-w.StopKey:

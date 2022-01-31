@@ -6,7 +6,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type ControllerConf struct {
@@ -32,7 +32,8 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 }
 
 func (c *Controller) Start(ctx context.Context) {
-	logrus.Info("[bufCtrl] starting buffer controller")
+	log := zap.S()
+	log.Info("starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire
@@ -48,14 +49,13 @@ func (c *Controller) Start(ctx context.Context) {
 	}
 
 	for {
-		logrus.Debugf("[bufCtrl] buffer stats %d %dB", c.B.Len(), c.B.Bytes())
+		log.Debugw("buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
 
 		// use exp backoff if errors occur
-		logrus.Debugf("[bufCtrl] scheduled drain kick in")
+		log.Debug("scheduled drain kick in")
 		if err := c.Drain(); err != nil {
 			nextBo := backof.NextBackOff()
-			logrus.Warn("[bufCtrl] error ", err)
-			logrus.Warn("[bufCtrl] will retry again in ", nextBo)
+			log.Warnw("scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
 
 			select {
 			case <-time.After(nextBo):
@@ -77,7 +77,7 @@ func (c *Controller) Start(ctx context.Context) {
 			return
 		}
 
-		logrus.Debugf("[bufCtrl] scheduled drain ok")
+		log.Debug("scheduled drain ok")
 	}
 }
 
@@ -130,7 +130,7 @@ func (c *Controller) Drain() error {
 	}
 
 	if drainedCnt > 0 {
-		logrus.Infof("[bufCtrl] buffer drain ok %d %dB", drainedCnt, drainedSz)
+		zap.S().Infow("buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
 	}
 
 	return nil

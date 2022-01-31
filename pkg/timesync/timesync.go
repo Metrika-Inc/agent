@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/beevik/ntp"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type TimeSync struct {
@@ -84,7 +84,7 @@ func (t *TimeSync) Start() {
 			case <-t.ticker.C:
 				err := t.QueryNTP()
 				if err != nil {
-					log.Error("Failed to sync time with NTP Server: ", err)
+					zap.S().Errorw("failed to sync time with NTP server", zap.Error(err))
 					continue
 				}
 				t.setAdjustBool()
@@ -123,6 +123,7 @@ func (t *TimeSync) SyncNow() error {
 // QueryNTP queries the NTP server at address of TimeSync.host
 // It stores the clock offset in TimeSync.delta.
 func (t *TimeSync) QueryNTP() error {
+	log := zap.S()
 	var resp *ntp.Response
 	var err error
 	for i := 0; i < t.retries; i++ {
@@ -130,7 +131,7 @@ func (t *TimeSync) QueryNTP() error {
 		if err == nil {
 			break
 		}
-		log.Warnf("Error querying NTP server (attempt %d of %d): %v", i+1, t.retries, err)
+		log.Warnw("error querying NTP server", "attempt", i+1, zap.Error(err))
 	}
 	if err != nil {
 		return err
@@ -139,8 +140,7 @@ func (t *TimeSync) QueryNTP() error {
 	t.Lock()
 	t.delta = resp.ClockOffset
 	t.Unlock()
-	log.Debugf("NTP server response: %+v", resp)
-	log.Infof("[NTP] Time synced. System offset: %v", resp.ClockOffset)
+	log.Infow("time synced with NTP server", "clock_offset", resp.ClockOffset)
 	return nil
 }
 
@@ -171,6 +171,11 @@ func (t *TimeSync) Now() time.Time {
 	t.RLock()
 	defer t.RUnlock()
 	return t.now()
+}
+
+// NewTicker implements zapcore.Clock interface.
+func (t *TimeSync) NewTicker(d time.Duration) *time.Ticker {
+	return time.NewTicker(d)
 }
 
 func (t *TimeSync) now() time.Time {

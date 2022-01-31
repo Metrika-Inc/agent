@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type FileWatchConf struct {
@@ -33,6 +33,7 @@ type FileReadWatch struct {
 func NewFileReadWatch(conf FileReadWatchConf, timerWatch *TimerWatch) *FileReadWatch {
 	w := new(FileReadWatch)
 	w.Watch = NewWatch()
+	w.Log = w.Log.With("path", w.Path)
 	w.FileReadWatchConf = conf
 	w.TimerWatch = timerWatch
 	w.timerCh = make(chan interface{}, 1)
@@ -83,7 +84,7 @@ func (w *FileReadWatch) emitFile() {
 	// Read file
 	file, err := ioutil.ReadFile(w.Path)
 	if err != nil {
-		log.Errorf("[FileReadWatch] Failed to read file %s: %v\n", w.Path, err)
+		w.Log.Errorw("Failed to read file", zap.Error(err))
 		return
 	}
 
@@ -112,6 +113,7 @@ type FileNotifyWatch struct {
 func NewFileNotifyWatch(conf FileNotifyWatchConf) Watcher {
 	w := new(FileNotifyWatch)
 	w.Watch = NewWatch()
+	w.Log = w.Log.With("path", w.Path)
 	w.FileNotifyWatchConf = conf
 	return w
 }
@@ -135,7 +137,7 @@ func (w *FileNotifyWatch) Stop() {
 
 	err := w.watcher.Close()
 	if err != nil {
-		log.Errorf("[FileNotifyWatch] Failed to stop watch service: %v\n", err)
+		w.Log.Errorw("Failed to stop watch service", zap.Error(err))
 	}
 }
 
@@ -153,7 +155,7 @@ func (w *FileNotifyWatch) pollEvents() {
 
 			if event.Op&w.Ops != 0 {
 				// Event is in the given options (we do not know which), emit event
-				log.Tracef("[FileNotifyWatch] Emitted '%s' for '%s'\n", event.Op.String(), w.Path)
+				w.Log.Infow("File event received.", "event", event.Op.String())
 				w.Emit(event.Op)
 			}
 
@@ -169,7 +171,7 @@ func (w *FileNotifyWatch) pollEvents() {
 
 			// Log on error, we will try to restart if channel closed anyway
 			if err != nil {
-				log.Errorf("[FileNotifyWatch] Error from watch service (EVENTS WERE LOST): %v\n", err)
+				w.Log.Errorw("Error from watch service (EVENTS WERE LOST)", zap.Error(err))
 			}
 
 			w.tryCreateWatcher() // Attempt to restart service
@@ -196,7 +198,7 @@ func (w *FileNotifyWatch) tryCreateWatcher() {
 	tryCreate := func() bool {
 		err := w.createWatcher()
 		if err != nil {
-			log.Errorf("[FileNotifyWatch] Failed to create watch service: %v\n", err)
+			w.Log.Errorw("Failed to create watch service", zap.Error(err))
 			return false
 		}
 
@@ -208,7 +210,7 @@ func (w *FileNotifyWatch) tryCreateWatcher() {
 				return true
 			}
 
-			log.Errorf("[FileNotifyWatch] Failed to watch file '%s': %v\n", w.Path, err)
+			w.Log.Errorw("Failed to watch file", zap.Error(err))
 			return false
 		}
 
@@ -246,8 +248,7 @@ func (w *FileNotifyWatch) waitForFileCreation() {
 
 				// Simulate create event
 				w.Emit(fsnotify.Create)
-				log.Tracef("[FileNotifyWatch] Emitted '%s' for '%s'\n", fsnotify.Create.String(), w.Path)
-
+				w.Log.Infow("File event received.", "event", fsnotify.Create.String())
 				return
 			}
 
