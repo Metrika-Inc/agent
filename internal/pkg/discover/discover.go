@@ -2,10 +2,12 @@ package discover
 
 import (
 	"agent/internal/pkg/global"
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -18,6 +20,7 @@ import (
 
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/joho/godotenv"
 )
 
 var ErrContainerNotFound = errors.New("container not found")
@@ -80,7 +83,8 @@ type ItemExecutor struct {
 // the first running container to match any of the identifiers.
 // If no matches are found, ErrContainerNotFound is returned.
 func GetContainer(identifiers []string) (dt.Container, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return dt.Container{}, err
@@ -166,4 +170,20 @@ func pidArgs(pid int) ([]string, error) {
 	}
 	args := bytes.Replace(out, []byte{0x0}, []byte{' '}, -1)
 	return strings.Fields(string(args)), nil
+}
+
+// getEnvFromFile returns a map of environment variables parsed from a file.
+func getEnvFromFile(path string) (map[string]string, error) {
+	return godotenv.Read(path)
+}
+
+// getLogLine wraps a reader and returns the first line of text.
+// Use to determine the validity of the log file.
+func getLogLine(r io.Reader) ([]byte, error) {
+	scan := bufio.NewScanner(r)
+	ok := scan.Scan()
+	if !ok {
+		return nil, scan.Err()
+	}
+	return scan.Bytes(), nil
 }

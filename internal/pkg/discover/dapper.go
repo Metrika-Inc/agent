@@ -13,11 +13,19 @@ import (
 	dt "github.com/docker/docker/api/types"
 )
 
+const (
+	FlowVersionKey        = "FLOW_GO_NODE_VERSION"
+	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
+	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
+	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
+)
+
 type DapperValidator struct {
 	// items        map[string]ValidatorState
 	config       global.DapperConfig
 	renderNeeded bool // if any config value was empty but got updated
 	container    *dt.Container
+	env          map[string]string
 }
 
 // dapperDiscovery helps to find and validate a running
@@ -36,6 +44,7 @@ func dapperDiscovery() {
 	if err := validator.Execute(); err != nil {
 		fmt.Println("encountered errors verifying the configuration:", err)
 	}
+
 	if validator.renderNeeded {
 		generateConfig("./configs/dapper.template", global.DefaultDapperPath, validator.config)
 		global.DapperConf = &validator.config
@@ -62,11 +71,19 @@ func NewDapperValidator(config global.DapperConfig) *DapperValidator {
 // 	}
 // 	return true
 // }
+
 func (d *DapperValidator) Execute() error {
 	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
 		// Maybe do validation in every case?
+		// Validating everytime could be toggleable, but what's the default?
+		// Answering "what does agent do if it's started when node is not running?" would help.
 		fmt.Println("Protocol is already configured, nothing to do here.")
 		return nil
+	}
+
+	env, err := getEnvFromFile(d.config.EnvFilePath)
+	if err == nil {
+		d.env = env
 	}
 
 	c, err := GetContainer(d.config.ContainerRegex)
@@ -107,7 +124,14 @@ func (d *DapperValidator) DiscoverNodeID() error {
 			}
 		}
 	}
-	// TODO: falling back to environment file (/etc/flow/runtime-conf.env)
+
+	// fall back to environment file
+	if d.env != nil {
+		if nodeID, ok := d.env[FlowNodeIDKey]; ok {
+			d.config.NodeID = nodeID
+			return nil
+		}
+	}
 	return errors.New("not found")
 }
 

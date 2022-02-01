@@ -61,6 +61,7 @@ type DapperConfig struct {
 	ContainerRegex []string `yaml:"containerRegex"`
 	NodeID         string   `yaml:"nodeID"`
 	PEFEndpoints   []string `yaml:"pefEndpoints"`
+	EnvFilePath    string   `yaml:"envFile"`
 }
 
 var zapLevelMapper = map[string]zapcore.Level{
@@ -134,7 +135,8 @@ func LoadDapperConfig() error {
 
 func (d *DapperConfig) Default() *DapperConfig {
 	return &DapperConfig{
-		Client: "flow-go",
+		Client:      "flow-go",
+		EnvFilePath: "/etc/flow/runtime-conf.env",
 		ContainerRegex: []string{
 			"flow-go",
 		},
