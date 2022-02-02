@@ -26,15 +26,22 @@ import (
 )
 
 var (
-	reset = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
+	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
+	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	flag.Parse()
 
 	if err := global.LoadDefaultConfig(); err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
+	}
+
+	discover.AutoConfig(*reset)
+	if *configureOnly {
+		os.Exit(0)
 	}
 
 	setupZapLogger()
@@ -97,10 +104,6 @@ func registerWatchers() error {
 }
 
 func main() {
-	flag.Parse()
-	discover.AutoConfig(*reset)
-	// TODO: remove exit
-	os.Exit(0)
 	log := zap.S()
 	defer log.Sync()
 	agentUUID, err := uuid.NewUUID()
