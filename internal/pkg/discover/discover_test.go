@@ -16,12 +16,10 @@ import (
 
 func TestPidOf(t *testing.T) {
 	pid := getRealPID(t)
-	fmt.Println(pid)
 	require.NotEqual(t, 0, pid)
 
 	result, err := pidOf("404noPID")
 	require.Equal(t, 0, result)
-	fmt.Println(err)
 	expectedError := &exec.ExitError{}
 	require.ErrorAs(t, err, &expectedError)
 }
@@ -32,7 +30,6 @@ func TestPidArgs(t *testing.T) {
 		args, err := pidArgs(pid)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, 1, len(args))
-		fmt.Println(args)
 	})
 	t.Run("pidArgs pid not found", func(t *testing.T) {
 		pid := -123
