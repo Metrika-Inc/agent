@@ -20,6 +20,8 @@ const (
 	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
 )
 
+// DapperValidator is responsible for discovery and validation
+// of the agent's dapper-related configuration.
 type DapperValidator struct {
 	// items        map[string]ValidatorState
 	config       global.DapperConfig
@@ -53,24 +55,9 @@ func dapperDiscovery() {
 
 func NewDapperValidator(config global.DapperConfig) *DapperValidator {
 	return &DapperValidator{
-		// items: map[string]ValidatorState{
-		// 	"client":       0,
-		// 	"nodeID":       0,
-		// 	"logFile":      0,
-		// 	"pefEndpoints": 0,
-		// },
 		config: config,
 	}
 }
-
-// func (d DapperValidator) ValidateAll() bool {
-// 	for _, v := range d.items {
-// 		if v != Valid {
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }
 
 func (d *DapperValidator) Execute() error {
 	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
@@ -86,21 +73,23 @@ func (d *DapperValidator) Execute() error {
 		d.env = env
 	}
 
-	c, err := GetContainer(d.config.ContainerRegex)
+	containers, err := GetRunningContainers()
 	if err != nil {
-		fmt.Println("Unable to find flow-go docker container, is it running? Will attempt to auto-configure anyway.")
+		fmt.Println("Cannot access docker daemon, error:", err)
+		fmt.Println("Will attempt to auto-configure anyway")
 	} else {
-		d.container = &c
+		container, err := MatchContainer(containers, d.config.ContainerRegex)
+		if err != nil {
+			fmt.Println("Unable to find flow-go docker container, is it running? Will attempt to auto-configure anyway.")
+		} else {
+			d.container = &container
+		}
 	}
-	// fmt.Println("command:", c.Command)
-	// fmt.Println("labels: ", c.Labels)
-
-	// fmt.Printf("%+v\n", c)
 
 	if err := d.DiscoverNodeID(); err != nil {
 		fmt.Println("Node ID: not found")
 	}
-	if err := d.DiscoverPEFEndoints(c.Ports); err != nil {
+	if err := d.DiscoverPEFEndoints(); err != nil {
 		fmt.Println("PEF Metrics: not found")
 	}
 
@@ -132,17 +121,19 @@ func (d *DapperValidator) DiscoverNodeID() error {
 			return nil
 		}
 	}
-	return errors.New("not found")
+	return errors.New("node ID not found")
 }
 
-func (d *DapperValidator) DiscoverPEFEndoints(ports []dt.Port) error {
+func (d *DapperValidator) DiscoverPEFEndoints() error {
 	var found bool
 	portsToTry := map[int]struct{}{
 		8080: {},
 	}
-	for _, port := range ports {
-		if port.PublicPort != 3569 && port.PublicPort != 9000 {
-			portsToTry[int(port.PublicPort)] = struct{}{}
+	if d.container != nil {
+		for _, port := range d.container.Ports {
+			if port.PublicPort != 3569 && port.PublicPort != 9000 {
+				portsToTry[int(port.PublicPort)] = struct{}{}
+			}
 		}
 	}
 
@@ -166,43 +157,22 @@ func (d *DapperValidator) DiscoverPEFEndoints(ports []dt.Port) error {
 	}
 
 	if !found {
-		return errors.New("not found")
+		return errors.New("no PEF endpoints found")
 	}
 	return nil
 }
 
-// func (d DapperValidator) Validated(item string) bool {
-// 	return d.items[item] == Valid
-// }
-
-// func (d DapperValidator) ValidateLogFile() ValidatorState {
-// 	if d.config.LogFile == "" {
-// 		d.items["logFile"] = Empty
-// 		return Empty
-// 	}
-// 	if _, err := os.Stat(d.config.LogFile); err != nil {
-// 		return Invalid
-// 	}
-// 	d.items["logFile"] = Valid
-// 	return Valid
-// }
-
-func (d *DapperValidator) ValidateClient() ValidatorState {
-	if d.config.Client == "" {
-		// d.items["client"] = Empty
-		return Empty
-	}
-
+func (d *DapperValidator) ValidateClient() error {
 	// flow-go is the only dapper client
 	if d.config.Client != "flow-go" {
-		// d.items["client"] = Invalid
-		return Invalid
+		return errors.New("invalid client specified")
 	}
-
-	// d.items["client"] = Valid
-	return Valid
+	return nil
 }
 
 func (d *DapperValidator) DiscoverClient() error {
+	if d.config.Client == "" {
+		d.config.Client = "flow-go"
+	}
 	return nil
 }

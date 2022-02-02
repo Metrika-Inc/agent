@@ -19,11 +19,14 @@ import (
 	"time"
 
 	dt "github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
+	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 )
 
-var ErrContainerNotFound = errors.New("container not found")
+var (
+	ErrContainerNotFound = errors.New("container not found")
+	ErrEmptyLogFile      = errors.New("log file is empty")
+)
 
 func AutoConfig(reset bool) {
 	if reset {
@@ -64,36 +67,29 @@ func ResetConfig() {
 	}
 }
 
-type ValidatorState int
+// GetRunningContainers returns a slice of all
+// currently running Docker containers
+func GetRunningContainers() ([]dt.Container, error) {
+	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, err
+	}
 
-const (
-	Unchecked ValidatorState = iota
-	Empty
-	Invalid
-	Valid
-)
-
-type ItemExecutor struct {
-	Name         string
-	ValidateFunc func() ValidatorState
-	DiscoverFunc func() error
-}
-
-// GetContainer takes a slice of regex strings and returns
-// the first running container to match any of the identifiers.
-// If no matches are found, ErrContainerNotFound is returned.
-func GetContainer(identifiers []string) (dt.Container, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return dt.Container{}, err
-	}
+
 	containers, err := cli.ContainerList(ctx, dt.ContainerListOptions{})
 	if err != nil {
-		return dt.Container{}, err
+		return nil, err
 	}
 
+	return containers, nil
+}
+
+// MatchContainer takes a slice of containers and regex strings.
+// It returns the first running container to match any of the identifiers.
+// If no matches are found, ErrContainerNotFound is returned.
+func MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	for _, container := range containers {
 		for _, rStr := range identifiers {
 			r, err := regexp.Compile(rStr)
@@ -114,23 +110,21 @@ func GetContainer(identifiers []string) (dt.Container, error) {
 
 		}
 	}
-
 	return dt.Container{}, ErrContainerNotFound
 }
 
-func generateConfig(templatePath, configPath string, config interface{}) {
+func generateConfig(templatePath, configPath string, config interface{}) error {
 	t, err := template.ParseFiles(templatePath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	configFile, err := os.Create(configPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	// t.ExecuteTemplate(configFile, "configs/dapper.template", global.DapperConf)
-	t.Execute(configFile, config)
+	return t.Execute(configFile, config)
 }
 
 // pidOf returns the PID of a specified process name.
@@ -183,7 +177,11 @@ func getLogLine(r io.Reader) ([]byte, error) {
 	scan := bufio.NewScanner(r)
 	ok := scan.Scan()
 	if !ok {
-		return nil, scan.Err()
+		err := scan.Err()
+		if err != nil {
+			return nil, scan.Err()
+		}
+		return nil, ErrEmptyLogFile
 	}
 	return scan.Bytes(), nil
 }
