@@ -39,12 +39,12 @@ func init() {
 		os.Exit(1)
 	}
 
+	setupZapLogger()
+
 	discover.AutoConfig(*reset)
 	if *configureOnly {
 		os.Exit(0)
 	}
-
-	setupZapLogger()
 
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {

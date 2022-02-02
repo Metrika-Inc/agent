@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -21,12 +20,40 @@ import (
 	dt "github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 var (
 	ErrContainerNotFound = errors.New("container not found")
 	ErrEmptyLogFile      = errors.New("log file is empty")
 )
+
+// AutoConfigError implements an error interface and lists
+// all the issues encountered during automatic discovery and validation.
+type AutoConfigError struct {
+	errors []error
+}
+
+// Append adds an additional error to the error list.
+func (a *AutoConfigError) Append(e error) {
+	a.errors = append(a.errors, e)
+}
+
+// ErrIfAny returns an error if at least a single error is appended to the type.
+func (a *AutoConfigError) ErrIfAny() error {
+	if len(a.errors) > 0 {
+		return a
+	}
+	return nil
+}
+
+func (a *AutoConfigError) Error() string {
+	errText := "automatic discovery failed because: "
+	for _, err := range a.errors {
+		errText += err.Error() + "; "
+	}
+	return strings.TrimRight(errText, " ")
+}
 
 func AutoConfig(reset bool) {
 	if reset {
@@ -42,7 +69,7 @@ func AutoConfig(reset bool) {
 		// developers configure their stuff themselves
 		return
 	default:
-		panic(fmt.Sprintf("unknown protocol: %s", global.Protocol))
+		zap.S().Fatalw("unknown protocol", "protocol", global.Protocol)
 	}
 }
 
@@ -61,7 +88,7 @@ func ResetConfig() {
 	for _, item := range toRemove {
 		if err := os.Remove(item); err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
-				fmt.Println("Reset failed to remove a config file")
+				zap.S().Errorw("failed to remove a config file", zap.Error(err))
 			}
 		}
 	}
@@ -134,22 +161,19 @@ func pidOf(name string) (int, error) {
 	var err error
 	var ret int
 	// try pidof
-	output, err := exec.Command("pidof", "-s", name).CombinedOutput()
-	if err == nil {
-		ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
-		if err == nil {
-			return ret, nil
+	output, err := exec.Command("pidof", "-s", name).Output()
+	if err != nil {
+		output, err = exec.Command("pgrep", "-n", name).Output()
+		if err != nil {
+			return 0, err
 		}
 	}
-	// try pgrep
-	output, err = exec.Command("pgrep", "-n", name).Output()
-	if err == nil {
-		ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
-		if err == nil {
-			return ret, nil
-		}
+
+	ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
+	if err != nil {
+		return 0, err
 	}
-	return 0, err
+	return ret, nil
 }
 
 // pidArgs returns a string slice of the command line arguments
