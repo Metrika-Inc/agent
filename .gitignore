@@ -1,8 +1,9 @@
 .idea
-**/*.out
+.vscode
+/*.out
+profile*.out
 **/*.test
 **/coverage.html
-**/algorand.yml
-**/dapper.yml
-.vscode
+algorand.yml
+dapper.yml
 agent
