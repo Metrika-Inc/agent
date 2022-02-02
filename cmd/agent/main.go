@@ -1,13 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
+	"agent/internal/pkg/discover"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
@@ -16,41 +19,69 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	_ "net/http/pprof"
 )
 
-/*
-Latest block number
-  JsonLogWatch(node.log) > `type=RoundConcluded`, send `Round`
-Relay Connections
-  NetstatWatch > send outgoing connections to 4160
-  RestartWatch > reload config file
-Latest protocol version
-  HttpGetWatch(/v2/status)
-Latest software version
-  HttpGetWatch(/versions)
-Node restarts
-  PidWatch(algod.pid)
-Error messages
-  JsonLogWatch(node.log) > `type=error`, send all
-VoteBroadcast (https://developer.algorand.org/docs/run-a-node/participate/online/#check-that-the-node-is-participating)
-  JsonLogWatch(node.log) > `type=VoteBroadcast` > incr state
-  TimedWatch > send count, incr state
-Sync
-  HttpGetWatch(/v2/status) > `sync_time != 0` > sample quickly, send `sync_start`
-  HttpGetWatch(/v2/status) > `sync_time == 0` > sample slowly, send `sync_end`
-*/
+var (
+	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
+	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
+)
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	flag.Parse()
 
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.JSONFormatter{})
+	if err := global.LoadDefaultConfig(); err != nil {
+		fmt.Printf("%v", err)
+		os.Exit(1)
+	}
+
+	discover.AutoConfig(*reset)
+	if *configureOnly {
+		os.Exit(0)
+	}
+
+	setupZapLogger()
+
+	timesync.Default.Start()
+	if err := timesync.Default.SyncNow(); err != nil {
+		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
+	}
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
 	}()
+}
+
+func setupZapLogger() {
+	cfg := zap.NewProductionConfig()
+	cfg.Level = zap.NewAtomicLevelAt(global.AgentRuntimeConfig.Runtime.Log.Level())
+	cfg.OutputPaths = global.AgentRuntimeConfig.Runtime.Log.Outputs
+	if len(cfg.OutputPaths) == 0 {
+		cfg.OutputPaths = []string{"stdout"}
+	}
+	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
+	opts := []zap.Option{
+		zap.AddStacktrace(zapcore.WarnLevel),
+		zap.WithClock(timesync.Default),
+	}
+	http.Handle("/loglvl", cfg.Level)
+	l, err := cfg.Build(opts...)
+	if err != nil {
+		panic(fmt.Sprintf("failed to setup zap logging: %v", err))
+	}
+
+	// set newly configured logger as default (access via zap.L() // zap.S())
+	zap.ReplaceGlobals(l)
+}
+
+// logTimestampMSEncoder encodes the log timestamp as an int64 from Time.UnixMilli()
+func logTimestampMSEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendInt64(t.UnixMilli())
 }
 
 func registerWatchers() error {
@@ -59,7 +90,7 @@ func registerWatchers() error {
 	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
 		w := factory.NewWatcherByType(*watcherConf)
 		if w == nil {
-			logrus.Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
 		}
 
 		watchersEnabled = append(watchersEnabled, w)
@@ -73,26 +104,17 @@ func registerWatchers() error {
 }
 
 func main() {
-	fmt.Println("Hello, Agent!")
-
-	if err := global.LoadDefaultConfig(); err != nil {
-		logrus.Fatal(err)
-	}
-
+	log := zap.S()
+	defer log.Sync()
 	agentUUID, err := uuid.NewUUID()
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	url, err := url.Parse(global.AgentRuntimeConfig.Platform.Addr +
 		global.AgentRuntimeConfig.Platform.URI)
 	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	timesync.Default.Start()
-	if timesync.Default.SyncNow(); err != nil {
-		logrus.Error("Could not sync with NTP server: ", err)
+		log.Fatal(err)
 	}
 
 	conf := publisher.HTTPConf{
@@ -112,11 +134,11 @@ func main() {
 	pub.Start(wg)
 
 	if err := registerWatchers(); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if err := global.WatcherRegistry.Start(ch); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
 	forever := make(chan bool)

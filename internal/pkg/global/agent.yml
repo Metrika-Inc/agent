@@ -9,6 +9,12 @@ buffer:
   size: 52428800
   ttl: 0s
 runtime:
+  logging:
+    outputs:
+      - stdout
+      # - logs/agent.log
+    # TODO: warning on prod
+    level: debug
   metrics_addr: :9000
   sampling_interval: 5s
   watchers:
@@ -17,7 +23,7 @@ runtime:
     - type: prometheus.proc.net.netstat_linux
     - type: prometheus.proc.net.arp_linux
     - type: prometheus.proc.stat_linux
-    - type: prometheus.proc.conntrack_linux
+    # - type: prometheus.proc.conntrack_linux
     - type: prometheus.proc.diskstats
     - type: prometheus.proc.entropy
     - type: prometheus.proc.filefd

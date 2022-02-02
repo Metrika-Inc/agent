@@ -24,7 +24,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -64,7 +64,7 @@ type netDevStats map[string]map[string]uint64
 func NewNetDevCollector() (prometheus.Collector, error) {
 	if oldNetdevDeviceInclude != "" {
 		if netdevDeviceInclude == "" {
-			log.Trace("msg", "--collector.netdev.device-whitelist is DEPRECATED and will be removed in 2.0.0, use --collector.netdev.device-include")
+			zap.S().Debugw("--collector.netdev.device-whitelist is DEPRECATED and will be removed in 2.0.0, use --collector.netdev.device-include")
 			netdevDeviceInclude = oldNetdevDeviceInclude
 		} else {
 			return nil, errors.New("--collector.netdev.device-whitelist and --collector.netdev.device-include are mutually exclusive")
@@ -73,7 +73,7 @@ func NewNetDevCollector() (prometheus.Collector, error) {
 
 	if oldNetdevDeviceExclude != "" {
 		if netdevDeviceExclude == "" {
-			log.Trace("msg", "--collector.netdev.device-blacklist is DEPRECATED and will be removed in 2.0.0, use --collector.netdev.device-exclude")
+			zap.S().Debugw("--collector.netdev.device-blacklist is DEPRECATED and will be removed in 2.0.0, use --collector.netdev.device-exclude")
 			netdevDeviceExclude = oldNetdevDeviceExclude
 		} else {
 			return nil, errors.New("--collector.netdev.device-blacklist and --collector.netdev.device-exclude are mutually exclusive")
@@ -85,11 +85,11 @@ func NewNetDevCollector() (prometheus.Collector, error) {
 	}
 
 	if netdevDeviceExclude != "" {
-		log.Debug("msg", "Parsed flag --collector.netdev.device-exclude", "flag", netdevDeviceExclude)
+		zap.S().Debugw("Parsed flag --collector.netdev.device-exclude", "flag", netdevDeviceExclude)
 	}
 
 	if netdevDeviceInclude != "" {
-		log.Debug("msg", "Parsed Flag --collector.netdev.device-include", "flag", netdevDeviceInclude)
+		zap.S().Debugw("Parsed Flag --collector.netdev.device-include", "flag", netdevDeviceInclude)
 	}
 
 	return &netDevCollector{
@@ -103,7 +103,7 @@ func (c *netDevCollector) Collect(ch chan<- prometheus.Metric) {
 	netDev, err := getNetDevStats(&c.deviceFilter)
 	if err != nil {
 		err = fmt.Errorf("couldn't get netstats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -126,7 +126,7 @@ func (c *netDevCollector) Collect(ch chan<- prometheus.Metric) {
 		interfaces, err := net.Interfaces()
 		if err != nil {
 			err = fmt.Errorf("could not get network interfaces: %w", err)
-			log.Error(err)
+			zap.S().Error(err)
 
 			return
 		}
@@ -194,7 +194,7 @@ func (c *netDevCollector) Describe(ch chan<- *prometheus.Desc) {
 	netDev, err := getNetDevStats(&c.deviceFilter)
 	if err != nil {
 		err = fmt.Errorf("couldn't get netstats: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

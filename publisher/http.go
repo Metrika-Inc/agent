@@ -16,7 +16,7 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type platformState int32
@@ -111,12 +111,12 @@ func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logrus.Error("failed to read response body: ", err)
+		zap.S().Errorw("failed to read response body", zap.Error(err))
 		return 0, nil
 	}
 	timestamp, err := strconv.ParseInt(string(body), 10, 64)
 	if err != nil {
-		logrus.Errorf("parseInt on response body failed: %v", err)
+		zap.S().Errorw("parseInt on response body failed", zap.Error(err))
 	}
 
 	return timestamp, nil
@@ -129,7 +129,7 @@ func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBat
 		for _, item := range b {
 			m, ok := item.Data.(model.MetricPlatform)
 			if !ok {
-				logrus.Warnf("unrecognised type %T", item.Data)
+				zap.S().Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
@@ -184,6 +184,7 @@ func (a *AgentState) Reset() {
 }
 
 func (h *HTTP) Start(wg *sync.WaitGroup) {
+	log := zap.S()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
 	ctx = context.WithValue(ctx, PlatformAddrContextKey, h.conf.URL)
@@ -212,21 +213,21 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 
-		logrus.Debug("[pub] starting metric ingestion")
+		log.Debug("starting metric ingestion")
 
 		var prevErr error
 		for {
 			select {
 			case msg, ok := <-h.receiveCh:
 				if !ok {
-					logrus.Error("[pub] receive channel closed")
+					log.Error("receive channel closed")
 
 					return
 				}
 
 				m, ok := msg.(model.MetricPlatform)
 				if !ok {
-					logrus.Error("[pub] type assertion failed")
+					log.Error("type assertion failed")
 
 					continue
 				}
@@ -242,7 +243,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				if err != nil {
 					MetricsDropCnt.Inc()
 					if prevErr == nil {
-						logrus.Error("[pub] metric dropped, buffer unavailable: ", err)
+						log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 						prevErr = err
 					}
 					continue
@@ -251,21 +252,21 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 				publishState := state.PublishState()
 				if publishState == platformStateUp {
 					if h.buffer.Len() >= h.conf.MaxBatchLen {
-						logrus.Debug("[pub] eager drain kick in")
+						log.Debug("maxBatchLen exceeded, eager drain kick in")
 
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
-							logrus.Warn("[pub] eager drain error ", drainErr)
+							log.Warn("eager drain failed", zap.Error(drainErr))
 							prevErr = drainErr
 
 							continue
 						}
-						logrus.Debug("[pub] eager drain ok")
+						log.Debug("eager drain ok")
 					}
 				}
 				prevErr = nil
 			case <-h.closeCh:
-				logrus.Debug("[pub] stopping buf controller, ingestion goroutine exit ")
+				log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
 
 				return

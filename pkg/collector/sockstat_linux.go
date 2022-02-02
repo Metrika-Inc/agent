@@ -23,7 +23,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -45,7 +45,7 @@ func (c *sockStatCollector) Collect(ch chan<- prometheus.Metric) {
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		err = fmt.Errorf("failed to open procfs: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -55,10 +55,10 @@ func (c *sockStatCollector) Collect(ch chan<- prometheus.Metric) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Trace("msg", "IPv4 sockstat statistics not found, skipping")
+		zap.S().Debugw("IPv4 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv4 sockstat data: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -67,10 +67,10 @@ func (c *sockStatCollector) Collect(ch chan<- prometheus.Metric) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Trace("msg", "IPv6 sockstat statistics not found, skipping")
+		zap.S().Debugw("IPv6 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv6 sockstat data: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -273,7 +273,7 @@ func (c *sockStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		err = fmt.Errorf("failed to open procfs: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -283,10 +283,10 @@ func (c *sockStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Trace("msg", "IPv4 sockstat statistics not found, skipping")
+		zap.S().Debugw("IPv4 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv4 sockstat data: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}
@@ -295,10 +295,10 @@ func (c *sockStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	switch {
 	case err == nil:
 	case errors.Is(err, os.ErrNotExist):
-		log.Trace("msg", "IPv6 sockstat statistics not found, skipping")
+		zap.S().Debugw("IPv6 sockstat statistics not found, skipping")
 	default:
 		err = fmt.Errorf("failed to get IPv6 sockstat data: %w", err)
-		log.Error(err)
+		zap.S().Error(err)
 
 		return
 	}

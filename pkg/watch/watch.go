@@ -3,6 +3,8 @@ package watch
 import (
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -41,6 +43,7 @@ type Watch struct {
 
 	startOnce *sync.Once
 	listeners []chan<- interface{}
+	Log       *zap.SugaredLogger
 }
 
 func NewWatch() Watch {
@@ -48,6 +51,7 @@ func NewWatch() Watch {
 		Running:   false,
 		StopKey:   make(chan bool, 1),
 		startOnce: &sync.Once{},
+		Log:       zap.S(),
 	}
 }
 

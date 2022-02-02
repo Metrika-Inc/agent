@@ -1,0 +1,10 @@
+client: algod
+dataFolder: {{ .DataFolder }}
+pidFile: {{ .PIDFile }}
+tokenFile: {{ .TokenFile }}
+logFile: {{ .LogFile }}
+deployment: {{ .DeploymentType }}
+containerRegex:{{ range .ContainerRegex }}
+  - {{ . }}{{end}}
+pefEndpoints:{{ range .PEFEndpoints }}
+  - {{ . }}{{end}}

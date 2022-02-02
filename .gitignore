@@ -2,4 +2,7 @@
 **/*.out
 **/*.test
 **/coverage.html
+**/algorand.yml
+**/dapper.yml
 .vscode
+agent

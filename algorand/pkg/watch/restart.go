@@ -5,7 +5,7 @@ import (
 	. "agent/pkg/watch"
 	"encoding/json"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type AlgodRestartWatchConf struct {
@@ -71,7 +71,7 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			}
 			jsonHealth, err := json.Marshal(health)
 			if err != nil {
-				log.Errorln("[AlgodRestartWatch] failed to marshall node health info: ", err)
+				w.Log.Errorw("failed to marshal node health info", zap.Error(err))
 				continue
 			}
 

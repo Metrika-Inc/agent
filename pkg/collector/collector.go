@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 // Namespace defines the common namespace to be used by all metrics.
@@ -13,6 +14,8 @@ const namespace = "node"
 var (
 	// ErrNoData indicates the collector found no data to collect, but had no other error.
 	ErrNoData = errors.New("collector returned no data")
+
+	log *zap.SugaredLogger
 )
 
 func IsNoDataError(err error) bool {

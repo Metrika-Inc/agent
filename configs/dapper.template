@@ -1,0 +1,7 @@
+client: {{ .Client }}
+nodeID: {{ .NodeID }}
+envFile: {{ .EnvFilePath }}
+containerRegex:{{ range .ContainerRegex }}
+  - {{ . }}{{end}}
+pefEndpoints:{{ range .PEFEndpoints }}
+  - {{ . }}{{end}}
