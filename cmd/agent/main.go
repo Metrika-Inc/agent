@@ -66,7 +66,7 @@ func setupZapLogger() {
 	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
 	opts := []zap.Option{
-		zap.AddStacktrace(zapcore.WarnLevel),
+		zap.AddStacktrace(zapcore.ErrorLevel),
 		zap.WithClock(timesync.Default),
 	}
 	http.Handle("/loglvl", cfg.Level)

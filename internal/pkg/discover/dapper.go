@@ -44,7 +44,7 @@ func dapperDiscovery() {
 
 	validator := NewDapperValidator(*global.DapperConf)
 	if err := validator.Execute(); err != nil {
-		log.Fatal("failed to discover/validate dapper configuration", zap.Error(err))
+		log.Fatalw("failed to discover/validate dapper configuration", zap.Error(err))
 	}
 }
 
@@ -66,7 +66,7 @@ func (d *DapperValidator) Execute() error {
 
 	env, err := getEnvFromFile(d.config.EnvFilePath)
 	if err != nil {
-		log.Warn("failed to load environment file", zap.Error(err))
+		log.Warnw("failed to load environment file", zap.Error(err))
 	} else {
 		// we need an else block because env gets initialized and returned
 		// even if an error is encountered
@@ -108,6 +108,10 @@ func (d *DapperValidator) Execute() error {
 
 func (d *DapperValidator) DiscoverNodeID() error {
 	log := zap.S()
+	if d.config.NodeID != "" {
+		log.Debugw("NodeID exists, skipping discovery", "node_id", d.config.NodeID)
+		return nil
+	}
 	if d.container != nil {
 		args := strings.Split(d.container.Command, " ")
 		for i := 0; i < len(args); i++ {
@@ -126,6 +130,7 @@ func (d *DapperValidator) DiscoverNodeID() error {
 	// fall back to environment file
 	if d.env != nil {
 		if nodeID, ok := d.env[FlowNodeIDKey]; ok {
+			log.Infow("node id found", "node_id", nodeID)
 			d.config.NodeID = nodeID
 			return nil
 		}
@@ -134,6 +139,10 @@ func (d *DapperValidator) DiscoverNodeID() error {
 }
 
 func (d *DapperValidator) DiscoverPEFEndoints() error {
+	if len(d.config.PEFEndpoints) > 0 {
+		zap.S().Debugw("PEF endpoints not empty, skipping discovery", "endpoints", d.config.PEFEndpoints)
+		return nil
+	}
 	var found bool
 	portsToTry := map[int]struct{}{
 		8080: {},
