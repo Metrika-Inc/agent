@@ -46,6 +46,8 @@ func dapperDiscovery() {
 	if err := validator.Execute(); err != nil {
 		log.Fatalw("failed to discover/validate dapper configuration", zap.Error(err))
 	}
+
+	log.Info("dapper configuration OK")
 }
 
 func NewDapper(config global.DapperConfig) *Dapper {
@@ -63,6 +65,7 @@ func (d *Dapper) Execute() error {
 		log.Debug("protocol is already configured, nothing to do here")
 		return nil
 	}
+	log.Info("dapper not fully configured, starting discovery")
 
 	env, err := getEnvFromFile(d.config.EnvFilePath)
 	if err != nil {
@@ -136,6 +139,7 @@ func (d *Dapper) NodeID() error {
 		if nodeID, ok := d.env[FlowNodeIDKey]; ok {
 			log.Infow("node id found", "node_id", nodeID)
 			d.config.NodeID = nodeID
+			d.renderNeeded = true
 			return nil
 		}
 	}

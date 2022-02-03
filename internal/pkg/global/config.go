@@ -140,8 +140,6 @@ func (d *DapperConfig) Default() *DapperConfig {
 		ContainerRegex: []string{
 			"flow-go",
 		},
-		PEFEndpoints: []string{
-			"127.0.0.1:8080/metrics",
-		},
+		PEFEndpoints: []string{},
 	}
 }
