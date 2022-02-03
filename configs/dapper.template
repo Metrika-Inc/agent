@@ -1,7 +1,8 @@
-client: {{ .Client }}
+client: {{ or .Client "flow-go" }}
 nodeID: {{ .NodeID }}
-envFile: {{ .EnvFilePath }}
+envFile: {{ or .EnvFilePath "/etc/flow/runtime-conf.env" }}
 containerRegex:{{ range .ContainerRegex }}
-  - {{ . }}{{end}}
+  - {{ . }}{{else}}
+  - flow-go{{end}}
 pefEndpoints:{{ range .PEFEndpoints }}
   - {{ . }}{{end}}

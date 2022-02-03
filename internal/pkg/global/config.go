@@ -3,6 +3,7 @@ package global
 import (
 	"agent/pkg/watch"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -142,4 +143,18 @@ func (d *DapperConfig) Default() *DapperConfig {
 		},
 		PEFEndpoints: []string{},
 	}
+}
+
+func GenerateConfigFromTemplate(templatePath, configPath string, config interface{}) error {
+	t, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return err
+	}
+
+	configFile, err := os.Create(configPath)
+	if err != nil {
+		return err
+	}
+
+	return t.Execute(configFile, config)
 }

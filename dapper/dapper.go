@@ -1,6 +1,7 @@
-package discover
+package dapper
 
 import (
+	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 	"errors"
 	"io/fs"
@@ -23,51 +24,35 @@ const (
 // Dapper is responsible for discovery and validation
 // of the agent's dapper-related configuration.
 type Dapper struct {
-	config       global.DapperConfig
+	config       DapperConfig
 	renderNeeded bool // if any config value was empty but got updated
 	container    *dt.Container
 	env          map[string]string
 }
 
-// dapperDiscovery helps to find and validate a running
-// node client configuration.
-func dapperDiscovery() {
-	log := zap.S()
-	if err := global.LoadDapperConfig(); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			// config file doesn't exist, create one
-			global.DapperConf = (&global.DapperConfig{}).Default()
-		} else {
-			log.Fatal(err)
+func NewDapper() (*Dapper, error) {
+	dapper := &Dapper{}
+	config := NewDapperConfig(DefaultDapperPath)
+	var err error
+	dapper.config, err = config.Load()
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
+		// configuration does not exist, create it
+		dapper.config, err = config.Default()
+		if err != nil {
+			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	}
 
-	validator := NewDapper(*global.DapperConf)
-	if err := validator.Execute(); err != nil {
-		log.Fatalw("failed to discover/validate dapper configuration", zap.Error(err))
-	}
-
-	log.Info("dapper configuration OK")
+	return dapper, nil
 }
 
-func NewDapper(config global.DapperConfig) *Dapper {
-	return &Dapper{
-		config: config,
-	}
-}
-
-func (d *Dapper) Execute() error {
+func (d *Dapper) Discover() error {
 	log := zap.S()
-	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
-		// Maybe do validation in every case?
-		// Validating everytime could be toggleable, but what's the default?
-		// Answering "what does agent do if it's started when node is not running?" would help.
-		log.Debug("protocol is already configured, nothing to do here")
-		return nil
-	}
 	log.Info("dapper not fully configured, starting discovery")
 
-	env, err := getEnvFromFile(d.config.EnvFilePath)
+	env, err := utils.GetEnvFromFile(d.config.EnvFilePath)
 	if err != nil {
 		log.Warnw("failed to load environment file", zap.Error(err))
 	} else {
@@ -76,11 +61,11 @@ func (d *Dapper) Execute() error {
 		d.env = env
 	}
 
-	containers, err := GetRunningContainers()
+	containers, err := utils.GetRunningContainers()
 	if err != nil {
 		log.Warnw("cannot access docker daemon, will attempt to auto-configure anyway", zap.Error(err))
 	} else {
-		container, err := MatchContainer(containers, d.config.ContainerRegex)
+		container, err := utils.MatchContainer(containers, d.config.ContainerRegex)
 		if err != nil {
 			log.Warnw("unable to find running flow-go docker container, will attempt to auto-configure anyway")
 		} else {
@@ -88,7 +73,7 @@ func (d *Dapper) Execute() error {
 		}
 	}
 
-	errs := &AutoConfigError{}
+	errs := &utils.AutoConfigError{}
 	if err := d.Client(); err != nil {
 		log.Error("could not find client name")
 		errs.Append(err)
@@ -103,11 +88,11 @@ func (d *Dapper) Execute() error {
 	}
 
 	if d.renderNeeded {
-		if err := generateConfig("./configs/dapper.template", global.DefaultDapperPath, d.config); err != nil {
+		if err := global.GenerateConfigFromTemplate("./configs/dapper.template", global.DefaultDapperPath, d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
-		global.DapperConf = &d.config
+		DapperConf = &d.config
 	}
 
 	return errs.ErrIfAny()
@@ -201,4 +186,12 @@ func (d *Dapper) Client() error {
 		d.config.Client = "flow-go"
 	}
 	return nil
+}
+
+func (d *Dapper) IsConfigured() bool {
+	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
+		zap.S().Debug("protocol is already configured, nothing to do here")
+		return true
+	}
+	return false
 }
