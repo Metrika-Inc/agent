@@ -48,6 +48,14 @@ func NewDapper() (*Dapper, error) {
 	return dapper, nil
 }
 
+func (d *Dapper) IsConfigured() bool {
+	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
+		zap.S().Debug("protocol is already configured, nothing to do here")
+		return true
+	}
+	return false
+}
+
 func (d *Dapper) Discover() error {
 	log := zap.S()
 	log.Info("dapper not fully configured, starting discovery")
@@ -186,12 +194,4 @@ func (d *Dapper) Client() error {
 		d.config.Client = "flow-go"
 	}
 	return nil
-}
-
-func (d *Dapper) IsConfigured() bool {
-	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
-		zap.S().Debug("protocol is already configured, nothing to do here")
-		return true
-	}
-	return false
 }
