@@ -20,9 +20,9 @@ const (
 	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
 )
 
-// DapperValidator is responsible for discovery and validation
+// Dapper is responsible for discovery and validation
 // of the agent's dapper-related configuration.
-type DapperValidator struct {
+type Dapper struct {
 	config       global.DapperConfig
 	renderNeeded bool // if any config value was empty but got updated
 	container    *dt.Container
@@ -42,19 +42,19 @@ func dapperDiscovery() {
 		}
 	}
 
-	validator := NewDapperValidator(*global.DapperConf)
+	validator := NewDapper(*global.DapperConf)
 	if err := validator.Execute(); err != nil {
 		log.Fatalw("failed to discover/validate dapper configuration", zap.Error(err))
 	}
 }
 
-func NewDapperValidator(config global.DapperConfig) *DapperValidator {
-	return &DapperValidator{
+func NewDapper(config global.DapperConfig) *Dapper {
+	return &Dapper{
 		config: config,
 	}
 }
 
-func (d *DapperValidator) Execute() error {
+func (d *Dapper) Execute() error {
 	log := zap.S()
 	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
 		// Maybe do validation in every case?
@@ -86,11 +86,15 @@ func (d *DapperValidator) Execute() error {
 	}
 
 	errs := &AutoConfigError{}
-	if err := d.DiscoverNodeID(); err != nil {
+	if err := d.Client(); err != nil {
+		log.Error("could not find client name")
+		errs.Append(err)
+	}
+	if err := d.NodeID(); err != nil {
 		log.Error("could not find node ID")
 		errs.Append(err)
 	}
-	if err := d.DiscoverPEFEndoints(); err != nil {
+	if err := d.PEFEndoints(); err != nil {
 		log.Error("could not find PEF metric endpoints")
 		errs.Append(err)
 	}
@@ -106,7 +110,7 @@ func (d *DapperValidator) Execute() error {
 	return errs.ErrIfAny()
 }
 
-func (d *DapperValidator) DiscoverNodeID() error {
+func (d *Dapper) NodeID() error {
 	log := zap.S()
 	if d.config.NodeID != "" {
 		log.Debugw("NodeID exists, skipping discovery", "node_id", d.config.NodeID)
@@ -138,7 +142,7 @@ func (d *DapperValidator) DiscoverNodeID() error {
 	return errors.New("node ID not found")
 }
 
-func (d *DapperValidator) DiscoverPEFEndoints() error {
+func (d *Dapper) PEFEndoints() error {
 	if len(d.config.PEFEndpoints) > 0 {
 		zap.S().Debugw("PEF endpoints not empty, skipping discovery", "endpoints", d.config.PEFEndpoints)
 		return nil
@@ -180,7 +184,7 @@ func (d *DapperValidator) DiscoverPEFEndoints() error {
 	return nil
 }
 
-func (d *DapperValidator) ValidateClient() error {
+func (d *Dapper) ValidateClient() error {
 	// flow-go is the only dapper client
 	if d.config.Client != "flow-go" {
 		return errors.New("invalid client specified")
@@ -188,7 +192,7 @@ func (d *DapperValidator) ValidateClient() error {
 	return nil
 }
 
-func (d *DapperValidator) DiscoverClient() error {
+func (d *Dapper) Client() error {
 	if d.config.Client == "" {
 		d.config.Client = "flow-go"
 	}
