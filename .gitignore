@@ -1,5 +1,6 @@
 .idea
 .vscode
+cover.out
 profile*.out
 **/*.test
 **/coverage.html
