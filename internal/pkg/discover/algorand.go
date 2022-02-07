@@ -1,5 +1,0 @@
-package discover
-
-func algorandDiscovery() {
-
-}
