@@ -46,6 +46,11 @@ func init() {
 
 	setupZapLogger()
 
+	discover.AutoConfig(*reset)
+	if *configureOnly {
+		os.Exit(0)
+	}
+
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
@@ -66,7 +71,7 @@ func setupZapLogger() {
 	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
 	opts := []zap.Option{
-		zap.AddStacktrace(zapcore.WarnLevel),
+		zap.AddStacktrace(zapcore.ErrorLevel),
 		zap.WithClock(timesync.Default),
 	}
 	http.Handle("/loglvl", cfg.Level)

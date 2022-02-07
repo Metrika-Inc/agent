@@ -1,0 +1,140 @@
+[
+    {
+        "Id": "0131d65576ecac920a2365f9deeb60ee98b4c91fd46b5b8e7232559c8d7fb4fe",
+        "Names": [
+            "/ctlptl-registry"
+        ],
+        "Image": "registry:2",
+        "ImageID": "sha256:b2cb11db9d3d60af38d9d6841d3b8b053e5972c0b7e4e6351e9ea4374ed37d8c",
+        "Command": "/entrypoint.sh /etc/docker/registry/config.yml",
+        "Created": 1635758292,
+        "Ports": [
+            {
+                "IP": "0.0.0.0",
+                "PrivatePort": 5000,
+                "PublicPort": 36991,
+                "Type": "tcp"
+            },
+            {
+                "IP": "::",
+                "PrivatePort": 5000,
+                "PublicPort": 36991,
+                "Type": "tcp"
+            }
+        ],
+        "Labels": {
+            "desktop.docker.io/wsl-distro": "Ubuntu"
+        },
+        "State": "running",
+        "Status": "Up 3 days",
+        "HostConfig": {
+            "NetworkMode": "default"
+        },
+        "NetworkSettings": {
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "be5740a5639fb85a816a81eb06c5fd6f07500757b02c908e5ad37d4732884a35",
+                    "EndpointID": "d773c67023b0670ed760cf41cbadbad169b5bd32ee580b15d7ca8c02099652c9",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:11:00:02",
+                    "DriverOpts": null
+                },
+                "kind": {
+                    "IPAMConfig": {},
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "72680051ebb9bdcfd68be71cb619d4c4e428578d3f8a6ae525f5aa16cd7afb6e",
+                    "EndpointID": "71dba8621b387cb31a2bc32bf3a9dd0390435b97769ceab3d60dbdb98488f0a3",
+                    "Gateway": "172.21.0.1",
+                    "IPAddress": "172.21.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "fc00:f853:ccd:e793::1",
+                    "GlobalIPv6Address": "fc00:f853:ccd:e793::2",
+                    "GlobalIPv6PrefixLen": 64,
+                    "MacAddress": "02:42:ac:15:00:02",
+                    "DriverOpts": null
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "026cc94d3a36fd245697690e62fb4c84fb6e4b309c44ec1fa9402ceea9c16a5a",
+                "Source": "",
+                "Destination": "/var/lib/registry",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ]
+    },
+    {
+        "Id": "51a8eec6bc9dc94d0e20abac8d291a31a29bef0eafde99e4d0a7fd6f53b7351b",
+        "Names": [
+            "/service"
+        ],
+        "Image": "service:latest",
+        "ImageID": "sha256:27d4b997726cfdaa68b53b9f1b7723185689e83fb331e1f5d2a992cce6b0b980",
+        "Command": "/bin/sh -c 'poetry run uvicorn --host=0.0.0.0 charting_service.main:app'",
+        "Created": 1633616670,
+        "Ports": [
+            {
+                "IP": "0.0.0.0",
+                "PrivatePort": 8000,
+                "PublicPort": 4200,
+                "Type": "tcp"
+            },
+            {
+                "IP": "::",
+                "PrivatePort": 8000,
+                "PublicPort": 4200,
+                "Type": "tcp"
+            }
+        ],
+        "Labels": {
+            "com.docker.compose.config-hash": "c5f636909eef600a0a7a3084f5267641b12780fc4e358b9fb8149db76961de2e",
+            "com.docker.compose.container-number": "1",
+            "com.docker.compose.oneoff": "False",
+            "com.docker.compose.project": "service",
+            "com.docker.compose.project.config_files": "docker-compose.yml",
+            "com.docker.compose.project.working_dir": "/home/random/infra/local/service",
+            "com.docker.compose.service": "service",
+            "com.docker.compose.version": "1.29.2",
+            "desktop.docker.io/wsl-distro": "Ubuntu"
+        },
+        "State": "running",
+        "Status": "Up 3 days",
+        "HostConfig": {
+            "NetworkMode": "defaulthub"
+        },
+        "NetworkSettings": {
+            "Networks": {
+                "defaulthub": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "921760fb49609ced56d585142c764774582b9cde92dbed215c8bb7b0c43fd6d2",
+                    "EndpointID": "1adc3da8b3a503527b1c4c333ad22b91c80cb4e1ad8ee13ff23d1832407c9d7f",
+                    "Gateway": "172.20.0.1",
+                    "IPAddress": "172.20.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:14:00:02",
+                    "DriverOpts": null
+                }
+            }
+        },
+        "Mounts": []
+    }
+]
