@@ -3,6 +3,7 @@ package global
 import (
 	"agent/pkg/watch"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -14,7 +15,10 @@ import (
 
 var (
 	DefaultConfigPath  = "./internal/pkg/global/agent.yml"
+	DefaultDapperPath  = "./internal/pkg/global/dapper.yml"
+	DefaultAlgoPath    = "./internal/pkg/global/algorand.yml"
 	AgentRuntimeConfig AgentConfig
+	DapperConf         *DapperConfig
 )
 
 type PlatformConfig struct {
@@ -51,6 +55,14 @@ type AgentConfig struct {
 type LogConfig struct {
 	Lvl     string   `yaml:"level"`
 	Outputs []string `yaml:"outputs"`
+}
+
+type DapperConfig struct {
+	Client         string   `yaml:"client"`
+	ContainerRegex []string `yaml:"containerRegex"`
+	NodeID         string   `yaml:"nodeID"`
+	PEFEndpoints   []string `yaml:"pefEndpoints"`
+	EnvFilePath    string   `yaml:"envFile"`
 }
 
 var zapLevelMapper = map[string]zapcore.Level{
@@ -106,4 +118,43 @@ func createLogFolders() error {
 	}
 
 	return nil
+}
+
+func LoadDapperConfig() error {
+	var c DapperConfig
+	content, err := ioutil.ReadFile(DefaultDapperPath)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(content, &c); err != nil {
+		return err
+	}
+	DapperConf = &c
+	return nil
+}
+
+func (d *DapperConfig) Default() *DapperConfig {
+	return &DapperConfig{
+		Client:      "flow-go",
+		EnvFilePath: "/etc/flow/runtime-conf.env",
+		ContainerRegex: []string{
+			"flow-go",
+		},
+		PEFEndpoints: []string{},
+	}
+}
+
+func GenerateConfigFromTemplate(templatePath, configPath string, config interface{}) error {
+	t, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return err
+	}
+
+	configFile, err := os.Create(configPath)
+	if err != nil {
+		return err
+	}
+
+	return t.Execute(configFile, config)
 }

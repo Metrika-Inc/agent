@@ -10,6 +10,11 @@ var (
 	WatcherRegistry    WatchersRegisterer
 	PrometheusRegistry prometheus.Registerer
 	PrometheusGatherer prometheus.Gatherer
+
+	// Modified at runtime
+	Version = "v0.0.0"
+	CommitHash = ""
+	Protocol = "development"
 )
 
 type WatchersRegisterer interface {

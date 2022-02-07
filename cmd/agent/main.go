@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"agent/internal/pkg/discover"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
@@ -23,8 +25,14 @@ import (
 	_ "net/http/pprof"
 )
 
+var (
+	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
+	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
+)
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	flag.Parse()
 
 	if err := global.LoadDefaultConfig(); err != nil {
 		fmt.Printf("%v", err)
@@ -32,6 +40,11 @@ func init() {
 	}
 
 	setupZapLogger()
+
+	discover.AutoConfig(*reset)
+	if *configureOnly {
+		os.Exit(0)
+	}
 
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {
@@ -53,7 +66,7 @@ func setupZapLogger() {
 	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
 	opts := []zap.Option{
-		zap.AddStacktrace(zapcore.WarnLevel),
+		zap.AddStacktrace(zapcore.ErrorLevel),
 		zap.WithClock(timesync.Default),
 	}
 	http.Handle("/loglvl", cfg.Level)

@@ -1,0 +1,5 @@
+## Please use this file only as a template and update the variables below appropriately
+FLOW_GO_NODE_VERSION=CURRENT_FLOW_DOCKER_VERSION
+FLOW_GO_NODE_ID=58d56de897fa1b0fd3f81086ddc12345369090af79f37ce3112a21fc9d4fba1a
+FLOW_NETWORK_EXECUTION_NODE=execution-001.mainnet1.nodes.onflow.org:9000
+FLOW_NETWORK_COLLECTION_NODE=collection-001.mainnet1.nodes.onflow.org:9000
