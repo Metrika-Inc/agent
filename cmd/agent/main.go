@@ -39,11 +39,6 @@ func init() {
 		os.Exit(1)
 	}
 
-	discover.AutoConfig(*reset)
-	if *configureOnly {
-		os.Exit(0)
-	}
-
 	setupZapLogger()
 
 	discover.AutoConfig(*reset)
