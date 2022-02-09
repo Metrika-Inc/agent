@@ -32,4 +32,3 @@ func init() {
 		log.Fatalw("failed to load protocol configuration file", zap.Error(err))
 	}
 }
-

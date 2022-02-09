@@ -16,12 +16,12 @@ const (
 var DapperConf *DapperConfig
 
 type DapperConfig struct {
-	configPath      string
-	Client          string               `yaml:"client"`
-	ContainerRegex  []string             `yaml:"containerRegex"`
-	NodeID          string               `yaml:"nodeID"`
-	MetricEndpoints []global.PEFEndpoint `yaml:"pefEndpoints"`
-	EnvFilePath     string               `yaml:"envFile"`
+	configPath     string
+	Client         string               `yaml:"client"`
+	ContainerRegex []string             `yaml:"containerRegex"`
+	NodeID         string               `yaml:"nodeID"`
+	PEFEndpoints   []global.PEFEndpoint `yaml:"pefEndpoints"`
+	EnvFilePath    string               `yaml:"envFile"`
 }
 
 func NewDapperConfig(configPath ...string) DapperConfig {

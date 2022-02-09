@@ -1,6 +1,7 @@
 package global
 
 import (
+	"agent/api/v1/model"
 	"agent/pkg/fingerprint"
 	"agent/pkg/watch"
 	"errors"
@@ -43,7 +44,7 @@ type Chain interface {
 	ContainerRegex() []string
 
 	// LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
-	LogEventsList() map[string][]string // TODO: change to models.FromContext when merging
+	LogEventsList() map[string]model.FromContext
 
 	// NodeLogPath returns the path to the log file to watch.
 	// Supports special keys like "docker" or "journald <service-name>"

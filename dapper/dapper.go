@@ -1,6 +1,7 @@
 package dapper
 
 import (
+	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 	"errors"
@@ -64,11 +65,11 @@ func (d *Dapper) IsConfigured() bool {
 }
 
 func (d *Dapper) isPEFConfigured() bool {
-	if len(d.config.MetricEndpoints) == 0 {
+	if len(d.config.PEFEndpoints) == 0 {
 		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
 	}
 
-	return len(d.config.MetricEndpoints[0].URL) != 0
+	return len(d.config.PEFEndpoints[0].URL) != 0
 }
 
 func (d *Dapper) Discover() error {
@@ -177,7 +178,7 @@ func (d *Dapper) DiscoverPEFEndpoints() error {
 	}
 
 	// MetricEndpoints[0].Filters is hardcoded in template
-	defaultFilters := d.config.MetricEndpoints[0].Filters
+	defaultFilters := d.config.PEFEndpoints[0].Filters
 
 	for port := range portsToTry {
 		endpoint := "http://127.0.0.1:" + strconv.Itoa(port) + "/metrics"
@@ -189,14 +190,14 @@ func (d *Dapper) DiscoverPEFEndpoints() error {
 		if resp.StatusCode <= 204 {
 			zap.S().Infow("found PEF metrics", "endpoint", endpoint)
 			// MetricEndpoints[0].URL is hardcoded as "" in template
-			if d.config.MetricEndpoints[0].URL == "" {
-				d.config.MetricEndpoints[0].URL = endpoint
+			if d.config.PEFEndpoints[0].URL == "" {
+				d.config.PEFEndpoints[0].URL = endpoint
 			} else {
 				PEFEndpoint := global.PEFEndpoint{
 					URL:     endpoint,
 					Filters: defaultFilters,
 				}
-				d.config.MetricEndpoints = append(d.config.MetricEndpoints, PEFEndpoint)
+				d.config.PEFEndpoints = append(d.config.PEFEndpoints, PEFEndpoint)
 			}
 			found = true
 			d.renderNeeded = true
@@ -226,7 +227,7 @@ func (d *Dapper) Client() error {
 
 // PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
 func (d *Dapper) PEFEndpoints() []global.PEFEndpoint {
-	return d.config.MetricEndpoints
+	return d.config.PEFEndpoints
 }
 
 // ContainerRegex returns a regex-compatible string to identify the blockchain node
@@ -237,12 +238,12 @@ func (d *Dapper) ContainerRegex() []string {
 
 // LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
 // TODO: change to models.FromContext when merging
-func (d *Dapper) LogEventsList() map[string][]string {
-	return nil // TODO: copy over from Events branch
+func (d *Dapper) LogEventsList() map[string]model.FromContext {
+	return eventsFromContext
 }
 
 // NodeLogPath returns the path to the log file to watch.
 // TODO: string -> []string perhaps
 func (d *Dapper) NodeLogPath() string {
-	return "docker" // TODO: copy over from Events branch
+	return "" // TODO: copy over from Events branch
 }
