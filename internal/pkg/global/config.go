@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	AgentRuntimeConfig AgentConfig
-	DapperConf         *DapperConfig
-	DefaultConfigPath  = "./internal/pkg/global/agent.yml"
-	DefaultDapperPath  = "./internal/pkg/global/dapper.yml"
-	DefaultAlgoPath    = "./internal/pkg/global/algorand.yml"
-	AgentCacheDir      string
+	AgentRuntimeConfig         AgentConfig
+	DapperConf                 *DapperConfig
+	DefaultConfigPath          = "./internal/pkg/global/agent.yml"
+	DefaultDapperPath          = "./internal/pkg/global/dapper.yml"
+	DefaultAlgorandPath        = "./internal/pkg/global/algorand.yml"
+	DefaultFingerprintFilename = "fingerprint"
+	AgentCacheDir              string
 )
 
 func init() {
@@ -31,10 +32,6 @@ func init() {
 		zap.S().Fatalw("user cache directory error: ", zap.Error(err))
 	}
 }
-
-const (
-	DefaultFingerprintFilename = "fingerprint"
-)
 
 type PlatformConfig struct {
 	BatchN             int           `yaml:"batch_n"`
