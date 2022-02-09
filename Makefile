@@ -21,6 +21,8 @@ HASH := $(shell git rev-parse --short HEAD)
 
 # Protocol Buffer related vars
 PROTOC_VERSION := 3.19.0
+PROTOC_GEN_GO_GRPC_VERSION := v1.1
+PROTOC_GEN_GO_VERSION := v1.3.5
 PROTOC_OS = linux
 PROTOC_ARCH = x86_64
 PROM_CLIENT_VERSION := 1.12.1
@@ -76,10 +78,14 @@ protogen:
 	cd $(PROTOC_TMP); unzip protoc.zip && mv include/google $(PWD)/tmp/include/
 	cd $(PROTOC_TMP); git clone https://github.com/prometheus/client_model.git && mv client_model/io/ $(PWD)/tmp/go/
 
-	protoc \
+	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin
+	GOBIN=$(PWD)/tmp/bin go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
+	GOBIN=$(PWD)/tmp/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
+
+	PATH=$(PWD)/tmp/bin:$$PATH protoc \
 	-I tmp/include -I tmp/go -I api/v1/proto \
-	--go_out=./api/v1/model \
-	--go-grpc_out=./api/v1/model \
+	--go_out=api/v1/model \
+	--go-grpc_out=api/v1/model \
 	api/v1/proto/agent.proto
 
 .PHONY: build

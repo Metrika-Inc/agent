@@ -46,6 +46,7 @@ func init() {
 		os.Exit(0)
 	}
 
+	zap.S().Info("node discovered: ", discover.Hello())
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
@@ -88,6 +89,25 @@ func logTimestampMSEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 func defaultWatchers() []watch.Watcher {
 	dw := []watch.Watcher{}
 
+	// Log watch for event generation
+	logEvs := discover.LogEventsList()
+
+	regex := discover.ContainerRegex()
+	if len(regex) > 0 {
+		// Docker container watch
+		dw = append(dw, watch.NewContainerWatch(watch.ContainerWatchConf{
+			Regex: regex,
+		}))
+
+		// Docker container watch (logs)
+		dw = append(dw, watch.NewDockerLogWatch(watch.DockerLogWatchConf{
+			Regex:  regex,
+			Events: logEvs,
+		}))
+
+		zap.S().Debugf("watching containers %v", regex)
+	}
+
 	// PEF Watch
 	eps := global.NodeProtocol.PEFEndpoints()
 	for _, ep := range eps {
@@ -117,6 +137,8 @@ func registerWatchers() error {
 
 		watchersEnabled = append(watchersEnabled, w)
 	}
+
+	watchersEnabled = append(watchersEnabled, defaultWatchers()...)
 
 	if err := global.WatcherRegistry.Register(watchersEnabled...); err != nil {
 		return err

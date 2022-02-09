@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"agent/api/v1/model"
 	"agent/internal/pkg/global"
 	"errors"
 	"io/fs"
@@ -19,6 +20,10 @@ type NodeDiscovery interface {
 	Discover() error
 	IsConfigured() bool
 	ResetConfig() error
+	ContainerRegex() []string
+	LogEventsList() map[string]model.FromContext
+	Hello() string
+	NodeLogPath() string
 }
 
 func AutoConfig(reset bool) global.Chain {
@@ -54,4 +59,20 @@ func ResetConfig() {
 			zap.S().Errorw("failed to remove a config file", zap.Error(err))
 		}
 	}
+}
+
+func Hello() string {
+	return proto.Hello()
+}
+
+func LogEventsList() map[string]model.FromContext {
+	return proto.LogEventsList()
+}
+
+func ContainerRegex() []string {
+	return proto.ContainerRegex()
+}
+
+func NodeLogPath() string {
+	return proto.NodeLogPath()
 }

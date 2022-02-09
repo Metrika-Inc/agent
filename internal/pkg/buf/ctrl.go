@@ -33,7 +33,7 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 
 func (c *Controller) Start(ctx context.Context) {
 	log := zap.S()
-	log.Info("starting buffer controller")
+	log.Debug("starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire

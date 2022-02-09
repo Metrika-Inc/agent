@@ -1,5 +1,7 @@
 package algorand
 
+import "agent/api/v1/model"
+
 type Algorand struct {
 }
 
@@ -25,5 +27,21 @@ func (a *Algorand) Discover() error {
 }
 
 func (a *Algorand) ResetConfig() error {
+	panic("implement me!")
+}
+
+func (a *Algorand) LogEventsList() map[string]model.FromContext {
+	return nil
+}
+
+func (a *Algorand) Hello() string {
+	return "Algorand"
+}
+
+func (a *Algorand) ContainerRegex() []string {
+	return []string{}
+}
+
+func (a *Algorand) NodeLogPath() string {
 	panic("implement me!")
 }

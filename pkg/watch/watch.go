@@ -32,6 +32,10 @@ type Watcher interface {
 	once() *sync.Once
 }
 
+type WatcherEmit interface {
+	Emit(message interface{})
+}
+
 func Start(watcher Watcher) {
 	watcher.once().Do(watcher.StartUnsafe)
 }

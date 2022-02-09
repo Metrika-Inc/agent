@@ -5,8 +5,6 @@ import (
 	"agent/pkg/collector"
 	"agent/pkg/watch"
 
-	algorandWatch "agent/algorand/pkg/watch"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -15,10 +13,6 @@ import (
 func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
 	var w watch.Watcher
 	switch conf.Type {
-	case watch.AlgorandNodeRestart:
-		w = algorandWatch.NewAlgodRestartWatch(algorandWatch.AlgodRestartWatchConf{
-			Path: "/var/lib/algorand/algod.pid",
-		}, nil)
 	default:
 		zap.S().Fatalw("specified watcher constructor not found", "watcher", conf.Type)
 	}

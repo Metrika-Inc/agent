@@ -13,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	dt "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
 	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 )
@@ -30,6 +32,7 @@ func GetRunningContainers() ([]dt.Container, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer cli.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -123,4 +126,25 @@ func GetLogLine(r io.Reader) ([]byte, error) {
 		return nil, ErrEmptyLogFile
 	}
 	return scan.Bytes(), nil
+}
+
+func DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
+	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.ContainerLogs(ctx, container, options)
+}
+
+func DockerEvents(ctx context.Context, options types.EventsOptions) (
+	<-chan events.Message, <-chan error, error) {
+
+	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	msgchan, errchan := cli.Events(ctx, options)
+	return msgchan, errchan, nil
 }
