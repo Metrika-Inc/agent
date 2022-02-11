@@ -27,3 +27,8 @@ build-algorand:
 	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
 	-X 'agent/internal/pkg/global.Protocol=algorand' \
 	" cmd/agent/main.go
+
+protogen:
+	protoc -I api/v1/proto --go_out=./api/v1/model \
+	--go-grpc_out=./api/v1/model \
+	api/v1/proto/agent.proto

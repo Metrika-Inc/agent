@@ -96,10 +96,11 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				}
 
 				// Create & emit the metric
-				metricInternal := model.MetricPlatform{
-					Type:      string(c.Type),
+				metricInternal := model.Message{
+					Name:      string(c.Type),
 					Timestamp: time.Now().UTC().UnixMilli(),
-					Body:      body,
+					Type:      model.MessageType_metric,
+					Data:      body,
 				}
 
 				c.Emit(metricInternal)

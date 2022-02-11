@@ -65,6 +65,10 @@ func (m MetricPlatform) Bytes() uint {
 	return uint(unsafe.Sizeof(m)) + uint(len(m.Type)+len(m.Body)) + uint(8-len(m.Type)%8)%8 + uint(8-len(m.Body)%8)%8
 }
 
+func (m Message) Bytes() uint {
+	return uint(unsafe.Sizeof(m)) + 20 + uint(len(m.Name)+len(m.Data)) + uint(8-len(m.Name)%8)%8 + uint(8-len(m.Data)%8)%8
+}
+
 // MetrikaMessage wraps a batch of metrics with agent context.
 type MetrikaMessage struct {
 	// UUID agent instance UUID

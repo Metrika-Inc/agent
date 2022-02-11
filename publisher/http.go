@@ -16,7 +16,10 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type platformState int32
@@ -59,7 +62,7 @@ type HTTPConf struct {
 	BufferTTL time.Duration
 }
 
-type HTTP struct {
+type Transport struct {
 	receiveCh <-chan interface{}
 
 	conf    HTTPConf
@@ -68,11 +71,11 @@ type HTTP struct {
 	closeCh chan interface{}
 }
 
-func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
+func NewHTTP(ch <-chan interface{}, conf HTTPConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
 
-	return &HTTP{
+	return &Transport{
 		client:    http.DefaultClient,
 		conf:      conf,
 		receiveCh: ch,
@@ -122,7 +125,37 @@ func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 	return timestamp, nil
 }
 
-func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+func publish2(ctx context.Context, data []*model.Message) (int64, error) {
+	addr := "localhost:50051"
+	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
+	if err != nil {
+		return 0, err
+	}
+
+	metrikaMsg := model.PlatformMessage{
+		AgentUUID: uuid,
+		Data:      data,
+	}
+
+	proto.Size(&metrikaMsg)
+	metrikaMsg.XXX_Size()
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+	client := model.NewAgentClient(conn)
+	resp, err := client.Transmit(reqCtx, &metrikaMsg)
+	if err != nil {
+		return 0, err
+	}
+	return resp.Timestamp, nil
+}
+
+func (h *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
 		// TODO: consider reusing batch slice
 		batch := make(model.MetricBatch, 0, len(b)+1)
@@ -167,6 +200,50 @@ func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBat
 	return publishFunc
 }
 
+func (h *Transport) NewPublishFuncWithContext2(ctx context.Context) func(b buf.ItemBatch) error {
+	publishFunc := func(b buf.ItemBatch) error {
+		batch := make([]*model.Message, 0, len(b)+1)
+		for _, item := range b {
+			m, ok := item.Data.(model.Message)
+			if !ok {
+				zap.S().Warnf("unrecognised type %T", item.Data)
+
+				// ignore
+				continue
+			}
+			batch = append(batch, &m)
+		}
+
+		errCh := make(chan error)
+		go func() {
+			timestamp, err := publish2(ctx, batch)
+			if err != nil {
+				PlatformHTTPRequestErrors.Inc()
+				state.SetPublishState(platformStateDown)
+
+				errCh <- err
+				return
+			}
+			if timestamp != 0 {
+				timesync.Refresh(timestamp)
+			}
+			MetricsPublishedCnt.Add(float64(len(batch)))
+			state.SetPublishState(platformStateUp)
+
+			errCh <- nil
+		}()
+
+		select {
+		case err := <-errCh:
+			return err // might be nil
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("publish goroutine timeout (30s)")
+		}
+	}
+
+	return publishFunc
+}
+
 type AgentState struct {
 	publishState platformState
 }
@@ -183,7 +260,7 @@ func (a *AgentState) Reset() {
 	atomic.StoreInt32((*int32)(&a.publishState), int32(platformStateUp))
 }
 
-func (h *HTTP) Start(wg *sync.WaitGroup) {
+func (h *Transport) Start(wg *sync.WaitGroup) {
 	log := zap.S()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
@@ -191,7 +268,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 
 	conf := buf.ControllerConf{
 		MaxDrainBatchLen: h.conf.MaxBatchLen,
-		DrainOp:          h.NewPublishFuncWithContext(ctx),
+		DrainOp:          h.NewPublishFuncWithContext2(ctx),
 		DrainFreq:        h.conf.PublishIntv,
 	}
 	bufCtrl := buf.NewController(conf, h.buffer)
@@ -225,7 +302,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 					return
 				}
 
-				m, ok := msg.(model.MetricPlatform)
+				m, ok := msg.(model.Message)
 				if !ok {
 					log.Error("type assertion failed")
 
@@ -275,6 +352,6 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-func (h *HTTP) Stop() {
+func (h *Transport) Stop() {
 	close(h.closeCh)
 }

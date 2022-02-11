@@ -61,12 +61,12 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			if newPid != 0 { // On
 				health = model.NodeHealthMetric{
 					Metric: model.NewMetric(true),
-					State:  model.NodeStateUp,
+					State:  model.NodeState_UP,
 				}
 			} else { // Off
 				health = model.NodeHealthMetric{
 					Metric: model.NewMetric(true),
-					State:  model.NodeStateDown,
+					State:  model.NodeState_DOWN,
 				}
 			}
 			jsonHealth, err := json.Marshal(health)
@@ -76,11 +76,12 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			}
 
 			// Create & emit the metric
-			metric := model.MetricPlatform{
-				Type:      "node.health",
+			metric := model.Message{
 				Timestamp: health.Timestamp,
+				Name:      "node.health",
+				Type:      model.MessageType_metric,
 				NodeState: health.State,
-				Body:      jsonHealth,
+				Data:      jsonHealth,
 			}
 			w.Emit(metric)
 

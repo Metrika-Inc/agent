@@ -1,11 +1,6 @@
 package model
 
-type NodeState uint8
-
-const (
-	NodeStateDown NodeState = iota
-	NodeStateUp
-)
+// type NodeState uint8
 
 type NodeHealthMetric struct {
 	Metric

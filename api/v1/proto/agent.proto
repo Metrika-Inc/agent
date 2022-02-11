@@ -1,0 +1,54 @@
+syntax = "proto3";
+package metrika;
+
+
+option go_package = ".;model";
+import "github.com/prometheus/client_model/blob/master/io/prometheus/client/metrics.proto";
+enum NodeState {
+    down = 0;
+    up = 1;
+}
+
+enum AgentState {
+    healthy = 0;
+    unhealthy = 1;
+}
+
+enum MessageType {
+    metric = 0;
+    event = 1;
+}
+
+// TODO: padding, find an optimal order. Maybe it's already done by the protoc?
+message Message {
+    int64 timestamp = 1;
+    MessageType type = 2;
+    string name = 3;
+    NodeState nodeState = 5;
+    AgentState agentState = 6;
+    // bytes data = 7; // could be "oneof"
+    oneof Item {
+        MetricFamily metric = 8;
+        Event event = 9;
+    }
+}
+
+message Metric {
+
+}
+message Event {
+    
+}
+
+message PlatformMessage {
+    repeated Message data = 1;
+    string agentUUID = 2;
+}
+
+message PlatformResponse {
+    int64 timestamp = 1;
+}
+
+service agent {
+    rpc Transmit (PlatformMessage) returns (PlatformResponse);
+}
