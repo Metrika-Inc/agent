@@ -53,7 +53,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 			m := model.MetricPlatform{
 				Timestamp: time.Now().UnixMilli(),
 				Type:      "test-metric",
-				NodeState: model.NodeState_UP,
+				NodeState: model.NodeState_up,
 				Body:      body,
 			}
 			pubCh <- m
@@ -122,7 +122,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 			m := model.MetricPlatform{
 				Timestamp: time.Now().UnixMilli(),
 				Type:      "test-metric",
-				NodeState: model.NodeState_UP,
+				NodeState: model.NodeState_up,
 				Body:      body,
 			}
 			pubCh <- m
@@ -180,7 +180,7 @@ func TestPublisher_Error(t *testing.T) {
 			m := model.MetricPlatform{
 				Timestamp: time.Now().UnixMilli(),
 				Type:      "test-metric",
-				NodeState: model.NodeState_UP,
+				NodeState: model.NodeState_up,
 				Body:      body,
 			}
 			pubCh <- m
@@ -246,7 +246,7 @@ func TestPublisher_Stop(t *testing.T) {
 			m := model.MetricPlatform{
 				Timestamp: time.Now().UnixMilli(),
 				Type:      "test-metric",
-				NodeState: model.NodeState_UP,
+				NodeState: model.NodeState_up,
 				Body:      body,
 			}
 			pubCh <- m

@@ -32,3 +32,10 @@ protogen:
 	protoc -I api/v1/proto --go_out=./api/v1/model \
 	--go-grpc_out=./api/v1/model \
 	api/v1/proto/agent.proto
+
+wip_protogen:
+	PATH=/home/tomas/client_model/tmp/bin:$$PATH protoc \
+	-I tmp/include -I tmp/go -I api/v1/proto \
+	--go_out=./api/v1/model \
+	--go-grpc_out=./api/v1/model \
+	api/v1/proto/agent.proto

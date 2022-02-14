@@ -31,7 +31,7 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 
 func (c *agentClient) Transmit(ctx context.Context, in *PlatformMessage, opts ...grpc.CallOption) (*PlatformResponse, error) {
 	out := new(PlatformResponse)
-	err := c.cc.Invoke(ctx, "/agent/Transmit", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/metrika.agent/Transmit", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func _Agent_Transmit_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/agent/Transmit",
+		FullMethod: "/metrika.agent/Transmit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Transmit(ctx, req.(*PlatformMessage))
@@ -88,7 +88,7 @@ func _Agent_Transmit_Handler(srv interface{}, ctx context.Context, dec func(inte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Agent_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "agent",
+	ServiceName: "metrika.agent",
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

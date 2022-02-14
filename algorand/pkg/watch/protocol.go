@@ -1,7 +1,6 @@
 package watch
 
 import (
-	algorand "agent/algorand/api/v1/model"
 	"agent/api/v1/model"
 	"encoding/json"
 
@@ -62,19 +61,22 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 					continue
 				}
 
-				newBlockMetric := algorand.NewBlockMetric{
-					Metric: model.NewMetric(true),
-					Round:  round.(uint64),
+				newBlockEvent := struct {
+					Round uint64
+				}{
+					Round: round.(uint64),
 				}
-				newBlockMetricJson, err := json.Marshal(newBlockMetric)
+
+				newBlockEventJson, err := json.Marshal(newBlockEvent)
 				if err != nil {
-					w.Log.Errorw("failed to marshal new block metric", zap.Error(err))
+					w.Log.Errorw("failed to marshal new block event", zap.Error(err))
 					return
 				}
 
-				metric := model.MetricPlatform{
-					Type: "protocol.new_block",
-					Body: newBlockMetricJson,
+				metric := model.Message{
+					Name:  "protocol.new_block",
+					Type:  model.MessageType_event,
+					Event: &model.Event{Body: newBlockEventJson},
 				}
 
 				w.Emit(metric)

@@ -5,7 +5,7 @@ import (
 )
 
 type NewBlockMetric struct {
-	model.Metric
+	model.Message
 
 	Round uint64 `json:"round"`
 }

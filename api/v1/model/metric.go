@@ -1,28 +1,8 @@
 package model
 
 import (
-	"time"
 	"unsafe"
 )
-
-// Metric / Metric is the base structure for all metrics sent by the agent.
-type Metric struct {
-	/// Timestamp represents the unix timestamp in milliseconds when the metric was created.
-	Timestamp int64 `json:"timestamp"`
-
-	/// Actionable is a hint for the consumer to use when handling this metric.
-	/// `actionable=true` indicates that the metric is known to be recent.
-	/// `actionable=false` indicates that the metric may be outdated, the agent does not know.
-	/// When Actionable is not present, the metric is assumed to be actionable.
-	Actionable bool `json:"actionable"`
-}
-
-func NewMetric(actionable bool) Metric {
-	return Metric{
-		Timestamp:  time.Now().UnixMilli(),
-		Actionable: actionable,
-	}
-}
 
 // MetricBatch slice of metrics to be published at once
 type MetricBatch []MetricPlatform
@@ -66,7 +46,20 @@ func (m MetricPlatform) Bytes() uint {
 }
 
 func (m Message) Bytes() uint {
-	return uint(unsafe.Sizeof(m)) + 20 + uint(len(m.Name)+len(m.Data)) + uint(8-len(m.Name)%8)%8 + uint(8-len(m.Data)%8)%8
+	// var dataSize uint
+	// if mf := m.GetMetric(); mf != nil {
+	// 	dataSize = uint(len(*mf.Name)) + uint(8-len(*mf.Name)%8)%8 +
+	// 		uint(len(*mf.Help)) + uint(8-len(*mf.Help)%8)%8 +
+	// 		4
+	// 	metricStructSize := uint(unsafe.Sizeof(Metric{}))
+	// 	// metricGaugeSize := uint(unsafe.Sizeof(Gauge{}))
+	// 	for _, metric := range mf.Metric {
+	// 		dataSize += metricStructSize
+
+	// 	}
+	// }
+	// return uint(unsafe.Sizeof(m)) + 20 + uint(len(m.Name)+len(m.Data)) + uint(8-len(m.Name)%8)%8 + uint(8-len(m.Data)%8)%8
+	return 0
 }
 
 // MetrikaMessage wraps a batch of metrics with agent context.

@@ -16,7 +16,6 @@ package watch
 
 import (
 	"agent/api/v1/model"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -88,19 +87,12 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 		select {
 		case metricFams := <-c.ch1:
 			for _, metricFam := range metricFams {
-				body, err := json.Marshal(metricFam)
-				if err != nil {
-					c.Log.Errorw("Cannot marshal dto.Metric", zap.Error(err))
-
-					continue
-				}
-
 				// Create & emit the metric
 				metricInternal := model.Message{
 					Name:      string(c.Type),
 					Timestamp: time.Now().UTC().UnixMilli(),
 					Type:      model.MessageType_metric,
-					Data:      body,
+					Metric:    metricFam,
 				}
 
 				c.Emit(metricInternal)

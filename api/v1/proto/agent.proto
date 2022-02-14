@@ -3,7 +3,9 @@ package metrika;
 
 
 option go_package = ".;model";
-import "github.com/prometheus/client_model/blob/master/io/prometheus/client/metrics.proto";
+
+import "io/prometheus/client/metrics.proto";
+
 enum NodeState {
     down = 0;
     up = 1;
@@ -26,18 +28,13 @@ message Message {
     string name = 3;
     NodeState nodeState = 5;
     AgentState agentState = 6;
-    // bytes data = 7; // could be "oneof"
-    oneof Item {
-        MetricFamily metric = 8;
-        Event event = 9;
-    }
+    io.prometheus.client.MetricFamily metric = 8;
+    Event event = 9;
 }
 
-message Metric {
-
-}
 message Event {
-    
+    // TODO: implement me (AH-806)
+    bytes body = 1;
 }
 
 message PlatformMessage {

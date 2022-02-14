@@ -7,3 +7,4 @@ profile*.out
 algorand.yml
 dapper.yml
 agent
+tmp/
