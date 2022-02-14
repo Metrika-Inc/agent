@@ -320,9 +320,7 @@ func init() {
 	proto.RegisterType((*PlatformResponse)(nil), "metrika.PlatformResponse")
 }
 
-func init() {
-	proto.RegisterFile("agent.proto", fileDescriptor_56ede974c0020f77)
-}
+func init() { proto.RegisterFile("agent.proto", fileDescriptor_56ede974c0020f77) }
 
 var fileDescriptor_56ede974c0020f77 = []byte{
 	// 421 bytes of a gzipped FileDescriptorProto
