@@ -15,40 +15,23 @@ import (
 	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 func TestMain(m *testing.M) {
 	timesync.Default.Start()
-	l, _ := zap.NewProduction()
-	zap.ReplaceGlobals(l)
+	// l, _ := zap.NewProduction()
+	// zap.ReplaceGlobals(l)
 	m.Run()
 }
 
 type MockAgentClient struct {
 	model.UnimplementedAgentServer
-
-	shouldError bool
-
-	returnCurrentTime bool
-	defaultTime       int64
-
 	execute func() (*model.PlatformResponse, error)
 }
 
 func (m *MockAgentClient) Transmit(ctx context.Context, in *model.PlatformMessage, opts ...grpc.CallOption) (*model.PlatformResponse, error) {
 	return m.execute()
-	if m.shouldError {
-		return nil, errors.New("foo")
-	}
-	ret := &model.PlatformResponse{}
-	if m.returnCurrentTime {
-		ret.Timestamp = time.Now().UnixMilli()
-	} else {
-		ret.Timestamp = m.defaultTime
-	}
-	return ret, nil
 }
 
 func newMockAgentClient(execFunc func() (*model.PlatformResponse, error)) *MockAgentClient {
@@ -77,7 +60,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		platformCh <- nil
-		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
 	})
 
 	pubWg := new(sync.WaitGroup)
@@ -149,7 +132,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		platformCh <- nil
-		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
 	})
 
 	pubWg := new(sync.WaitGroup)
@@ -223,7 +206,7 @@ func TestPublisher_Error(t *testing.T) {
 		if time.Since(st) < healthyAfter {
 			return nil, errors.New("foo")
 		}
-		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
 	})
 
 	wg := new(sync.WaitGroup)
