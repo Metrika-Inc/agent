@@ -13,7 +13,14 @@ import (
 	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
+
+func TestMain(m *testing.M) {
+	l, _ := zap.NewProduction()
+	zap.ReplaceGlobals(l)
+	m.Run()
+}
 
 // TestPublisher_EagerDrain checks:
 // - buffer is drained immediately when it reaches MaxBatchLen (before
@@ -50,11 +57,11 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.MetricPlatform{
+			m := model.Message{
 				Timestamp: time.Now().UnixMilli(),
-				Type:      "test-metric",
+				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				AltMetric: body,
 			}
 			pubCh <- m
 			if i == n/2 {
@@ -119,11 +126,11 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.MetricPlatform{
+			m := model.Message{
 				Timestamp: time.Now().UnixMilli(),
-				Type:      "test-metric",
+				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				AltMetric: body,
 			}
 			pubCh <- m
 		}
@@ -177,11 +184,11 @@ func TestPublisher_Error(t *testing.T) {
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.MetricPlatform{
+			m := model.Message{
 				Timestamp: time.Now().UnixMilli(),
-				Type:      "test-metric",
+				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				AltMetric: body,
 			}
 			pubCh <- m
 		}
@@ -243,11 +250,11 @@ func TestPublisher_Stop(t *testing.T) {
 
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.MetricPlatform{
+			m := model.Message{
 				Timestamp: time.Now().UnixMilli(),
-				Type:      "test-metric",
+				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				AltMetric:      body,
 			}
 			pubCh <- m
 		}

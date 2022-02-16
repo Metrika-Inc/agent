@@ -25,11 +25,12 @@ enum MessageType {
 message Message {
     int64 timestamp = 1;
     MessageType type = 2;
-    string name = 3;
-    NodeState nodeState = 5;
-    AgentState agentState = 6;
-    io.prometheus.client.MetricFamily metric = 8;
-    Event event = 9;
+    NodeState nodeState = 3;
+    AgentState agentState = 4;
+    string name = 5;
+    io.prometheus.client.MetricFamily metric = 6;
+    Event event = 7;
+    bytes altMetric = 8;
 }
 
 message Event {
