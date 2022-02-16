@@ -1,7 +1,9 @@
 package publisher
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -14,12 +16,43 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func TestMain(m *testing.M) {
+	timesync.Default.Start()
 	l, _ := zap.NewProduction()
 	zap.ReplaceGlobals(l)
 	m.Run()
+}
+
+type MockAgentClient struct {
+	model.UnimplementedAgentServer
+
+	shouldError bool
+
+	returnCurrentTime bool
+	defaultTime       int64
+
+	execute func() (*model.PlatformResponse, error)
+}
+
+func (m *MockAgentClient) Transmit(ctx context.Context, in *model.PlatformMessage, opts ...grpc.CallOption) (*model.PlatformResponse, error) {
+	return m.execute()
+	if m.shouldError {
+		return nil, errors.New("foo")
+	}
+	ret := &model.PlatformResponse{}
+	if m.returnCurrentTime {
+		ret.Timestamp = time.Now().UnixMilli()
+	} else {
+		ret.Timestamp = m.defaultTime
+	}
+	return ret, nil
+}
+
+func newMockAgentClient(execFunc func() (*model.PlatformResponse, error)) *MockAgentClient {
+	return &MockAgentClient{execute: execFunc}
 }
 
 // TestPublisher_EagerDrain checks:
@@ -29,15 +62,8 @@ func TestMain(m *testing.M) {
 func TestPublisher_EagerDrain(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
-	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		platformCh <- nil
-		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
-	})
-	ts := httptest.NewServer(handleFunc)
-	defer ts.Close()
 
-	conf := HTTPConf{
-		URL:            ts.URL,
+	conf := TransportConf{
 		UUID:           "test-agent-uuid",
 		Timeout:        10 * time.Second,
 		MaxBatchLen:    n / 2,
@@ -48,6 +74,12 @@ func TestPublisher_EagerDrain(t *testing.T) {
 
 	pubCh := make(chan interface{}, n)
 	pub := NewHTTP(pubCh, conf)
+
+	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
+		platformCh <- nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+	})
+
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
 	pub.Start(pubWg)
@@ -102,8 +134,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
 
-	conf := HTTPConf{
-		URL:            ts.URL,
+	conf := TransportConf{
 		UUID:           "test-agent-uuid",
 		Timeout:        10 * time.Second,
 		MaxBatchLen:    10000,
@@ -115,6 +146,12 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
+
+	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
+		platformCh <- nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+	})
+
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
 	pub.Start(pubWg)
@@ -165,7 +202,7 @@ func TestPublisher_Error(t *testing.T) {
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
 
-	conf := HTTPConf{
+	conf := TransportConf{
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
 		Timeout:        10 * time.Second,
@@ -178,6 +215,17 @@ func TestPublisher_Error(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
+
+	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
+		defer func() {
+			platformCh <- nil
+		}()
+		if time.Since(st) < healthyAfter {
+			return nil, errors.New("foo")
+		}
+		return &model.PlatformResponse{Timestamp: time.Now().UnixMilli()}, nil
+	})
+
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
 	pub.Start(wg)
@@ -218,16 +266,8 @@ func TestPublisher_Error(t *testing.T) {
 func TestPublisher_Stop(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
-	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		platformCh <- nil
-		w.Write([]byte(strconv.FormatInt(time.Now().UnixNano(), 10)))
-	})
 
-	ts := httptest.NewServer(handleFunc)
-	defer ts.Close()
-
-	conf := HTTPConf{
-		URL:            ts.URL,
+	conf := TransportConf{
 		UUID:           "test-agent-uuid",
 		Timeout:        10 * time.Second,
 		MaxBatchLen:    100,
@@ -239,6 +279,12 @@ func TestPublisher_Stop(t *testing.T) {
 	pubCh := make(chan interface{}, n)
 
 	pub := NewHTTP(pubCh, conf)
+
+	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
+		platformCh <- nil
+		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+	})
+
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
 	pub.Start(pubWg)
@@ -254,7 +300,7 @@ func TestPublisher_Stop(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				AltMetric:      body,
+				AltMetric: body,
 			}
 			pubCh <- m
 		}

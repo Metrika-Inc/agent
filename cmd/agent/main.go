@@ -117,14 +117,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	conf := publisher.HTTPConf{
+	conf := publisher.TransportConf{
 		URL:            url.String(),
 		UUID:           agentUUID.String(),
-		Timeout:        global.AgentRuntimeConfig.Platform.HTTPTimeout,
+		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
 		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,
 		PublishIntv:    global.AgentRuntimeConfig.Platform.MaxPublishInterval,
 		BufferTTL:      global.AgentRuntimeConfig.Buffer.TTL,
+		RetryCount:     global.AgentRuntimeConfig.Platform.RetryCount,
 	}
 
 	ch := make(chan interface{}, 10000)

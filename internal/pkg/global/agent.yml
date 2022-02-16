@@ -1,10 +1,11 @@
 ---
 platform:
   batch_n: 1000
-  http_timeout: 10s
+  transport_timeout: 10s
   max_publish_interval: 5s
   addr: http://localhost:8000
   uri: /
+  retry_count: 3
 buffer:
   size: 52428800
   ttl: 0s

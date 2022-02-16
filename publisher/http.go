@@ -3,10 +3,8 @@ package publisher
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,7 +14,6 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -39,14 +36,14 @@ const (
 	platformStateDown                 = iota
 )
 
-type HTTPConf struct {
+type TransportConf struct {
 	// URL where the publisher will be pushing metrics to.
 	URL string
 
 	// UUID the agent's unique identifier
 	UUID string
 
-	// Timeout default timeout for HTTP requests to the platform
+	// Timeout default timeout for requests to the platform
 	Timeout time.Duration
 
 	// MaxBatchLen max number of metrics published at once to the platform
@@ -60,18 +57,24 @@ type HTTPConf struct {
 
 	// BufferTTL max duration a metric can stay in the buffer
 	BufferTTL time.Duration
+
+	// RetryCount attempts at (re)establishing connection
+	RetryCount int
 }
 
 type Transport struct {
 	receiveCh <-chan interface{}
 
-	conf    HTTPConf
+	conf    TransportConf
 	client  *http.Client
 	buffer  buf.Buffer
 	closeCh chan interface{}
+
+	grpcConn     *grpc.ClientConn
+	agentService model.AgentClient
 }
 
-func NewHTTP(ch <-chan interface{}, conf HTTPConf) *Transport {
+func NewHTTP(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
 
@@ -84,49 +87,7 @@ func NewHTTP(ch <-chan interface{}, conf HTTPConf) *Transport {
 	}
 }
 
-func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
-	if err != nil {
-		return 0, err
-	}
-
-	metrikaMsg := model.MetrikaMessage{
-		Data: data,
-		UUID: uuid,
-	}
-
-	req, err := newHTTPRequestFromContext(reqCtx, metrikaMsg)
-	if err != nil {
-		return 0, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		zap.S().Errorw("failed to read response body", zap.Error(err))
-		return 0, nil
-	}
-	timestamp, err := strconv.ParseInt(string(body), 10, 64)
-	if err != nil {
-		zap.S().Errorw("parseInt on response body failed", zap.Error(err))
-	}
-
-	return timestamp, nil
-}
-
-func publish2(ctx context.Context, data []*model.Message) (int64, error) {
-	addr := "localhost:50051"
+func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -139,16 +100,13 @@ func publish2(ctx context.Context, data []*model.Message) (int64, error) {
 		AgentUUID: uuid,
 		Data:      data,
 	}
-
-	proto.Size(&metrikaMsg)
-	metrikaMsg.XXX_Size()
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return 0, err
+	if t.agentService == nil {
+		if err := t.Connect(); err != nil {
+			return 0, err
+		}
 	}
-	defer conn.Close()
-	client := model.NewAgentClient(conn)
-	resp, err := client.Transmit(reqCtx, &metrikaMsg)
+
+	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
 	if err != nil {
 		return 0, err
 	}
@@ -156,51 +114,6 @@ func publish2(ctx context.Context, data []*model.Message) (int64, error) {
 }
 
 func (h *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
-	publishFunc := func(b buf.ItemBatch) error {
-		// TODO: consider reusing batch slice
-		batch := make(model.MetricBatch, 0, len(b)+1)
-		for _, item := range b {
-			m, ok := item.Data.(model.MetricPlatform)
-			if !ok {
-				zap.S().Warnf("unrecognised type %T", item.Data)
-
-				// ignore
-				continue
-			}
-			batch = append(batch, m)
-		}
-
-		errCh := make(chan error)
-		go func() {
-			timestamp, err := publish(ctx, batch)
-			if err != nil {
-				PlatformHTTPRequestErrors.Inc()
-				state.SetPublishState(platformStateDown)
-
-				errCh <- err
-				return
-			}
-			if timestamp != 0 {
-				timesync.Refresh(timestamp)
-			}
-			MetricsPublishedCnt.Add(float64(len(batch)))
-			state.SetPublishState(platformStateUp)
-
-			errCh <- nil
-		}()
-
-		select {
-		case err := <-errCh:
-			return err // might be nil
-		case <-time.After(30 * time.Second):
-			return fmt.Errorf("publish goroutine timeout (30s)")
-		}
-	}
-
-	return publishFunc
-}
-
-func (h *Transport) NewPublishFuncWithContext2(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
 		batch := make([]*model.Message, 0, len(b)+1)
 		for _, item := range b {
@@ -216,7 +129,7 @@ func (h *Transport) NewPublishFuncWithContext2(ctx context.Context) func(b buf.I
 
 		errCh := make(chan error)
 		go func() {
-			timestamp, err := publish2(ctx, batch)
+			timestamp, err := h.publish(ctx, batch)
 			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
 				state.SetPublishState(platformStateDown)
@@ -260,6 +173,28 @@ func (a *AgentState) Reset() {
 	atomic.StoreInt32((*int32)(&a.publishState), int32(platformStateUp))
 }
 
+func (t *Transport) Connect() error {
+	var success bool
+	var err error
+	for i := 0; i < t.conf.RetryCount && !success; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
+		defer cancel()
+		t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
+			grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			zap.S().Warnw("failed to connect to GRPC server", "attempt", i+1, zap.Error(err))
+			continue
+		}
+		success = true
+	}
+	if !success {
+		zap.S().Errorw("failed to connect", "retry_count", t.conf.RetryCount, zap.Error(err))
+		return err
+	}
+	t.agentService = model.NewAgentClient(t.grpcConn)
+	return nil
+}
+
 func (h *Transport) Start(wg *sync.WaitGroup) {
 	log := zap.S()
 	ctx := context.Background()
@@ -268,7 +203,7 @@ func (h *Transport) Start(wg *sync.WaitGroup) {
 
 	conf := buf.ControllerConf{
 		MaxDrainBatchLen: h.conf.MaxBatchLen,
-		DrainOp:          h.NewPublishFuncWithContext2(ctx),
+		DrainOp:          h.NewPublishFuncWithContext(ctx),
 		DrainFreq:        h.conf.PublishIntv,
 	}
 	bufCtrl := buf.NewController(conf, h.buffer)
