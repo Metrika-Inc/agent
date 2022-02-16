@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -111,14 +110,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	url, err := url.Parse(global.AgentRuntimeConfig.Platform.Addr +
-		global.AgentRuntimeConfig.Platform.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	conf := publisher.TransportConf{
-		URL:            url.String(),
+		URL:            global.AgentRuntimeConfig.Platform.Addr,
 		UUID:           agentUUID.String(),
 		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,

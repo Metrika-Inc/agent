@@ -106,9 +106,20 @@ func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, 
 		}
 	}
 
+	// Transmit to platform. Failure here signifies transient error.
+	// Try to reconnect and send data again once.
 	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
 	if err != nil {
-		return 0, err
+		zap.S().Errorw("failed to transmit to the platform", zap.Error(err))
+		err := t.Connect()
+		if err != nil {
+			zap.S().Errorw("failde to reconnect to the platform", zap.Error(err))
+			return 0, err
+		}
+		resp, err = t.agentService.Transmit(reqCtx, &metrikaMsg)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return resp.Timestamp, nil
 }

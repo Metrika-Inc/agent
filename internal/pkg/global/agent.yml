@@ -3,7 +3,7 @@ platform:
   batch_n: 1000
   transport_timeout: 10s
   max_publish_interval: 5s
-  addr: http://localhost:8000
+  addr: localhost:8000
   uri: /
   retry_count: 3
 buffer:
