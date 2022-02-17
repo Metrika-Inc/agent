@@ -56,7 +56,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	}
 
 	pubCh := make(chan interface{}, n)
-	pub := NewHTTP(pubCh, conf)
+	pub := NewTransport(pubCh, conf)
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		platformCh <- nil
@@ -128,7 +128,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	pubCh := make(chan interface{}, n)
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewTransport(pubCh, conf)
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		platformCh <- nil
@@ -197,7 +197,7 @@ func TestPublisher_Error(t *testing.T) {
 
 	pubCh := make(chan interface{}, n)
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewTransport(pubCh, conf)
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		defer func() {
@@ -261,7 +261,7 @@ func TestPublisher_Stop(t *testing.T) {
 
 	pubCh := make(chan interface{}, n)
 
-	pub := NewHTTP(pubCh, conf)
+	pub := NewTransport(pubCh, conf)
 
 	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
 		platformCh <- nil

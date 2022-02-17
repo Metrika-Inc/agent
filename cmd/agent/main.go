@@ -122,7 +122,7 @@ func main() {
 	}
 
 	ch := make(chan interface{}, 10000)
-	pub := publisher.NewHTTP(ch, conf)
+	pub := publisher.NewTransport(ch, conf)
 
 	wg := &sync.WaitGroup{}
 	pub.Start(wg)

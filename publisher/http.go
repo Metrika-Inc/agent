@@ -74,7 +74,7 @@ type Transport struct {
 	agentService model.AgentClient
 }
 
-func NewHTTP(ch <-chan interface{}, conf TransportConf) *Transport {
+func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
 
