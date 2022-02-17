@@ -6,6 +6,7 @@ import (
 
 	. "agent/pkg/watch"
 
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 )
 
@@ -73,10 +74,18 @@ func (w *AlgorandBlockWatch) handleLogMessage() {
 					return
 				}
 
+				protoEvent := &model.Event{Body: newBlockEventJson}
+
+				out, err := proto.Marshal(protoEvent)
+				if err != nil {
+					w.Log.Errorw("failed to proto.Marshal new block event", zap.Error(err))
+					return
+				}
+
 				metric := model.Message{
 					Name:  "protocol.new_block",
 					Type:  model.MessageType_event,
-					Event: &model.Event{Body: newBlockEventJson},
+					Body: out,
 				}
 
 				w.Emit(metric)

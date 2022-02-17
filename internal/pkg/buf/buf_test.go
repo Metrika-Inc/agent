@@ -17,17 +17,17 @@ var (
 	testItemSz            = 112               // 112Bytes
 )
 
-func newTestItem(priority uint, m model.MetricPlatform) Item {
+func newTestItem(priority uint, m model.Message) Item {
 	return Item{Priority: Priority(priority),
 		Timestamp: m.Timestamp,
 		Bytes:     uint(unsafe.Sizeof(Item{})) + m.Bytes(),
 	}
 }
 
-func newTestMetric(timestamp int64) model.MetricPlatform {
+func newTestMetric(timestamp int64) model.Message {
 	b, _ := json.Marshal("foobar")
-	return model.MetricPlatform{
-		Type: "heap-test",
+	return model.Message{
+		Name: "heap-test",
 		Body: b,
 	}
 }
@@ -35,7 +35,7 @@ func newTestMetric(timestamp int64) model.MetricPlatform {
 func newTestItemBatch(n int) ItemBatch {
 	got := make(ItemBatch, 0, n)
 	for i := 0; i < n; i++ {
-		metric := model.MetricPlatform{Type: "heap-test", Timestamp: int64(i)}
+		metric := model.Message{Name: "heap-test", Timestamp: int64(i)}
 		got = append(got, newTestItem(0, metric))
 	}
 

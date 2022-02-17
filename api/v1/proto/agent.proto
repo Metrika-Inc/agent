@@ -4,8 +4,6 @@ package metrika;
 
 option go_package = ".;model";
 
-import "io/prometheus/client/metrics.proto";
-
 enum NodeState {
     down = 0;
     up = 1;
@@ -21,16 +19,13 @@ enum MessageType {
     event = 1;
 }
 
-// TODO: padding, find an optimal order. Maybe it's already done by the protoc?
 message Message {
     int64 timestamp = 1;
     MessageType type = 2;
     NodeState nodeState = 3;
     AgentState agentState = 4;
     string name = 5;
-    io.prometheus.client.MetricFamily metric = 6;
-    Event event = 7;
-    bytes altMetric = 8;
+    bytes body = 6;
 }
 
 message Event {

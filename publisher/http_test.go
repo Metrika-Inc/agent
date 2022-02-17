@@ -76,7 +76,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				AltMetric: body,
+				Body: body,
 			}
 			pubCh <- m
 			if i == n/2 {
@@ -150,7 +150,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				AltMetric: body,
+				Body: body,
 			}
 			pubCh <- m
 		}
@@ -219,7 +219,7 @@ func TestPublisher_Error(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				AltMetric: body,
+				Body: body,
 			}
 			pubCh <- m
 		}
@@ -283,7 +283,7 @@ func TestPublisher_Stop(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				AltMetric: body,
+				Body: body,
 			}
 			pubCh <- m
 		}
