@@ -16,10 +16,10 @@ package watch
 
 import (
 	"agent/api/v1/model"
-	"encoding/json"
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/zap"
@@ -88,18 +88,18 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 		select {
 		case metricFams := <-c.ch1:
 			for _, metricFam := range metricFams {
-				body, err := json.Marshal(metricFam)
+				out, err := proto.Marshal(metricFam)
 				if err != nil {
-					c.Log.Errorw("Cannot marshal dto.Metric", zap.Error(err))
-
+					c.Log.Errorw("failed to marshal a metric", zap.Error(err))
 					continue
 				}
 
 				// Create & emit the metric
-				metricInternal := model.MetricPlatform{
-					Type:      string(c.Type),
+				metricInternal := model.Message{
+					Name:      string(c.Type),
 					Timestamp: time.Now().UTC().UnixMilli(),
-					Body:      body,
+					Type:      model.MessageType_metric,
+					Body:      out,
 				}
 
 				c.Emit(metricInternal)

@@ -6,4 +6,5 @@ profile*.out
 **/coverage.html
 algorand.yml
 dapper.yml
+tmp/
 /metrikad*

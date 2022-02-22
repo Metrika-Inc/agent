@@ -35,10 +35,11 @@ func init() {
 
 type PlatformConfig struct {
 	BatchN             int           `yaml:"batch_n"`
-	HTTPTimeout        time.Duration `yaml:"http_timeout"`
+	TransportTimeout   time.Duration `yaml:"transport_timeout"`
 	MaxPublishInterval time.Duration `yaml:"max_publish_interval"`
 	Addr               string        `yaml:"addr"`
 	URI                string        `yaml:"uri"`
+	RetryCount         int           `yaml:"retry_count"`
 }
 
 type BufferConfig struct {

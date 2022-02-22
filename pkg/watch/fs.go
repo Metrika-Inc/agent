@@ -164,7 +164,7 @@ func (w *FileNotifyWatch) pollEvents() {
 				w.waitForFileCreation()
 			}
 
-		case err, _ := <-w.watcher.Errors:
+		case err := <-w.watcher.Errors:
 			if !w.Running {
 				return
 			}

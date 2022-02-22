@@ -1,7 +1,6 @@
 package openmetrics
 
 import (
-	"agent/api/v1/model"
 	"bytes"
 	"io"
 	"io/ioutil"
@@ -109,7 +108,7 @@ func TestParsePEF_Happy(t *testing.T) {
 		}
 
 		for _, tc := range testcases {
-			filter := &model.PEFFilter{ToMatch: tc.filter}
+			filter := &PEFFilter{ToMatch: tc.filter}
 			buf := bytes.NewBuffer(b)
 			mf, err := ParsePEF(buf, filter)
 			require.NoError(t, err)

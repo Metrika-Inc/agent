@@ -1,0 +1,47 @@
+syntax = "proto3";
+package metrika;
+
+
+option go_package = ".;model";
+
+enum NodeState {
+    down = 0;
+    up = 1;
+}
+
+enum AgentState {
+    healthy = 0;
+    unhealthy = 1;
+}
+
+enum MessageType {
+    metric = 0;
+    event = 1;
+}
+
+message Message {
+    int64 timestamp = 1;
+    MessageType type = 2;
+    NodeState nodeState = 3;
+    AgentState agentState = 4;
+    string name = 5;
+    bytes body = 6;
+}
+
+message Event {
+    // TODO: implement me (AH-806)
+    bytes body = 1;
+}
+
+message PlatformMessage {
+    repeated Message data = 1;
+    string agentUUID = 2;
+}
+
+message PlatformResponse {
+    int64 timestamp = 1;
+}
+
+service agent {
+    rpc Transmit (PlatformMessage) returns (PlatformResponse);
+}

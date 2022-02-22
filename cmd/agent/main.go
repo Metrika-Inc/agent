@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -65,6 +64,7 @@ func setupZapLogger() {
 		cfg.OutputPaths = []string{"stdout"}
 	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
+	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
 	opts := []zap.Option{
 		zap.AddStacktrace(zapcore.ErrorLevel),
 		zap.WithClock(timesync.Default),
@@ -116,24 +116,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	url, err := url.Parse(global.AgentRuntimeConfig.Platform.Addr +
-		global.AgentRuntimeConfig.Platform.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	conf := publisher.HTTPConf{
-		URL:            url.String(),
+	conf := publisher.TransportConf{
+		URL:            global.AgentRuntimeConfig.Platform.Addr,
 		UUID:           agentUUID.String(),
-		Timeout:        global.AgentRuntimeConfig.Platform.HTTPTimeout,
+		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
 		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,
 		PublishIntv:    global.AgentRuntimeConfig.Platform.MaxPublishInterval,
 		BufferTTL:      global.AgentRuntimeConfig.Buffer.TTL,
+		RetryCount:     global.AgentRuntimeConfig.Platform.RetryCount,
 	}
 
 	ch := make(chan interface{}, 10000)
-	pub := publisher.NewHTTP(ch, conf)
+	pub := publisher.NewTransport(ch, conf)
 
 	wg := &sync.WaitGroup{}
 	pub.Start(wg)

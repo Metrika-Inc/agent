@@ -2,12 +2,7 @@ package publisher
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
-
-	"agent/api/v1/model"
 )
 
 var (
@@ -33,23 +28,4 @@ func stringFromContext(ctx context.Context, key string) (string, error) {
 	}
 
 	return v, nil
-}
-
-func newHTTPRequestFromContext(ctx context.Context, msg model.MetrikaMessage) (*http.Request, error) {
-	body, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	url, err := stringFromContext(ctx, PlatformAddrContextKey)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
 }

@@ -2,10 +2,8 @@ package watch
 
 import (
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
 	. "agent/pkg/watch"
-	"encoding/json"
-
-	"go.uber.org/zap"
 )
 
 type AlgodRestartWatchConf struct {
@@ -57,30 +55,19 @@ func (w *AlgodRestartWatch) handlePidChange() {
 			newPid := message.(int)
 
 			// Create health struct
-			var health model.NodeHealthMetric
+			var health model.NodeState
 			if newPid != 0 { // On
-				health = model.NodeHealthMetric{
-					Metric: model.NewMetric(true),
-					State:  model.NodeStateUp,
-				}
+				health = model.NodeState_up
 			} else { // Off
-				health = model.NodeHealthMetric{
-					Metric: model.NewMetric(true),
-					State:  model.NodeStateDown,
-				}
-			}
-			jsonHealth, err := json.Marshal(health)
-			if err != nil {
-				w.Log.Errorw("failed to marshal node health info", zap.Error(err))
-				continue
+				health = model.NodeState_down
 			}
 
-			// Create & emit the metric
-			metric := model.MetricPlatform{
-				Type:      "node.health",
-				Timestamp: health.Timestamp,
-				NodeState: health.State,
-				Body:      jsonHealth,
+			// Create & emit the event (empty body; all needed info is in NodeState)
+			metric := model.Message{
+				Timestamp: timesync.Now().UnixMilli(),
+				Name:      "node.health",
+				Type:      model.MessageType_event,
+				NodeState: health,
 			}
 			w.Emit(metric)
 

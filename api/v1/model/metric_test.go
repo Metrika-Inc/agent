@@ -15,36 +15,62 @@ func newString(n int) string {
 	return s
 }
 
-func TestMetricPlatformBytes(t *testing.T) {
+func TestMessageBytes(t *testing.T) {
 	tests := []struct {
 		name     string
-		metric   MetricPlatform
+		metric   Message
 		expBytes int
 	}{
 		{
-			name:     "basic",
-			metric:   MetricPlatform{1, 1, newString(0), []byte(newString(32))},
-			expBytes: 56 + len(newString(0)) + len([]byte(newString(32))),
+			name: "basic",
+			metric: Message{
+				Timestamp:  1,
+				Type:       1,
+				NodeState:  1,
+				AgentState: 1,
+				Name:       newString(0),
+				Body:       []byte(newString(32))},
+			expBytes: 96 + len(newString(0)) + len([]byte(newString(32))),
 		},
 		{
-			name:     "basic with padding",
-			metric:   MetricPlatform{1, 1, newString(6), []byte(newString(6))},
-			expBytes: 56 + len(newString(8)) + len([]byte(newString(8))),
+			name: "basic with padding",
+			metric: Message{
+				Timestamp: 1,
+				Type:      1,
+				Name:      newString(6),
+				Body:      []byte(newString(7)),
+			},
+			expBytes: 96 + len(newString(8)) + len([]byte(newString(8))),
 		},
 		{
-			name:     "basic with padding again",
-			metric:   MetricPlatform{1, 1, newString(34), []byte(newString(34))},
-			expBytes: 56 + len(newString(40)) + len([]byte(newString(40))),
+			name: "basic with padding again",
+			metric: Message{
+				Timestamp: 1,
+				Type:      1,
+				Name:      newString(34),
+				Body:      []byte(newString(34)),
+			},
+			expBytes: 96 + len(newString(40)) + len([]byte(newString(40))),
 		},
 		{
-			name:     "body nil",
-			metric:   MetricPlatform{1, 1, newString(0), []byte(nil)},
-			expBytes: 56 + len(newString(0)) + len([]byte(nil)),
+			name: "body nil",
+			metric: Message{
+				Timestamp: 1,
+				Type:      1,
+				Name:      newString(0),
+				Body:      []byte(nil),
+			},
+			expBytes: 96 + len(newString(0)) + len([]byte(nil)),
 		},
 		{
-			name:     "body empty string",
-			metric:   MetricPlatform{1, 1, newString(8), []byte(newString(0))},
-			expBytes: 56 + len(newString(8)) + len([]byte(newString(0))),
+			name: "body empty string",
+			metric: Message{
+				Timestamp: 1,
+				Type:      1,
+				Name:      newString(8),
+				Body:      []byte(newString(0)),
+			},
+			expBytes: 96 + len(newString(8)) + len([]byte(newString(0))),
 		},
 	}
 

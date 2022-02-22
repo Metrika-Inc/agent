@@ -31,3 +31,18 @@ func ParsePEF(r io.Reader, filter parse.KeyMatcher) ([]*dto.MetricFamily, error)
 
 	return f, nil
 }
+
+// PEFFilter is used as a matcher when only a subset of PEF entries are wanted.
+type PEFFilter struct {
+	ToMatch []string
+}
+
+// Match checks the metricName against specified set of names
+func (p *PEFFilter) Match(metricName string) bool {
+	for _, metric := range p.ToMatch {
+		if metric == metricName {
+			return true
+		}
+	}
+	return false
+}

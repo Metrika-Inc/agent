@@ -3,10 +3,8 @@ package publisher
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,13 +14,17 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
+	"github.com/cenkalti/backoff"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type platformState int32
 
 var (
 	state *AgentState
+	InitialRetryInterval = 3*time.Second
 )
 
 func init() {
@@ -36,14 +38,14 @@ const (
 	platformStateDown                 = iota
 )
 
-type HTTPConf struct {
+type TransportConf struct {
 	// URL where the publisher will be pushing metrics to.
 	URL string
 
 	// UUID the agent's unique identifier
 	UUID string
 
-	// Timeout default timeout for HTTP requests to the platform
+	// Timeout default timeout for requests to the platform
 	Timeout time.Duration
 
 	// MaxBatchLen max number of metrics published at once to the platform
@@ -57,22 +59,28 @@ type HTTPConf struct {
 
 	// BufferTTL max duration a metric can stay in the buffer
 	BufferTTL time.Duration
+
+	// RetryCount attempts at (re)establishing connection
+	RetryCount int
 }
 
-type HTTP struct {
+type Transport struct {
 	receiveCh <-chan interface{}
 
-	conf    HTTPConf
+	conf    TransportConf
 	client  *http.Client
 	buffer  buf.Buffer
 	closeCh chan interface{}
+
+	grpcConn     *grpc.ClientConn
+	agentService model.AgentClient
 }
 
-func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
+func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
 
-	return &HTTP{
+	return &Transport{
 		client:    http.DefaultClient,
 		conf:      conf,
 		receiveCh: ch,
@@ -81,7 +89,7 @@ func NewHTTP(ch <-chan interface{}, conf HTTPConf) *HTTP {
 	}
 }
 
-func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
+func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -90,56 +98,51 @@ func publish(ctx context.Context, data model.MetricBatch) (int64, error) {
 		return 0, err
 	}
 
-	metrikaMsg := model.MetrikaMessage{
-		Data: data,
-		UUID: uuid,
+	metrikaMsg := model.PlatformMessage{
+		AgentUUID: uuid,
+		Data:      data,
+	}
+	if t.agentService == nil {
+		if err := t.Connect(); err != nil {
+			return 0, err
+		}
 	}
 
-	req, err := newHTTPRequestFromContext(reqCtx, metrikaMsg)
+	// Transmit to platform. Failure here signifies transient error.
+	// Try to reconnect and send data again once.
+	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
 	if err != nil {
-		return 0, err
+		zap.S().Errorw("failed to transmit to the platform", zap.Error(err))
+		err := t.Connect()
+		if err != nil {
+			zap.S().Errorw("failed to reconnect to the platform", zap.Error(err))
+			return 0, err
+		}
+		resp, err = t.agentService.Transmit(reqCtx, &metrikaMsg)
+		if err != nil {
+			return 0, err
+		}
 	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("POST %s %d", req.URL, resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		zap.S().Errorw("failed to read response body", zap.Error(err))
-		return 0, nil
-	}
-	timestamp, err := strconv.ParseInt(string(body), 10, 64)
-	if err != nil {
-		zap.S().Errorw("parseInt on response body failed", zap.Error(err))
-	}
-
-	return timestamp, nil
+	return resp.Timestamp, nil
 }
 
-func (h *HTTP) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+func (h *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
-		// TODO: consider reusing batch slice
-		batch := make(model.MetricBatch, 0, len(b)+1)
+		batch := make([]*model.Message, 0, len(b)+1)
 		for _, item := range b {
-			m, ok := item.Data.(model.MetricPlatform)
+			m, ok := item.Data.(model.Message)
 			if !ok {
 				zap.S().Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
 			}
-			batch = append(batch, m)
+			batch = append(batch, &m)
 		}
 
 		errCh := make(chan error)
 		go func() {
-			timestamp, err := publish(ctx, batch)
+			timestamp, err := h.publish(ctx, batch)
 			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
 				state.SetPublishState(platformStateDown)
@@ -183,7 +186,34 @@ func (a *AgentState) Reset() {
 	atomic.StoreInt32((*int32)(&a.publishState), int32(platformStateUp))
 }
 
-func (h *HTTP) Start(wg *sync.WaitGroup) {
+func (t *Transport) Connect() error {
+	var success bool
+	var err error
+
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = InitialRetryInterval
+	for i := 0; i < t.conf.RetryCount && !success; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
+		defer cancel()
+		t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
+			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+		if err != nil {
+			untilRetry := b.NextBackOff()
+			zap.S().Warnw("failed to connect to GRPC server", "attempt", i+1, zap.Duration("retry_in", untilRetry), zap.Error(err))
+			<-time.After(untilRetry)
+			continue
+		}
+		success = true
+	}
+	if !success {
+		zap.S().Errorw("failed to connect", "retry_count", t.conf.RetryCount, zap.Error(err))
+		return err
+	}
+	t.agentService = model.NewAgentClient(t.grpcConn)
+	return nil
+}
+
+func (h *Transport) Start(wg *sync.WaitGroup) {
 	log := zap.S()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
@@ -225,7 +255,7 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 					return
 				}
 
-				m, ok := msg.(model.MetricPlatform)
+				m, ok := msg.(model.Message)
 				if !ok {
 					log.Error("type assertion failed")
 
@@ -275,6 +305,6 @@ func (h *HTTP) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-func (h *HTTP) Stop() {
+func (h *Transport) Stop() {
 	close(h.closeCh)
 }
