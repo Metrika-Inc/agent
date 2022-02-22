@@ -14,6 +14,7 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
+	"github.com/cenkalti/backoff"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,6 +24,7 @@ type platformState int32
 
 var (
 	state *AgentState
+	InitialRetryInterval = 3*time.Second
 )
 
 func init() {
@@ -113,7 +115,7 @@ func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, 
 		zap.S().Errorw("failed to transmit to the platform", zap.Error(err))
 		err := t.Connect()
 		if err != nil {
-			zap.S().Errorw("failde to reconnect to the platform", zap.Error(err))
+			zap.S().Errorw("failed to reconnect to the platform", zap.Error(err))
 			return 0, err
 		}
 		resp, err = t.agentService.Transmit(reqCtx, &metrikaMsg)
@@ -187,13 +189,18 @@ func (a *AgentState) Reset() {
 func (t *Transport) Connect() error {
 	var success bool
 	var err error
+
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = InitialRetryInterval
 	for i := 0; i < t.conf.RetryCount && !success; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
 		defer cancel()
 		t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
-			grpc.WithTransportCredentials(insecure.NewCredentials()))
+			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 		if err != nil {
-			zap.S().Warnw("failed to connect to GRPC server", "attempt", i+1, zap.Error(err))
+			untilRetry := b.NextBackOff()
+			zap.S().Warnw("failed to connect to GRPC server", "attempt", i+1, zap.Duration("retry_in", untilRetry), zap.Error(err))
+			<-time.After(untilRetry)
 			continue
 		}
 		success = true

@@ -64,6 +64,7 @@ func setupZapLogger() {
 		cfg.OutputPaths = []string{"stdout"}
 	}
 	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
+	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
 	opts := []zap.Option{
 		zap.AddStacktrace(zapcore.ErrorLevel),
 		zap.WithClock(timesync.Default),
