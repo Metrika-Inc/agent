@@ -24,7 +24,7 @@ func (w WatchType) IsAlgorand() bool {
 	return strings.HasPrefix(string(w), AlgorandWatchPrefix)
 }
 
-func (w WatchType) IsPef() bool {
+func (w WatchType) IsPEF() bool {
 	return strings.HasPrefix(string(w), PEFWatchPrefix)
 }
 

@@ -55,7 +55,7 @@ func (h *HttpGetWatch) StartUnsafe() {
 		defer h.wg.Done()
 		for {
 			select {
-			case <-time.After(5 * time.Second):
+			case <-time.After(h.Interval):
 				ctx, cancel := context.WithTimeout(context.Background(), h.Timeout)
 				defer cancel()
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.Url, nil)
@@ -81,6 +81,7 @@ func (h *HttpGetWatch) StartUnsafe() {
 				out, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
+					continue
 				}
 
 				h.Emit(out)

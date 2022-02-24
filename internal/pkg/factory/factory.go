@@ -59,7 +59,7 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 			Interval:  conf.SamplingInterval,
 		})
 		registry.MustRegister(clr)
-	case conf.Type.IsPef():
+	case conf.Type.IsPEF():
 		url, ok := conf.Params["endpoint"].(string)
 		if !ok {
 			zap.S().Fatalf("expected string as endpoint parameter, got: '%v'", url)
@@ -87,8 +87,8 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 		}
 		httpWatch := watch.NewHttpGetWatch(httpConf)
 
-		pefConf := watch.PefWatchConf{Filter: pefFilter}
-		w = watch.NewPefWatch(pefConf, httpWatch)
+		pefConf := watch.PEFWatchConf{Filter: pefFilter}
+		w = watch.NewPEFWatch(pefConf, httpWatch)
 	default:
 		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}

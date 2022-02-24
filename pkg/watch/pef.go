@@ -5,31 +5,30 @@ import (
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 	"bytes"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 )
 
-type PefWatch struct {
+type PEFWatch struct {
 	Watch
-	PefWatchConf
+	PEFWatchConf
 	httpWatch Watcher
 
 	httpDataCh chan interface{}
 	wg         *sync.WaitGroup
 }
 
-type PefWatchConf struct {
-	Interval time.Duration
-	Filter   *openmetrics.PEFFilter
+type PEFWatchConf struct {
+	Filter *openmetrics.PEFFilter
 }
 
-func NewPefWatch(conf PefWatchConf, httpWatch Watcher) *PefWatch {
-	p := &PefWatch{
+func NewPEFWatch(conf PEFWatchConf, httpWatch Watcher) *PEFWatch {
+	p := &PEFWatch{
 		Watch:        NewWatch(),
-		PefWatchConf: conf,
+		PEFWatchConf: conf,
 		httpWatch:    httpWatch,
 		httpDataCh:   make(chan interface{}, 10),
 		wg:           new(sync.WaitGroup),
@@ -38,7 +37,7 @@ func NewPefWatch(conf PefWatchConf, httpWatch Watcher) *PefWatch {
 	return p
 }
 
-func (p *PefWatch) StartUnsafe() {
+func (p *PEFWatch) StartUnsafe() {
 	p.Watch.StartUnsafe()
 
 	p.httpWatch.Subscribe(p.httpDataCh)
@@ -48,7 +47,7 @@ func (p *PefWatch) StartUnsafe() {
 	go p.parseAndEmit()
 }
 
-func (p *PefWatch) parseAndEmit() {
+func (p *PEFWatch) parseAndEmit() {
 	defer p.wg.Done()
 	for {
 		select {
@@ -75,7 +74,7 @@ func (p *PefWatch) parseAndEmit() {
 				msg := model.Message{
 					Timestamp: timesync.Now().UnixMilli(),
 					Type:      model.MessageType_metric,
-					Name:      "pef.metric",
+					Name:      "pef." + strings.ToLower(*family.Name),
 					Body:      data,
 				}
 				p.Emit(msg)
@@ -86,7 +85,7 @@ func (p *PefWatch) parseAndEmit() {
 	}
 }
 
-func (p *PefWatch) Stop() {
+func (p *PEFWatch) Stop() {
 	p.httpWatch.Stop()
 	p.Watch.Stop()
 	p.wg.Wait()
