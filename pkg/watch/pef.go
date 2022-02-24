@@ -5,6 +5,7 @@ import (
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 	"bytes"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -17,6 +18,7 @@ type PefWatch struct {
 	httpWatch Watcher
 
 	httpDataCh chan interface{}
+	wg         *sync.WaitGroup
 }
 
 type PefWatchConf struct {
@@ -30,6 +32,7 @@ func NewPefWatch(conf PefWatchConf, httpWatch Watcher) *PefWatch {
 		PefWatchConf: conf,
 		httpWatch:    httpWatch,
 		httpDataCh:   make(chan interface{}, 10),
+		wg:           new(sync.WaitGroup),
 	}
 
 	return p
@@ -41,28 +44,33 @@ func (p *PefWatch) StartUnsafe() {
 	p.httpWatch.Subscribe(p.httpDataCh)
 	Start(p.httpWatch)
 
+	p.wg.Add(1)
 	go p.parseAndEmit()
 }
 
 func (p *PefWatch) parseAndEmit() {
+	defer p.wg.Done()
 	for {
 		select {
 		case r := <-p.httpDataCh:
 			pefData, ok := r.([]byte)
 			if !ok {
 				p.Log.Error("type assertion failed")
+				continue
 			}
 
 			pefReader := bytes.NewBuffer(pefData)
 			mf, err := openmetrics.ParsePEF(pefReader, p.Filter)
 			if err != nil {
 				p.Log.Errorw("failed to parse PEF metrics", zap.Error(err))
+				continue
 			}
 
 			for _, family := range mf {
 				data, err := proto.Marshal(family)
 				if err != nil {
 					p.Log.Errorw("failed to marshal MetricFamily", zap.Error(err))
+					continue
 				}
 				msg := model.Message{
 					Timestamp: timesync.Now().UnixMilli(),
@@ -81,4 +89,5 @@ func (p *PefWatch) parseAndEmit() {
 func (p *PefWatch) Stop() {
 	p.httpWatch.Stop()
 	p.Watch.Stop()
+	p.wg.Wait()
 }

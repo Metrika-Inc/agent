@@ -91,3 +91,8 @@ func (h *HttpGetWatch) StartUnsafe() {
 
 	}()
 }
+
+func (h *HttpGetWatch) Stop() {
+	h.Watch.Stop()
+	h.wg.Wait()
+}

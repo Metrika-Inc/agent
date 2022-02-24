@@ -20,25 +20,25 @@ runtime:
   metrics_addr: :9000
   sampling_interval: 5s
   watchers:
-    # - type: algorand.node.restart
-    # - type: prometheus.proc.cpu
-    # - type: prometheus.proc.net.netstat_linux
-    # - type: prometheus.proc.net.arp_linux
-    # - type: prometheus.proc.stat_linux
-    # # - type: prometheus.proc.conntrack_linux
-    # - type: prometheus.proc.diskstats
-    # - type: prometheus.proc.entropy
-    # - type: prometheus.proc.filefd
-    # - type: prometheus.proc.filesystem
-    # - type: prometheus.proc.loadavg
-    # - type: prometheus.proc.meminfo
-    # - type: prometheus.proc.netclass
-    # - type: prometheus.proc.netdev
-    # - type: prometheus.proc.sockstat
-    # - type: prometheus.proc.textfile
-    # - type: prometheus.time
-    # - type: prometheus.uname
-    # - type: prometheus.vmstat
+    - type: algorand.node.restart
+    - type: prometheus.proc.cpu
+    - type: prometheus.proc.net.netstat_linux
+    - type: prometheus.proc.net.arp_linux
+    - type: prometheus.proc.stat_linux
+    # - type: prometheus.proc.conntrack_linux
+    - type: prometheus.proc.diskstats
+    - type: prometheus.proc.entropy
+    - type: prometheus.proc.filefd
+    - type: prometheus.proc.filesystem
+    - type: prometheus.proc.loadavg
+    - type: prometheus.proc.meminfo
+    - type: prometheus.proc.netclass
+    - type: prometheus.proc.netdev
+    - type: prometheus.proc.sockstat
+    - type: prometheus.proc.textfile
+    - type: prometheus.time
+    - type: prometheus.uname
+    - type: prometheus.vmstat
     - type: pef.watcher
       params:
         endpoint: http://127.0.0.1:8080/metrics
