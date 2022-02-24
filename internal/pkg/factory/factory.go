@@ -65,15 +65,24 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 			zap.S().Fatalf("expected string as endpoint parameter, got: '%v'", url)
 		}
 
-		filter, ok := conf.Params["filter"].([]string)
+		f, ok := conf.Params["filter"].([]interface{})
 		if !ok {
-			zap.S().Fatalf("expected list as filter parameter, got: '%v'", filter)
+			zap.S().Infof("conf.Params: %+v", conf.Params)
+			zap.S().Fatalf("expected list as filter parameter, got: '%v'", f)
 		}
-		pefFilter := openmetrics.PEFFilter{ToMatch: filter}
+		var filters []string
+		for _, filter := range f {
+			a := filter.(string)
+			filters = append(filters, a)
+		}
+		var pefFilter *openmetrics.PEFFilter
+		if len(filters) > 0 {
+			pefFilter = &openmetrics.PEFFilter{ToMatch: filters}
+		}
 
 		httpConf := watch.HttpGetWatchConf{
 			Interval: conf.SamplingInterval,
-			Url:      "http://127.0.0.1:9000/metrics",
+			Url:      url,
 			Timeout:  time.Second,
 		}
 		httpWatch := watch.NewHttpGetWatch(httpConf)

@@ -107,7 +107,6 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	os.Exit(0)
 	if err := global.FingerprintSetup(); err != nil {
 		log.Fatal("fingerprint initialization error: ", err)
 	}

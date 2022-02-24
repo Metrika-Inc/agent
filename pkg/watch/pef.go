@@ -21,7 +21,7 @@ type PefWatch struct {
 
 type PefWatchConf struct {
 	Interval time.Duration
-	Filter openmetrics.PEFFilter
+	Filter   *openmetrics.PEFFilter
 }
 
 func NewPefWatch(conf PefWatchConf, httpWatch Watcher) *PefWatch {
@@ -54,7 +54,7 @@ func (p *PefWatch) parseAndEmit() {
 			}
 
 			pefReader := bytes.NewBuffer(pefData)
-			mf, err := openmetrics.ParsePEF(pefReader, nil)
+			mf, err := openmetrics.ParsePEF(pefReader, p.Filter)
 			if err != nil {
 				p.Log.Errorw("failed to parse PEF metrics", zap.Error(err))
 			}
