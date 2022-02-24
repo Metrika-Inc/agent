@@ -1,6 +1,7 @@
 package discover
 
 import (
+	blockhain "agent/dapper"
 	"errors"
 	"io/fs"
 
@@ -24,7 +25,11 @@ func AutoConfig(reset bool) {
 		ResetConfig()
 	}
 	log := zap.S()
-
+	var err error
+	proto, err = blockhain.NewDapper()
+	if err != nil {
+		panic(err)
+	}
 	if ok := proto.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
 		return

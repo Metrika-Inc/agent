@@ -3,7 +3,9 @@ package factory
 import (
 	"agent/internal/pkg/global"
 	"agent/pkg/collector"
+	"agent/pkg/parse/openmetrics"
 	"agent/pkg/watch"
+	"time"
 
 	algorandWatch "agent/algorand/pkg/watch"
 
@@ -57,6 +59,27 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 			Interval:  conf.SamplingInterval,
 		})
 		registry.MustRegister(clr)
+	case conf.Type.IsPef():
+		url, ok := conf.Params["endpoint"].(string)
+		if !ok {
+			zap.S().Fatalf("expected string as endpoint parameter, got: '%v'", url)
+		}
+
+		filter, ok := conf.Params["filter"].([]string)
+		if !ok {
+			zap.S().Fatalf("expected list as filter parameter, got: '%v'", filter)
+		}
+		pefFilter := openmetrics.PEFFilter{ToMatch: filter}
+
+		httpConf := watch.HttpGetWatchConf{
+			Interval: conf.SamplingInterval,
+			Url:      "http://127.0.0.1:9000/metrics",
+			Timeout:  time.Second,
+		}
+		httpWatch := watch.NewHttpGetWatch(httpConf)
+
+		pefConf := watch.PefWatchConf{Filter: pefFilter}
+		w = watch.NewPefWatch(pefConf, httpWatch)
 	default:
 		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}

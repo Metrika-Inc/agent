@@ -48,8 +48,9 @@ type BufferConfig struct {
 }
 
 type WatchConfig struct {
-	Type             watch.WatchType `yaml:"type"`
-	SamplingInterval time.Duration   `yaml:"sampling_interval"`
+	Type             watch.WatchType        `yaml:"type"`
+	Params           map[string]interface{} `yaml:"params'`
+	SamplingInterval time.Duration          `yaml:"sampling_interval"`
 }
 
 type RuntimeConfig struct {
