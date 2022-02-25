@@ -22,11 +22,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func init() {
+func start() {
 	var err error
 	log := zap.S()
 
-	configPath = global.DefaultAlgorandPath
+	configPath = global.DefaultChainPath["algorand"]
 
 	proto, err = blockhain.NewAlgorand()
 	if err != nil {

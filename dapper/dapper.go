@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	Chain                 = global.ChainDapper
 	FlowVersionKey        = "FLOW_GO_NODE_VERSION"
 	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
 	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
@@ -49,7 +50,11 @@ func NewDapper() (*Dapper, error) {
 }
 
 func (d *Dapper) IsConfigured() bool {
-	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.PEFEndpoints) != 0 {
+	if len(d.config.MetricEndpoints) == 0 {
+		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
+	}
+
+	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.MetricEndpoints[0].URL) != 0 {
 		zap.S().Debug("protocol is already configured, nothing to do here")
 		return true
 	}
@@ -96,7 +101,8 @@ func (d *Dapper) Discover() error {
 	}
 
 	if d.renderNeeded {
-		if err := global.GenerateConfigFromTemplate("./configs/dapper.template", global.DefaultDapperPath, d.config); err != nil {
+		if err := global.GenerateConfigFromTemplate("./configs/dapper.template",
+			global.DefaultChainPath[Chain], d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
@@ -140,10 +146,6 @@ func (d *Dapper) NodeID() error {
 }
 
 func (d *Dapper) PEFEndoints() error {
-	if len(d.config.PEFEndpoints) > 0 {
-		zap.S().Debugw("PEF endpoints not empty, skipping discovery", "endpoints", d.config.PEFEndpoints)
-		return nil
-	}
 	var found bool
 	portsToTry := map[int]struct{}{
 		8080: {},
@@ -160,6 +162,9 @@ func (d *Dapper) PEFEndoints() error {
 		Timeout: 500 * time.Millisecond,
 	}
 
+	// MetricEndpoints[0].Filters is hardcoded in template
+	defaultFilters := d.config.MetricEndpoints[0].Filters
+
 	for port := range portsToTry {
 		endpoint := "http://127.0.0.1:" + strconv.Itoa(port) + "/metrics"
 
@@ -169,7 +174,16 @@ func (d *Dapper) PEFEndoints() error {
 		}
 		if resp.StatusCode <= 204 {
 			zap.S().Infow("found PEF metrics", "endpoint", endpoint)
-			d.config.PEFEndpoints = append(d.config.PEFEndpoints, endpoint)
+			// MetricEndpoints[0].URL is hardcoded as "" in template
+			if d.config.MetricEndpoints[0].URL == "" {
+				d.config.MetricEndpoints[0].URL = endpoint
+			} else {
+				PEFEndpoint := global.PEFEndpoint{
+					URL:     endpoint,
+					Filters: defaultFilters,
+				}
+				d.config.MetricEndpoints = append(d.config.MetricEndpoints, PEFEndpoint)
+			}
 			found = true
 			d.renderNeeded = true
 		}
@@ -194,4 +208,27 @@ func (d *Dapper) Client() error {
 		d.config.Client = "flow-go"
 	}
 	return nil
+}
+
+// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
+func (d *Dapper) PEFEndpoints() []global.PEFEndpoint {
+	return d.config.MetricEndpoints
+}
+
+// ContainerRegex returns a regex-compatible string to identify the blockchain node
+// if it is running on a docker container
+func (d *Dapper) ContainerRegex() []string {
+	return d.config.ContainerRegex
+}
+
+// LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
+// TODO: change to models.FromContext when merging
+func (d *Dapper) LogEventsList() map[string][]string {
+	return nil // TODO: copy over from Events branch
+}
+
+// NodeLogPath returns the path to the log file to watch.
+// TODO: string -> []string perhaps
+func (d *Dapper) NodeLogPath() string {
+	return "docker" // TODO: copy over from Events branch
 }

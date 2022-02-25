@@ -31,6 +31,33 @@ type WatchersRegisterer interface {
 	Stop()
 }
 
+// Chain provides necessary configuration information
+// for the agent core. These methods represent currently
+// supported sampler configurations per blockchain protocol basis.
+type Chain interface {
+	// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
+	PEFEndpoints() []PEFEndpoint
+
+	// ContainerRegex returns a regex-compatible strings to identify the blockchain node
+	// if it is running as a docker container.
+	ContainerRegex() []string
+
+	// LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
+	LogEventsList() map[string][]string // TODO: change to models.FromContext when merging
+
+	// NodeLogPath returns the path to the log file to watch.
+	// Supports special keys like "docker" or "journald <service-name>"
+	// TODO: string -> []string perhaps
+	NodeLogPath() string
+}
+
+// PEFEndpoint is a configuration for a single HTTP endpoint
+// that exposes metrics in Prometheus Exposition Format.
+type PEFEndpoint struct {
+	URL     string   `json:"url" yaml:"URL"`
+	Filters []string `json:"filters" yaml:"filters"`
+}
+
 type DefaultWatcherRegistrar struct {
 	watchers []watch.Watcher
 }

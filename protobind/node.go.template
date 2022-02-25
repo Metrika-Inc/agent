@@ -22,11 +22,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func init() {
+func start() {
 	var err error
 	log := zap.S()
 
-	configPath = global.Default{{ .Protocol | Title }}Path
+	configPath = global.DefaultChainPath["{{ .Protocol }}"]
 
 	proto, err = blockhain.New{{ .Protocol | Title }}()
 	if err != nil {

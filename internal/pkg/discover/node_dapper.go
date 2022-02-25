@@ -22,11 +22,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func init() {
+func start() {
 	var err error
 	log := zap.S()
 
-	configPath = global.DefaultDapperPath
+	configPath = global.DefaultChainPath["dapper"]
 
 	proto, err = blockhain.NewDapper()
 	if err != nil {

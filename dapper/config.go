@@ -8,18 +8,20 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-const DefaultDapperPath = "./internal/pkg/global/dapper.yml"
-const DefaultTemplatePath = "./configs/dapper.template"
+var (
+	DefaultDapperPath   = global.DefaultChainPath["dapper"]
+	DefaultTemplatePath = "./configs/dapper.template"
+)
 
 var DapperConf *DapperConfig
 
 type DapperConfig struct {
-	configPath     string
-	Client         string   `yaml:"client"`
-	ContainerRegex []string `yaml:"containerRegex"`
-	NodeID         string   `yaml:"nodeID"`
-	PEFEndpoints   []string `yaml:"pefEndpoints"`
-	EnvFilePath    string   `yaml:"envFile"`
+	configPath      string
+	Client          string               `yaml:"client"`
+	ContainerRegex  []string             `yaml:"containerRegex"`
+	NodeID          string               `yaml:"nodeID"`
+	MetricEndpoints []global.PEFEndpoint `yaml:"pefEndpoints"`
+	EnvFilePath     string               `yaml:"envFile"`
 }
 
 func NewDapperConfig(configPath ...string) DapperConfig {
