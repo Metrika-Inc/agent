@@ -2,7 +2,7 @@ package watch
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -78,11 +78,12 @@ func (h *HttpGetWatch) StartUnsafe() {
 					continue
 				}
 
-				out, err := ioutil.ReadAll(resp.Body)
+				out, err := io.ReadAll(resp.Body)
 				if err != nil {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
 					continue
 				}
+				resp.Body.Close()
 
 				h.Emit(out)
 			case <-h.StopKey:
