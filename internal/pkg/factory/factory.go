@@ -62,7 +62,7 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 	case conf.Type.IsPEF():
 		PEFEndpoints := global.NodeProtocol.PEFEndpoints()
 		for _, ep := range PEFEndpoints {
-			if "pef."+ep.Name == string(conf.Type) {
+			if watch.PEFWatchPrefix+"."+ep.Name == string(conf.Type) {
 				httpConf := watch.HttpGetWatchConf{
 					Interval: conf.SamplingInterval,
 					Url:      ep.URL,

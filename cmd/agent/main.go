@@ -40,12 +40,10 @@ func init() {
 
 	setupZapLogger()
 
-	proto := discover.AutoConfig(*reset)
+	global.NodeProtocol = discover.AutoConfig(*reset)
 	if *configureOnly {
 		os.Exit(0)
 	}
-
-	global.NodeProtocol = proto
 
 	timesync.Default.Start()
 	if err := timesync.Default.SyncNow(); err != nil {

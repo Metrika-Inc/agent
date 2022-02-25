@@ -57,10 +57,6 @@ func (d *Dapper) ResetConfig() error {
 }
 
 func (d *Dapper) IsConfigured() bool {
-	if len(d.config.MetricEndpoints) == 0 {
-		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
-	}
-
 	if d.config.Client != "" && d.config.NodeID != "" && d.isPEFConfigured() {
 		zap.S().Debug("protocol is already configured, nothing to do here")
 		return true
