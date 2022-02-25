@@ -18,7 +18,7 @@ var (
 	WatcherRegistry    WatchersRegisterer
 	PrometheusRegistry prometheus.Registerer
 	PrometheusGatherer prometheus.Gatherer
-
+	NodeProtocol       Chain
 	// Modified at runtime
 	Version    = "v0.0.0"
 	CommitHash = ""
@@ -54,6 +54,7 @@ type Chain interface {
 // PEFEndpoint is a configuration for a single HTTP endpoint
 // that exposes metrics in Prometheus Exposition Format.
 type PEFEndpoint struct {
+	Name    string   `json:"name" yaml:"name"`
 	URL     string   `json:"url" yaml:"URL"`
 	Filters []string `json:"filters" yaml:"filters"`
 }

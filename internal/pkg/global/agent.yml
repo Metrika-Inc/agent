@@ -39,9 +39,4 @@ runtime:
     - type: prometheus.time
     - type: prometheus.uname
     - type: prometheus.vmstat
-    - type: pef.watcher
-      params:
-        endpoint: http://127.0.0.1:9000/metrics
-        filter:
-          - agent_buffer_drain_duration_seconds
-          - go_gc_heap_frees_by_size_bytes_total
+    - type: pef.dapper_metrics

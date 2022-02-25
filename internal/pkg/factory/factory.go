@@ -60,35 +60,24 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 		})
 		registry.MustRegister(clr)
 	case conf.Type.IsPEF():
-		url, ok := conf.Params["endpoint"].(string)
-		if !ok {
-			zap.S().Fatalf("expected string as endpoint parameter, got: '%v'", url)
+		PEFEndpoints := global.NodeProtocol.PEFEndpoints()
+		for _, ep := range PEFEndpoints {
+			if "pef."+ep.Name == string(conf.Type) {
+				httpConf := watch.HttpGetWatchConf{
+					Interval: conf.SamplingInterval,
+					Url:      ep.URL,
+					Timeout:  time.Second,
+				}
+				httpWatch := watch.NewHttpGetWatch(httpConf)
+				filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
+				pefConf := watch.PEFWatchConf{Filter: filter}
+				w = watch.NewPEFWatch(pefConf, httpWatch)
+			}
+			if w == nil {
+				zap.S().Fatalw("unknown PEF collector specified in config",
+					"collector_name", conf.Type, "protocol", global.Protocol)
+			}
 		}
-
-		f, ok := conf.Params["filter"].([]interface{})
-		if !ok {
-			zap.S().Infof("conf.Params: %+v", conf.Params)
-			zap.S().Fatalf("expected list as filter parameter, got: '%v'", f)
-		}
-		var filters []string
-		for _, filter := range f {
-			a := filter.(string)
-			filters = append(filters, a)
-		}
-		var pefFilter *openmetrics.PEFFilter
-		if len(filters) > 0 {
-			pefFilter = &openmetrics.PEFFilter{ToMatch: filters}
-		}
-
-		httpConf := watch.HttpGetWatchConf{
-			Interval: conf.SamplingInterval,
-			Url:      url,
-			Timeout:  time.Second,
-		}
-		httpWatch := watch.NewHttpGetWatch(httpConf)
-
-		pefConf := watch.PEFWatchConf{Filter: pefFilter}
-		w = watch.NewPEFWatch(pefConf, httpWatch)
 	default:
 		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}

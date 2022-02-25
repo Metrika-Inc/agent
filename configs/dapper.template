@@ -5,10 +5,12 @@ containerRegex:{{ range .ContainerRegex }}
   - {{ . }}{{else}}
   - flow-go{{end}}
 pefEndpoints:{{ range .MetricEndpoints }}
-  - URL: {{ .URL }}
+  - name: {{ .Name }}
+    URL: {{ .URL }}
     filters:{{range .Filters}}
       - {{ . }}{{end}}{{else}}
-  - URL: 
+  - name: dapper_metrics
+    URL: http://localhost:9000/metrics
     filters:
       - network_engine_messages_handled_total
       - network_engine_messages_received_total

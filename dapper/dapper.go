@@ -4,6 +4,7 @@ import (
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -60,11 +61,19 @@ func (d *Dapper) IsConfigured() bool {
 		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
 	}
 
-	if d.config.Client != "" && d.config.NodeID != "" && len(d.config.MetricEndpoints[0].URL) != 0 {
+	if d.config.Client != "" && d.config.NodeID != "" && d.isPEFConfigured() {
 		zap.S().Debug("protocol is already configured, nothing to do here")
 		return true
 	}
 	return false
+}
+
+func (d *Dapper) isPEFConfigured() bool {
+	if len(d.config.MetricEndpoints) == 0 {
+		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
+	}
+
+	return len(d.config.MetricEndpoints[0].URL) != 0
 }
 
 func (d *Dapper) Discover() error {
@@ -101,7 +110,7 @@ func (d *Dapper) Discover() error {
 		log.Error("could not find node ID")
 		errs.Append(err)
 	}
-	if err := d.PEFEndoints(); err != nil {
+	if err := d.DiscoverPEFEndpoints(); err != nil {
 		log.Error("could not find PEF metric endpoints")
 		errs.Append(err)
 	}
@@ -151,7 +160,11 @@ func (d *Dapper) NodeID() error {
 	return errors.New("node ID not found")
 }
 
-func (d *Dapper) PEFEndoints() error {
+func (d *Dapper) DiscoverPEFEndpoints() error {
+	if d.isPEFConfigured() {
+		zap.S().Debug("PEFEndpoints already exist, skipping discovery")
+		return nil
+	}
 	var found bool
 	portsToTry := map[int]struct{}{
 		8080: {},
@@ -183,10 +196,12 @@ func (d *Dapper) PEFEndoints() error {
 			// MetricEndpoints[0].URL is hardcoded as "" in template
 			if d.config.MetricEndpoints[0].URL == "" {
 				d.config.MetricEndpoints[0].URL = endpoint
+				d.config.MetricEndpoints[0].Name = "dapper_metrics"
 			} else {
 				PEFEndpoint := global.PEFEndpoint{
 					URL:     endpoint,
 					Filters: defaultFilters,
+					Name:    fmt.Sprintf("dapper_metrics_%d", port),
 				}
 				d.config.MetricEndpoints = append(d.config.MetricEndpoints, PEFEndpoint)
 			}
