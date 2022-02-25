@@ -29,8 +29,6 @@ func AutoConfig(reset bool) global.Chain {
 		}
 	}
 
-	// start()
-
 	if ok := proto.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
 		return proto.(global.Chain)

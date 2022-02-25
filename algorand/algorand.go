@@ -3,8 +3,7 @@ package algorand
 type Algorand struct {
 }
 
-const DefaultAlgorandPath        = "./internal/pkg/global/algorand.yml"
-
+const DefaultAlgorandPath = "./internal/pkg/global/algorand.yml"
 
 func NewAlgorand() (*Algorand, error) {
 	// load a config or create a default one
