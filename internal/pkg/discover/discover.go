@@ -18,16 +18,18 @@ var (
 type NodeDiscovery interface {
 	Discover() error
 	IsConfigured() bool
+	ResetConfig() error
 }
 
 func AutoConfig(reset bool) global.Chain {
+	log := zap.S()
 	if reset {
-		ResetConfig()
+		if err := proto.ResetConfig(); err != nil {
+			log.Fatalw("failed to reset configuration", zap.Error(err))
+		}
 	}
 
-	start()
-
-	log := zap.S()
+	// start()
 
 	if ok := proto.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
@@ -44,7 +46,7 @@ func AutoConfig(reset bool) global.Chain {
 // ResetConfig removes the protocol's configuration files.
 // Allows discovery process to begin anew.
 func ResetConfig() {
-	if err := os.Remove(global.DefaultChainPath[global.Protocol]); err != nil {
+	if err := os.Remove(configPath); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			zap.S().Errorw("failed to remove a config file", zap.Error(err))
 		}

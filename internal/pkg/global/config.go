@@ -17,18 +17,10 @@ import (
 var (
 	AgentRuntimeConfig AgentConfig
 	DapperConf         *DapperConfig
-	DefaultChainPath   = map[string]string{
-		ChainAlgorand: "./internal/pkg/global/algorand.yml",
-		ChainDapper:   "./internal/pkg/global/dapper.yml",
-	}
+
 	DefaultConfigPath          = "./internal/pkg/global/agent.yml"
 	DefaultFingerprintFilename = "fingerprint"
 	AgentCacheDir              string
-)
-
-const (
-	ChainDapper   = "dapper"
-	ChainAlgorand = "algorand"
 )
 
 func init() {

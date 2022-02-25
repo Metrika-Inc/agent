@@ -16,19 +16,18 @@ package discover
 //go:generate protobind -type {{ .Protocol }} ./...
 
 import (
-	blockhain "agent/{{ .Protocol }}"
-	"agent/internal/pkg/global"
+	blockchain "agent/{{ .Protocol }}"
 
 	"go.uber.org/zap"
 )
 
-func start() {
+func init() {
 	var err error
 	log := zap.S()
 
-	configPath = global.DefaultChainPath["{{ .Protocol }}"]
+	configPath = blockchain.Default{{ .Protocol | Title }}Path
 
-	proto, err = blockhain.New{{ .Protocol | Title }}()
+	proto, err = blockchain.New{{ .Protocol | Title }}()
 	if err != nil {
 		log.Fatalw("failed to load protocol configuration file", zap.Error(err))
 	}

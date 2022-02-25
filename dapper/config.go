@@ -8,8 +8,8 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-var (
-	DefaultDapperPath   = global.DefaultChainPath["dapper"]
+const (
+	DefaultDapperPath   = "./internal/pkg/global/dapper.yml"
 	DefaultTemplatePath = "./configs/dapper.template"
 )
 
@@ -51,6 +51,8 @@ func (d *DapperConfig) Load() (DapperConfig, error) {
 	return conf, nil
 }
 
+// Default overrides the configuration file specified in configPath
+// with the template preset, and then loads it in memory.
 func (d *DapperConfig) Default() (DapperConfig, error) {
 	if err := global.GenerateConfigFromTemplate("./configs/dapper.template", d.configPath, d); err != nil {
 		return DapperConfig{}, fmt.Errorf("failed to generate default template: %w", err)

@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	Chain                 = global.ChainDapper
 	FlowVersionKey        = "FLOW_GO_NODE_VERSION"
 	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
 	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
@@ -47,6 +46,13 @@ func NewDapper() (*Dapper, error) {
 	}
 
 	return dapper, nil
+}
+
+func (d *Dapper) ResetConfig() error {
+	var err error
+	config := NewDapperConfig(DefaultDapperPath)
+	d.config, err = config.Default()
+	return err
 }
 
 func (d *Dapper) IsConfigured() bool {
@@ -102,7 +108,7 @@ func (d *Dapper) Discover() error {
 
 	if d.renderNeeded {
 		if err := global.GenerateConfigFromTemplate("./configs/dapper.template",
-			global.DefaultChainPath[Chain], d.config); err != nil {
+			DefaultDapperPath, d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
