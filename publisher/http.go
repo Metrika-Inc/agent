@@ -14,7 +14,7 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
-	"github.com/cenkalti/backoff"
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,8 +23,8 @@ import (
 type platformState int32
 
 var (
-	state *AgentState
-	InitialRetryInterval = 3*time.Second
+	state                *AgentState
+	InitialRetryInterval = 3 * time.Second
 )
 
 func init() {
@@ -36,6 +36,7 @@ const (
 	platformStateUknown platformState = iota
 	platformStateUp                   = iota
 	platformStateDown                 = iota
+	agentUpTimerFreq                  = 30 * time.Second
 )
 
 type TransportConf struct {
@@ -74,6 +75,7 @@ type Transport struct {
 
 	grpcConn     *grpc.ClientConn
 	agentService model.AgentClient
+	log          *zap.SugaredLogger
 }
 
 func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
@@ -86,6 +88,7 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 		receiveCh: ch,
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
+		log:       zap.S().With("publisher", "transport"),
 	}
 }
 
@@ -109,30 +112,27 @@ func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, 
 	}
 
 	// Transmit to platform. Failure here signifies transient error.
-	// Try to reconnect and send data again once.
 	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
 	if err != nil {
-		zap.S().Errorw("failed to transmit to the platform", zap.Error(err))
-		err := t.Connect()
-		if err != nil {
-			zap.S().Errorw("failed to reconnect to the platform", zap.Error(err))
-			return 0, err
-		}
-		resp, err = t.agentService.Transmit(reqCtx, &metrikaMsg)
-		if err != nil {
-			return 0, err
-		}
+		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
+		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
+
+		// mark service for repair
+		t.agentService = nil
+
+		return 0, err
 	}
+
 	return resp.Timestamp, nil
 }
 
-func (h *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
+func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.ItemBatch) error {
 	publishFunc := func(b buf.ItemBatch) error {
 		batch := make([]*model.Message, 0, len(b)+1)
 		for _, item := range b {
 			m, ok := item.Data.(model.Message)
 			if !ok {
-				zap.S().Warnf("unrecognised type %T", item.Data)
+				t.log.Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
@@ -142,7 +142,7 @@ func (h *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 
 		errCh := make(chan error)
 		go func() {
-			timestamp, err := h.publish(ctx, batch)
+			timestamp, err := t.publish(ctx, batch)
 			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
 				state.SetPublishState(platformStateDown)
@@ -187,44 +187,34 @@ func (a *AgentState) Reset() {
 }
 
 func (t *Transport) Connect() error {
-	var success bool
 	var err error
 
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = InitialRetryInterval
-	for i := 0; i < t.conf.RetryCount && !success; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
-		defer cancel()
-		t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
-			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-		if err != nil {
-			untilRetry := b.NextBackOff()
-			zap.S().Warnw("failed to connect to GRPC server", "attempt", i+1, zap.Duration("retry_in", untilRetry), zap.Error(err))
-			<-time.After(untilRetry)
-			continue
-		}
-		success = true
-	}
-	if !success {
-		zap.S().Errorw("failed to connect", "retry_count", t.conf.RetryCount, zap.Error(err))
+	ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
+	defer cancel()
+
+	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
+		grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	if err != nil {
+		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
 		return err
 	}
+
 	t.agentService = model.NewAgentClient(t.grpcConn)
+
 	return nil
 }
 
-func (h *Transport) Start(wg *sync.WaitGroup) {
-	log := zap.S()
+func (t *Transport) Start(wg *sync.WaitGroup) {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, AgentUUIDContextKey, h.conf.UUID)
-	ctx = context.WithValue(ctx, PlatformAddrContextKey, h.conf.URL)
+	ctx = context.WithValue(ctx, AgentUUIDContextKey, t.conf.UUID)
+	ctx = context.WithValue(ctx, PlatformAddrContextKey, t.conf.URL)
 
 	conf := buf.ControllerConf{
-		MaxDrainBatchLen: h.conf.MaxBatchLen,
-		DrainOp:          h.NewPublishFuncWithContext(ctx),
-		DrainFreq:        h.conf.PublishIntv,
+		MaxDrainBatchLen: t.conf.MaxBatchLen,
+		DrainOp:          t.NewPublishFuncWithContext(ctx),
+		DrainFreq:        t.conf.PublishIntv,
 	}
-	bufCtrl := buf.NewController(conf, h.buffer)
+	bufCtrl := buf.NewController(conf, t.buffer)
 
 	//
 	// start buffer controller
@@ -240,24 +230,27 @@ func (h *Transport) Start(wg *sync.WaitGroup) {
 	wg.Add(1)
 
 	rand.Seed(time.Now().UnixNano())
+	agentUpTimer := time.NewTicker(agentUpTimerFreq)
+	agentUpCtx := make(map[string]interface{}, 1)
+	agentUppedTime := timesync.Now()
 	go func() {
 		defer wg.Done()
 
-		log.Debug("starting metric ingestion")
+		t.log.Debug("starting metric ingestion")
 
 		var prevErr error
 		for {
 			select {
-			case msg, ok := <-h.receiveCh:
+			case msg, ok := <-t.receiveCh:
 				if !ok {
-					log.Error("receive channel closed")
+					t.log.Error("receive channel closed")
 
 					return
 				}
 
 				m, ok := msg.(model.Message)
 				if !ok {
-					log.Error("type assertion failed")
+					t.log.Error("type assertion failed")
 
 					continue
 				}
@@ -269,11 +262,11 @@ func (h *Transport) Start(wg *sync.WaitGroup) {
 					Data:      m,
 				}
 
-				_, err := h.buffer.Insert(item)
+				_, err := t.buffer.Insert(item)
 				if err != nil {
 					MetricsDropCnt.Inc()
 					if prevErr == nil {
-						log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
+						t.log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 						prevErr = err
 					}
 					continue
@@ -281,22 +274,25 @@ func (h *Transport) Start(wg *sync.WaitGroup) {
 
 				publishState := state.PublishState()
 				if publishState == platformStateUp {
-					if h.buffer.Len() >= h.conf.MaxBatchLen {
-						log.Debug("maxBatchLen exceeded, eager drain kick in")
+					if t.buffer.Len() >= t.conf.MaxBatchLen {
+						t.log.Debug("maxBatchLen exceeded, eager drain kick in")
 
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
-							log.Warn("eager drain failed", zap.Error(drainErr))
+							t.log.Warn("eager drain failed", zap.Error(drainErr))
 							prevErr = drainErr
 
 							continue
 						}
-						log.Debug("eager drain ok")
+						t.log.Debug("eager drain ok")
 					}
 				}
 				prevErr = nil
-			case <-h.closeCh:
-				log.Debug("stopping buf controller, ingestion goroutine exiting")
+			case <-agentUpTimer.C:
+				agentUpCtx["uptime"] = time.Since(agentUppedTime).String()
+				emitEvent(t, agentUpCtx, model.AgentUpName, model.AgentUpDesc)
+			case <-t.closeCh:
+				t.log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
 
 				return
@@ -305,6 +301,44 @@ func (h *Transport) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-func (h *Transport) Stop() {
-	close(h.closeCh)
+func emitEventWithError(t *Transport, err error, name, desc string) error {
+	ctx := map[string]interface{}{"error": err.Error()}
+	return emitEvent(t, ctx, name, desc)
+}
+
+func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) error {
+	ev := model.NewWithCtx(ctx, name, desc)
+	t.log.Debugf("emitting event: %s, %v", ev.Name, string(ev.Values))
+
+	evBytes, err := proto.Marshal(ev)
+	if err != nil {
+		return err
+	}
+
+	m := model.Message{
+		Type:      model.MessageType_event,
+		Timestamp: timesync.Now().UnixMilli(),
+		Body:      evBytes,
+	}
+
+	item := buf.Item{
+		Priority:  0,
+		Timestamp: m.Timestamp,
+		Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
+		Data:      m,
+	}
+
+	_, err = t.buffer.Insert(item)
+
+	if err != nil {
+		MetricsDropCnt.Inc()
+		t.log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (t *Transport) Stop() {
+	close(t.closeCh)
 }

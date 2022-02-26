@@ -76,7 +76,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body: body,
+				Body:      body,
 			}
 			pubCh <- m
 			if i == n/2 {
@@ -150,7 +150,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body: body,
+				Body:      body,
 			}
 			pubCh <- m
 		}
@@ -170,6 +170,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 // - any drained metric is published to the platform
 func TestPublisher_Error(t *testing.T) {
 	n := 10
+
 	healthyAfter := 500 * time.Millisecond
 	st := time.Now()
 	platformCh := make(chan interface{}, n)
@@ -189,7 +190,7 @@ func TestPublisher_Error(t *testing.T) {
 		URL:            ts.URL,
 		UUID:           "test-agent-uuid",
 		Timeout:        10 * time.Second,
-		MaxBatchLen:    10,
+		MaxBatchLen:    10 + 1, // + 1 to compensate for agent.net.error event
 		MaxBufferBytes: uint(50 * 1024 * 1024),
 		PublishIntv:    healthyAfter,
 		BufferTTL:      time.Duration(0),
@@ -219,14 +220,14 @@ func TestPublisher_Error(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body: body,
+				Body:      body,
 			}
 			pubCh <- m
 		}
 	}()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n, pub.buffer.Len())
+	require.Equal(t, n, pub.buffer.Len()) // + 1 compensate for agent.net.error event
 
 	select {
 	case <-platformCh:
@@ -236,12 +237,6 @@ func TestPublisher_Error(t *testing.T) {
 
 	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
-
-	select {
-	case <-platformCh:
-	case <-time.After(1 * time.Second):
-		t.Error("timeout waiting for platform message")
-	}
 }
 
 // TestPublisher_Stop checks:
@@ -283,7 +278,7 @@ func TestPublisher_Stop(t *testing.T) {
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body: body,
+				Body:      body,
 			}
 			pubCh <- m
 		}

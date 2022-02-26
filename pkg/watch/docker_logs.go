@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -81,7 +80,7 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 			continue
 		}
 
-		if err := EmitEvent(&w.Watch, newev); err != nil {
+		if err := EmitEvent(w, newev); err != nil {
 			zap.S().Error(err)
 
 			continue
@@ -202,7 +201,6 @@ func (w *DockerLogWatch) StartUnsafe() {
 				continue
 			}
 
-			fmt.Print(string(buf))
 			jsonMap, err := w.parseJSON(buf)
 			if err != nil {
 				w.Log.Error("error parsing events from log line:", err)
