@@ -132,32 +132,6 @@ func createLogFolders() error {
 	return nil
 }
 
-func LoadDapperConfig() error {
-	var c DapperConfig
-	content, err := ioutil.ReadFile(DefaultDapperPath)
-	if err != nil {
-		return err
-	}
-
-	if err := yaml.Unmarshal(content, &c); err != nil {
-		return err
-	}
-	DapperConf = &c
-	return nil
-}
-
-func (d *DapperConfig) Default() *DapperConfig {
-	return &DapperConfig{
-		Client:      "flow-go",
-		EnvFilePath: "/etc/flow/runtime-conf.env",
-		ContainerRegex: []string{
-			// FIXME
-			"flow-go",
-		},
-		PEFEndpoints: []string{},
-	}
-}
-
 func GenerateConfigFromTemplate(templatePath, configPath string, config interface{}) error {
 	t, err := template.ParseFiles(templatePath)
 	if err != nil {

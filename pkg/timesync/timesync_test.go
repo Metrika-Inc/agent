@@ -39,7 +39,7 @@ func TestTimeSync(t *testing.T) {
 			tickCounter.increment()
 			return &ntp.Response{}, nil
 		}
-		ts.Start()
+		ts.Start(nil)
 		// 3 ticks expected
 		<-time.After(55 * time.Millisecond)
 		ts.Stop()
@@ -56,7 +56,7 @@ func TestTimeSync(t *testing.T) {
 			tickCounter.increment()
 			return &ntp.Response{}, nil
 		}
-		ts.Start()
+		ts.Start(nil)
 		// 3 ticks expected
 		<-time.After(55 * time.Millisecond)
 		cancel()
@@ -72,12 +72,12 @@ func TestTimeSync(t *testing.T) {
 			tickCounter.increment()
 			return nil, errors.New("error does not affect start flow")
 		}
-		ts.Start()
+		ts.Start(nil)
 		// 3 ticks expected
 		<-time.After(55 * time.Millisecond)
 		require.Equal(t, 2, tickCounter.get())
 		ts.SetSyncInterval(10 * time.Millisecond)
-		ts.Start()
+		ts.Start(nil)
 		<-time.After(35 * time.Millisecond)
 		ts.Stop()
 		<-time.After(11 * time.Millisecond)
@@ -91,7 +91,7 @@ func TestTimeSync(t *testing.T) {
 			tickCounter.increment()
 			return &ntp.Response{}, nil
 		}
-		ts.Start()
+		ts.Start(nil)
 		<-time.After(50 * time.Millisecond)
 		err := ts.SyncNow()
 		require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestTimeSync(t *testing.T) {
 	})
 	t.Run("Start/check_default_interval", func(t *testing.T) {
 		ts := NewTimeSync("", 1, context.Background())
-		ts.Start()
+		ts.Start(nil)
 		<-time.After(15 * time.Millisecond)
 		ts.Stop()
 		require.Equal(t, defaultSyncInterval, ts.interval)

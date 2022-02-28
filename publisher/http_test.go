@@ -19,7 +19,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	timesync.Default.Start()
+	timesync.Default.Start(nil)
 	// l, _ := zap.NewProduction()
 	// zap.ReplaceGlobals(l)
 	m.Run()

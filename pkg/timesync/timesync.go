@@ -1,11 +1,15 @@
 package timesync
 
 import (
+	"agent/api/v1/model"
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/beevik/ntp"
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +24,7 @@ type TimeSync struct {
 	queryNTP       func(string) (*ntp.Response, error) // to enable mocking
 	shouldAdjust   bool
 	retries        int
+	emitch         chan<- interface{}
 	tickerLock     *sync.Mutex
 	*PlatformSync
 	*sync.RWMutex
@@ -55,7 +60,7 @@ func (t *TimeSync) SetSyncInterval(interval time.Duration) {
 	t.interval = interval
 }
 
-func (t *TimeSync) Start() {
+func (t *TimeSync) Start(emitch chan<- interface{}) {
 	t.Lock()
 	t.wg.Add(1)
 
@@ -72,10 +77,31 @@ func (t *TimeSync) Start() {
 
 	t.tickerCtx, t.tickerStop = context.WithCancel(context.Background())
 	t.ticker = time.NewTicker(t.interval)
+	t.emitch = emitch
 	t.Unlock()
 
 	// Setup PlatformSync
 	t.Listen()
+
+	newEvCtx := func(ctx map[string]interface{}) map[string]interface{} {
+		t.RLock()
+		defaultCtx := map[string]interface{}{
+			"ntp_server":    t.host,
+			"offset_millis": time.Nanosecond * t.delta / time.Millisecond,
+		}
+		t.RUnlock()
+
+		if ctx != nil {
+			// merge default and given contexts
+			for key, val := range ctx {
+				defaultCtx[key] = val
+			}
+		}
+
+		return defaultCtx
+	}
+
+	lasterr := errors.New("")
 	go func() {
 		defer t.wg.Done()
 		defer t.tickerLock.Unlock()
@@ -84,8 +110,15 @@ func (t *TimeSync) Start() {
 			case <-t.ticker.C:
 				err := t.QueryNTP()
 				if err != nil {
+					ctx := newEvCtx(map[string]interface{}{"error": err.Error()})
+					EmitEventWithCtx(t, ctx, model.AgentClockNoSyncName, model.AgentClockNoSyncDesc)
+
 					zap.S().Errorw("failed to sync time with NTP server", zap.Error(err))
 					continue
+				}
+				if lasterr != nil {
+					EmitEventWithCtx(t, newEvCtx(nil), model.AgentClockSyncName, model.AgentClockSyncDesc)
+					lasterr = nil
 				}
 				t.setAdjustBool()
 			case <-t.tickerCtx.Done():
@@ -190,4 +223,45 @@ func Now() time.Time {
 	Default.RLock()
 	defer Default.RUnlock()
 	return Default.now()
+}
+
+func EmitEvent(t *TimeSync, name, desc string) error {
+	return EmitEventWithCtx(t, nil, name, desc)
+}
+
+func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name, desc string) error {
+	t.RLock()
+	defaultCtx := map[string]interface{}{
+		"ntp_server":    t.host,
+		"offset_millis": time.Nanosecond * t.delta / time.Millisecond,
+	}
+	t.RUnlock()
+
+	if ctx != nil {
+		// merge default and given contexts
+		for key, val := range ctx {
+			defaultCtx[key] = val
+		}
+	}
+	ev := model.NewWithCtx(ctx, name, desc)
+	zap.S().Debugf("emitting event: %s, %v", ev.Name, string(ev.Values))
+
+	evBytes, err := proto.Marshal(ev)
+	if err != nil {
+		return err
+	}
+
+	m := model.Message{
+		Type:      model.MessageType_event,
+		Timestamp: Now().Unix(),
+		Body:      evBytes,
+	}
+
+	if t.emitch == nil {
+		return fmt.Errorf("nil emit channel")
+	}
+
+	t.emitch <- m
+
+	return nil
 }
