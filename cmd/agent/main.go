@@ -12,6 +12,7 @@ import (
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
+	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 	"agent/pkg/watch"
 	"agent/publisher"
@@ -82,6 +83,27 @@ func setupZapLogger() {
 // logTimestampMSEncoder encodes the log timestamp as an int64 from Time.UnixMilli()
 func logTimestampMSEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendInt64(t.UnixMilli())
+}
+
+func defaultWatchers() []watch.Watcher {
+	dw := []watch.Watcher{}
+
+	// PEF Watch
+	eps := global.NodeProtocol.PEFEndpoints()
+	for _, ep := range eps {
+		httpConf := watch.HttpGetWatchConf{
+			Interval: global.AgentRuntimeConfig.Runtime.SamplingInterval,
+			Url:      ep.URL,
+			Timeout:  global.AgentRuntimeConfig.Platform.TransportTimeout,
+			Headers:  nil,
+		}
+		httpWatch := watch.NewHttpGetWatch(httpConf)
+		filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
+		pefConf := watch.PEFWatchConf{Filter: filter}
+		dw = append(dw, watch.NewPEFWatch(pefConf, httpWatch))
+	}
+
+	return dw
 }
 
 func registerWatchers() error {

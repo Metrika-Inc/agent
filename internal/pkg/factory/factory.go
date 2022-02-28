@@ -3,9 +3,7 @@ package factory
 import (
 	"agent/internal/pkg/global"
 	"agent/pkg/collector"
-	"agent/pkg/parse/openmetrics"
 	"agent/pkg/watch"
-	"time"
 
 	algorandWatch "agent/algorand/pkg/watch"
 
@@ -59,25 +57,6 @@ func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 			Interval:  conf.SamplingInterval,
 		})
 		registry.MustRegister(clr)
-	case conf.Type.IsPEF():
-		PEFEndpoints := global.NodeProtocol.PEFEndpoints()
-		for _, ep := range PEFEndpoints {
-			if watch.PEFWatchPrefix+"."+ep.Name == string(conf.Type) {
-				httpConf := watch.HttpGetWatchConf{
-					Interval: conf.SamplingInterval,
-					Url:      ep.URL,
-					Timeout:  time.Second,
-				}
-				httpWatch := watch.NewHttpGetWatch(httpConf)
-				filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
-				pefConf := watch.PEFWatchConf{Filter: filter}
-				w = watch.NewPEFWatch(pefConf, httpWatch)
-			}
-			if w == nil {
-				zap.S().Fatalw("unknown PEF collector specified in config",
-					"collector_name", conf.Type, "protocol", global.Protocol)
-			}
-		}
 	default:
 		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}

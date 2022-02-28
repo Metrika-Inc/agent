@@ -29,16 +29,21 @@ func AutoConfig(reset bool) global.Chain {
 		}
 	}
 
+	chain, ok := proto.(global.Chain)
+	if !ok {
+		log.Fatalw("protocol package does not implement chain interface", "protocol", global.Protocol)
+	}
+
 	if ok := proto.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
-		return proto.(global.Chain)
+		return chain
 	}
 
 	if err := proto.Discover(); err != nil {
 		log.Fatalw("failed to automatically discover protocol configuration", zap.Error(err))
 	}
 
-	return proto.(global.Chain)
+	return chain
 }
 
 // ResetConfig removes the protocol's configuration files.

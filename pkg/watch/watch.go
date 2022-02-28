@@ -11,7 +11,6 @@ var (
 	PrometheusWatchPrefix           = "prometheus"
 	AlgorandWatchPrefix             = "algorand"
 	AlgorandNodeRestart   WatchType = "algorand.node.restart"
-	PEFWatchPrefix                  = "pef"
 )
 
 type WatchType string
@@ -22,10 +21,6 @@ func (w WatchType) IsPrometheus() bool {
 
 func (w WatchType) IsAlgorand() bool {
 	return strings.HasPrefix(string(w), AlgorandWatchPrefix)
-}
-
-func (w WatchType) IsPEF() bool {
-	return strings.HasPrefix(string(w), PEFWatchPrefix)
 }
 
 type Watcher interface {

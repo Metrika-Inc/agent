@@ -4,7 +4,6 @@ import (
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 	"errors"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -192,12 +191,10 @@ func (d *Dapper) DiscoverPEFEndpoints() error {
 			// MetricEndpoints[0].URL is hardcoded as "" in template
 			if d.config.MetricEndpoints[0].URL == "" {
 				d.config.MetricEndpoints[0].URL = endpoint
-				d.config.MetricEndpoints[0].Name = "dapper_metrics"
 			} else {
 				PEFEndpoint := global.PEFEndpoint{
 					URL:     endpoint,
 					Filters: defaultFilters,
-					Name:    fmt.Sprintf("dapper_metrics_%d", port),
 				}
 				d.config.MetricEndpoints = append(d.config.MetricEndpoints, PEFEndpoint)
 			}

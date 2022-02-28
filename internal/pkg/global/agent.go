@@ -54,7 +54,6 @@ type Chain interface {
 // PEFEndpoint is a configuration for a single HTTP endpoint
 // that exposes metrics in Prometheus Exposition Format.
 type PEFEndpoint struct {
-	Name    string   `json:"name" yaml:"name"`
 	URL     string   `json:"url" yaml:"URL"`
 	Filters []string `json:"filters" yaml:"filters"`
 }
