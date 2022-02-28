@@ -24,6 +24,8 @@ const (
 	AgentHealthDesc = "The agent self-test results"
 	// state: enum(HEALTHY, UNHEALTHY), errors
 
+	/* chain specific events */
+
 	AgentNodeDownName = "agent.node.down"
 	AgentNodeDownDesc = "The node is down"
 	// old_pid
@@ -32,15 +34,13 @@ const (
 	AgentNodeUpDesc = "The node is up"
 	// pid
 
-	/* chain specific events */
-
 	AgentNodeRestartName = "agent.node.restart"
 	AgentNodeRestartDesc = "The node restarted"
 	// old_pid, new_pid
 
 	AgentNodeLogMissingName = "agent.node.log.missing"
 	AgentNodeLogMissingDesc = "The node log file has gone missing"
-	// path
+	// docker regex || path
 
 	AgentNodeConfigMissingName = "agent.node.config.missing"
 	AgentNodeConfigMissingDesc = "The node configuration file has gone missing"
@@ -53,6 +53,13 @@ const (
 	AgentConfigMissingDesc = "The agent configuration has gone missing"
 	// path
 
+	AgentClockSyncName = "agent.clock.sync"
+	AgentClockSyncDesc = "The agent synchronized its clock to NTP"
+	// offset_millis, ntp_server
+
+	AgentClockNoSyncName = "agent.clock.nosync"
+	AgentClockNoSyncDesc = "The agent failed to synchronize its clock to NTP"
+	// ntp_server, error
 )
 
 // FromContext MUST be implemented by chain specific events

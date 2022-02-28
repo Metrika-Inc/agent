@@ -247,3 +247,7 @@ func (d *Dapper) LogEventsList() map[string]model.FromContext {
 func (d *Dapper) NodeLogPath() string {
 	return "" // TODO: copy over from Events branch
 }
+
+func (d *Dapper) Hello() string {
+	return "dapper"
+}

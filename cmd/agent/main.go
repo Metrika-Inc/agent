@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"agent/api/v1/model"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
@@ -28,6 +29,8 @@ import (
 var (
 	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
 	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
+
+	ch = make(chan interface{}, 10000)
 )
 
 func init() {
@@ -47,9 +50,15 @@ func init() {
 	}
 
 	zap.S().Info("node discovered: ", discover.Hello())
-	timesync.Default.Start()
+
+	timesync.Default.Start(ch)
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
+
+		ctx := map[string]interface{}{"error": err.Error()}
+		timesync.EmitEventWithCtx(timesync.Default, ctx, model.AgentClockNoSyncName, model.AgentClockNoSyncDesc)
+	} else {
+		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName, model.AgentClockSyncDesc)
 	}
 
 	go func() {
@@ -171,7 +180,6 @@ func main() {
 		RetryCount:     global.AgentRuntimeConfig.Platform.RetryCount,
 	}
 
-	ch := make(chan interface{}, 10000)
 	pub := publisher.NewTransport(ch, conf)
 
 	wg := &sync.WaitGroup{}

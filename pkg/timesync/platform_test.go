@@ -124,7 +124,7 @@ func TestTrackTimestamps(t *testing.T) {
 		called = true
 		return &ntp.Response{}, nil
 	}
-	Default.Start()
+	Default.Start(nil)
 
 	<-time.After(10 * time.Millisecond)
 
