@@ -83,7 +83,7 @@ func (h *HttpGetWatch) StartUnsafe() {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
 					continue
 				}
-				resp.Body.Close()
+				defer resp.Body.Close()
 
 				h.Emit(out)
 			case <-h.StopKey:

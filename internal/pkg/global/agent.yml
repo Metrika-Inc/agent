@@ -39,4 +39,3 @@ runtime:
     - type: prometheus.time
     - type: prometheus.uname
     - type: prometheus.vmstat
-    - type: pef.dapper_metrics
