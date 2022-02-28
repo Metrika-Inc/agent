@@ -16,8 +16,7 @@ package discover
 //go:generate protobind -type dapper ./...
 
 import (
-	blockhain "agent/dapper"
-	"agent/internal/pkg/global"
+	blockchain "agent/dapper"
 
 	"go.uber.org/zap"
 )
@@ -26,9 +25,9 @@ func init() {
 	var err error
 	log := zap.S()
 
-	configPath = global.DefaultDapperPath
+	configPath = blockchain.DefaultDapperPath
 
-	proto, err = blockhain.NewDapper()
+	proto, err = blockchain.NewDapper()
 	if err != nil {
 		log.Fatalw("failed to load protocol configuration file", zap.Error(err))
 	}

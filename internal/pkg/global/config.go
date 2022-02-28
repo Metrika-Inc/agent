@@ -18,8 +18,6 @@ var (
 	AgentRuntimeConfig         AgentConfig
 	DapperConf                 *DapperConfig
 	DefaultConfigPath          = "./internal/pkg/global/agent.yml"
-	DefaultDapperPath          = "./internal/pkg/global/dapper.yml"
-	DefaultAlgorandPath        = "./internal/pkg/global/algorand.yml"
 	DefaultFingerprintFilename = "fingerprint"
 	AgentCacheDir              string
 )
@@ -132,31 +130,6 @@ func createLogFolders() error {
 	}
 
 	return nil
-}
-
-func LoadDapperConfig() error {
-	var c DapperConfig
-	content, err := ioutil.ReadFile(DefaultDapperPath)
-	if err != nil {
-		return err
-	}
-
-	if err := yaml.Unmarshal(content, &c); err != nil {
-		return err
-	}
-	DapperConf = &c
-	return nil
-}
-
-func (d *DapperConfig) Default() *DapperConfig {
-	return &DapperConfig{
-		Client:      "flow-go",
-		EnvFilePath: "/etc/flow/runtime-conf.env",
-		ContainerRegex: []string{
-			"flow-go",
-		},
-		PEFEndpoints: []string{},
-	}
 }
 
 func GenerateConfigFromTemplate(templatePath, configPath string, config interface{}) error {

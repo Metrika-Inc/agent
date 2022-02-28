@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"agent/internal/pkg/global"
 	"errors"
 	"io/fs"
 
@@ -17,22 +18,32 @@ var (
 type NodeDiscovery interface {
 	Discover() error
 	IsConfigured() bool
+	ResetConfig() error
 }
 
-func AutoConfig(reset bool) {
-	if reset {
-		ResetConfig()
-	}
+func AutoConfig(reset bool) global.Chain {
 	log := zap.S()
+	if reset {
+		if err := proto.ResetConfig(); err != nil {
+			log.Fatalw("failed to reset configuration", zap.Error(err))
+		}
+	}
+
+	chain, ok := proto.(global.Chain)
+	if !ok {
+		log.Fatalw("protocol package does not implement chain interface", "protocol", global.Protocol)
+	}
 
 	if ok := proto.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
-		return
+		return chain
 	}
 
 	if err := proto.Discover(); err != nil {
 		log.Fatalw("failed to automatically discover protocol configuration", zap.Error(err))
 	}
+
+	return chain
 }
 
 // ResetConfig removes the protocol's configuration files.

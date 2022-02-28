@@ -50,7 +50,7 @@ func BenchmarkExpfmtText(bech *testing.B) {
 	}
 }
 
-func TestPefDecoder(t *testing.T) {
+func TestPEFDecoder(t *testing.T) {
 	b := readFileOrFail(t, ValidTests+"pef_full")
 
 	buf := bytes.NewBuffer(b)
