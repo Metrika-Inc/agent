@@ -3,12 +3,12 @@ nodeID: {{ .NodeID }}
 envFile: {{ or .EnvFilePath "/etc/flow/runtime-conf.env" }}
 containerRegex:{{ range .ContainerRegex }}
   - {{ . }}{{else}}
-  - flow-go{{end}}
+  - dapper-private-network_consensus_1_1{{end}}
 pefEndpoints:{{ range .PEFEndpoints }}
   - URL: {{ .URL }}
     filters:{{range .Filters}}
       - {{ . }}{{end}}{{else}}
-  - URL: http://localhost:9000/metrics
+  - URL:
     filters:
       - network_engine_messages_handled_total
       - network_engine_messages_received_total
