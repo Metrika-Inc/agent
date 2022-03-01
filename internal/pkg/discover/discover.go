@@ -27,6 +27,8 @@ type NodeDiscovery interface {
 }
 
 func AutoConfig(reset bool) global.Chain {
+	Init()
+
 	log := zap.S()
 	if reset {
 		if err := proto.ResetConfig(); err != nil {
