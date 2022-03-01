@@ -27,9 +27,6 @@ PROTOC_OS = linux
 PROTOC_ARCH = x86_64
 PROM_CLIENT_VERSION := 1.12.1
 
-test:
-	go test ./... -cover -race -count=1
-
 # List of supported blockchains by the agent
 DAPPER := dapper
 ALGORAND := algorand
@@ -40,17 +37,16 @@ PROTOBIND = protobind
 .PHONY: all
 all: build
 
-.PHONY: cover-%
-cover-%:
-	go test -tags=$* ./... -cover -race -count=1 -coverprofile cover.out
-	go tool cover -html cover.out -o coverage.html
-
 .PHONY: test-%
 test-%:
-	go test -tags=$* ./... -cover -race -count=1
+	go test -tags=$* ./... -cover -race -count=1 -coverprofile cover.out
 
 .PHONY: test
 test: $(foreach b,$(PROTOS),test-$(b))
+
+.PHONY: cover-%
+cover-%: test-%
+	go tool cover -html cover.out -o coverage.html
 
 .PHONY: $(PROTOBIND)
 $(PROTOBIND):

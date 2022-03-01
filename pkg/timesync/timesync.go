@@ -4,12 +4,12 @@ import (
 	"agent/api/v1/model"
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
+	"agent/internal/pkg/emit"
+
 	"github.com/beevik/ntp"
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 )
 
@@ -244,24 +244,17 @@ func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name, desc string
 		}
 	}
 	ev := model.NewWithCtx(ctx, name, desc)
-	zap.S().Debugf("emitting event: %s, %v", ev.Name, string(ev.Values))
-
-	evBytes, err := proto.Marshal(ev)
-	if err != nil {
-		return err
-	}
-
-	m := model.Message{
-		Type:      model.MessageType_event,
-		Timestamp: Now().Unix(),
-		Body:      evBytes,
-	}
-
-	if t.emitch == nil {
-		return fmt.Errorf("nil emit channel")
-	}
-
-	t.emitch <- m
+	emit.EmitEvent(t, Now(), ev)
 
 	return nil
+}
+
+func (t *TimeSync) Emit(message interface{}) {
+	if t.emitch == nil {
+		zap.S().Warn("emit channel is not configured")
+
+		return
+	}
+
+	t.emitch <- message
 }

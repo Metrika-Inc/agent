@@ -6,11 +6,13 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover"
+	"agent/internal/pkg/emit"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
 	"agent/pkg/parse/openmetrics"
@@ -30,7 +32,8 @@ var (
 	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
 	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
 
-	ch = make(chan interface{}, 10000)
+	ch            = make(chan interface{}, 10000)
+	simpleEmitter = &emit.SimpleEmitter{Emitch: ch}
 )
 
 func init() {
@@ -193,6 +196,49 @@ func main() {
 		log.Fatal(err)
 	}
 
-	forever := make(chan bool)
-	<-forever
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, os.Kill)
+	done := make(chan bool, 1)
+
+	go func() {
+		sig := <-sigs
+		ctx := map[string]interface{}{"signal_number": sig}
+		ev := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+
+		go func() {
+			// force kill if we get more signals after the first one
+			sig := <-sigs
+			log.Infof("received OS signal %v", sig)
+
+			ctx := map[string]interface{}{
+				"signal_number": sig,
+				"error":         "agent forced to exit",
+			}
+			ev := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+			os.Exit(1)
+		}()
+
+		log.Infof("received OS signal %v", sig)
+		switch sig {
+		case os.Interrupt:
+			log.Debug("shutting down the agent")
+			global.WatcherRegistry.Stop()
+			pub.Stop()
+			wg.Wait()
+
+			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+
+			log.Info("agent shutdown complete, exiting")
+		case os.Kill:
+			log.Info("agent killed, exiting")
+
+			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+			os.Exit(1)
+		}
+		done <- true
+	}()
+
+	<-done
+	log.Info("goodbye")
 }

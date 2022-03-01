@@ -3,6 +3,8 @@ package watch
 import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/emit"
+	"agent/pkg/timesync"
 	"context"
 	"errors"
 	"sync"
@@ -56,7 +58,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	} else {
 		container, err := utils.MatchContainer(containers, w.Regex)
 		if err != nil {
-			EmitEvent(w, model.NewWithCtx(
+			emit.EmitEvent(w, timesync.Now(), model.NewWithCtx(
 				map[string]interface{}{"error": err.Error()},
 				model.AgentNodeDownName,
 				model.AgentNodeDownDesc))
@@ -65,7 +67,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		}
 		w.updateContainer(container)
 
-		EmitEvent(w, model.NewWithCtx(
+		emit.EmitEvent(w, timesync.Now(), model.NewWithCtx(
 			map[string]interface{}{
 				"image":  container.Image,
 				"state":  container.State,
@@ -92,7 +94,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	return msgchan, errchan, nil
 }
 
-func (w *ContainerWatch) emitEventFromDocker(m events.Message) error {
+func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error) {
 	var ev *model.Event
 
 	switch m.Status {
@@ -112,7 +114,7 @@ func (w *ContainerWatch) emitEventFromDocker(m events.Message) error {
 	case "die":
 		signal, ok := m.Actor.Attributes["signal"]
 		if !ok {
-			return errors.New("'signal' attribute missing from docker kill event")
+			return nil, errors.New("'signal' attribute missing from docker kill event")
 		}
 
 		ev = model.NewWithCtx(
@@ -121,9 +123,7 @@ func (w *ContainerWatch) emitEventFromDocker(m events.Message) error {
 		)
 	}
 
-	EmitEvent(w, ev)
-
-	return nil
+	return ev, nil
 }
 
 func (w *ContainerWatch) StartUnsafe() {
@@ -175,9 +175,12 @@ func (w *ContainerWatch) StartUnsafe() {
 				w.Log.Debugf("docker event message: ID:%s, status:%s, signal:%s",
 					m.ID[:8], m.Status, m.Actor.Attributes["signal"])
 
-				if err := w.emitEventFromDocker(m); err != nil {
+				ev, err := w.parseDockerEvent(m)
+				if err != nil {
 					w.Log.Error("error emitting docker event", err)
 				}
+
+				emit.EmitEvent(w, timesync.Now(), ev)
 			case err := <-errchan:
 				w.Log.Debugf("docker event error: %v, will try to recover the stream", err)
 				cancel()

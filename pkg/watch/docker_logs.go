@@ -3,6 +3,8 @@ package watch
 import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/emit"
+	"agent/pkg/timesync"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -80,7 +82,7 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 			continue
 		}
 
-		if err := EmitEvent(w, newev); err != nil {
+		if err := emit.EmitEvent(w, timesync.Now(), newev); err != nil {
 			zap.S().Error(err)
 
 			continue
@@ -125,7 +127,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 			}
 
 			ev := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
-			EmitEvent(w, ev)
+			emit.EmitEvent(w, timesync.Now(), ev)
 
 			break
 		}
@@ -147,7 +149,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 					w.Log.Error("EOF reached (hdr), resetting stream")
 
 					ev := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
-					EmitEvent(w, ev)
+					emit.EmitEvent(w, timesync.Now(), ev)
 
 					cancel()
 
