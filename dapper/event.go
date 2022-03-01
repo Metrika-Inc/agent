@@ -25,7 +25,7 @@ var (
 		"view", "block_view", "block_id", "block_proposer_id", "block_time", "qc_block_view",
 		"qc_block_id", "time"}
 	onVotingKeys = []string{"node_role", "node_id", "hotstuff", "chain", "path_id",
-		"view", "voted_block_view", "voted_block_id", "voted_id", "time"}
+		"view", "voted_block_view", "voted_block_id", "voter_id", "time"}
 
 	eventsFromContext = map[string]model.FromContext{
 		onFinalizedBlockName:  onFinalizedBlock,
