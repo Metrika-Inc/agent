@@ -102,15 +102,15 @@ func NewFingerprintReader(path string) io.ReadCloser {
 	return file
 }
 
-func FingerprintSetup() error {
+func FingerprintSetup() (string, error) {
 	if !AgentRuntimeConfig.Runtime.Fingerprint {
 		// fingerprint disabled, nothing to do
 
-		return nil
+		return "", nil
 	}
 
 	if _, err := os.Stat(AgentCacheDir); errors.Is(err, fs.ErrNotExist) {
-		return err
+		return "", err
 	}
 
 	fpp := filepath.Join(AgentCacheDir, DefaultFingerprintFilename)
@@ -123,18 +123,18 @@ func FingerprintSetup() error {
 	fp, err := fingerprint.NewWithValidation(fpw, fpr)
 	if err != nil {
 		if _, ok := err.(*fingerprint.ValidationError); ok {
-			return fmt.Errorf("cached [%s]: %w", fpp, err)
+			return "", fmt.Errorf("cached [%s]: %w", fpp, err)
 		}
-		return err
+		return "", err
 	}
 
 	if err := fp.Write(); err != nil {
-		return err
+		return "", err
 	}
 
 	zap.S().Info("fingerprint ", fp.Hash())
 
-	return nil
+	return fp.Hash(), nil
 }
 
 func init() {

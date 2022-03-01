@@ -20,7 +20,6 @@ import (
 	"agent/pkg/watch"
 	"agent/publisher"
 
-	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -163,18 +162,14 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	if err := global.FingerprintSetup(); err != nil {
-		log.Fatal("fingerprint initialization error: ", err)
-	}
-
-	agentUUID, err := uuid.NewUUID()
+	agentUUID, err := global.FingerprintSetup()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("fingerprint initialization error: ", err)
 	}
 
 	conf := publisher.TransportConf{
 		URL:            global.AgentRuntimeConfig.Platform.Addr,
-		UUID:           agentUUID.String(),
+		UUID:           agentUUID,
 		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
 		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,

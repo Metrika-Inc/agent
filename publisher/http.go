@@ -316,6 +316,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) erro
 	}
 
 	m := model.Message{
+		Name:      ev.GetName(),
 		Type:      model.MessageType_event,
 		Timestamp: timesync.Now().UnixMilli(),
 		Body:      evBytes,

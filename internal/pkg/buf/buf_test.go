@@ -28,6 +28,7 @@ func newTestMetric(timestamp int64) model.Message {
 	b, _ := json.Marshal("foobar")
 	return model.Message{
 		Name: "heap-test",
+		Type: model.MessageType_metric,
 		Body: b,
 	}
 }
@@ -46,16 +47,6 @@ func copyMetrics(m ItemBatch) ItemBatch {
 	exp := make(ItemBatch, len(m))
 	copy(exp, m)
 	return exp
-}
-
-func reverseCopyMetrics(m ItemBatch) ItemBatch {
-	r := make(ItemBatch, 0, len(m))
-	for j := len(m) - 1; j >= 0; j = j - 1 {
-		n := m[j]
-		r = append(r, n)
-	}
-
-	return r
 }
 
 func TestPriorityBufferInsert(t *testing.T) {
