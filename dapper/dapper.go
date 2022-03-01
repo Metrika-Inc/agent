@@ -5,6 +5,7 @@ import (
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -131,15 +132,23 @@ func (d *Dapper) NodeID() error {
 	}
 	if d.container != nil {
 		args := strings.Split(d.container.Command, " ")
+		var nodeID string
 		for i := 0; i < len(args); i++ {
-			if strings.ToLower(args[i]) == "--nodeid" {
-				if i+1 >= len(args) {
-					log.Warnw("potentially invalid docker run command", "cmd", d.container.Command)
+			if strings.HasPrefix(args[i], "--nodeid") {
+				if eqIndex := strings.Index(args[i], "="); eqIndex != -1 {
+					nodeID = args[i][eqIndex+1:]
+				} else {
+					if i+1 >= len(args) {
+						return fmt.Errorf("potentially invalid docker run command: %s", d.container.Command)
+					}
+					nodeID = args[i+1]
 				}
-				log.Infow("node id found", "node_id", args[i+1])
-				d.config.NodeID = args[i+1]
-				d.renderNeeded = true
-				return nil
+				if nodeID != "" {
+					log.Infow("node id found", "node_id", nodeID)
+					d.config.NodeID = nodeID
+					d.renderNeeded = true
+					return nil
+				}
 			}
 		}
 	}
