@@ -12,24 +12,24 @@ type Emitter interface {
 	Emit(message interface{})
 }
 
-type simpleEmitter struct {
-	emitch chan<- interface{}
+type SimpleEmitter struct {
+	Emitch chan<- interface{}
 }
 
-func (s *simpleEmitter) Emit(message interface{}) {
-	if s.emitch == nil {
-		zap.S().Error("emit channel not configured")
+func (s *SimpleEmitter) Emit(message interface{}) {
+	if s.Emitch != nil {
+		zap.S().Warn("emit channel not configured")
 
 		return
 	}
 
-	s.emitch <- message
+	s.Emitch <- message
 }
 
 // NewSimpleEmitter returns an object that solely implements the
 // Emitter interface. Used to emit events independent of a watchers.
-func NewSimpleEmitter(emitch chan<- interface{}) *simpleEmitter {
-	return &simpleEmitter{emitch: emitch}
+func NewSimpleEmitter(emitch chan<- interface{}) *SimpleEmitter {
+	return &SimpleEmitter{Emitch: emitch}
 }
 
 // Ev builds a new event message compatible for publishing and pushes
