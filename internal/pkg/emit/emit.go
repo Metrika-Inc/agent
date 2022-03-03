@@ -17,7 +17,7 @@ type SimpleEmitter struct {
 }
 
 func (s *SimpleEmitter) Emit(message interface{}) {
-	if s.Emitch != nil {
+	if s.Emitch == nil {
 		zap.S().Warn("emit channel not configured")
 
 		return
