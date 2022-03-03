@@ -68,13 +68,13 @@ build-%: generate-%
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
 	rm -rf $(PWD)/tmp/include/google $(PWD)/tmp/go/io
-	mkdir -p tmp/include && mkdir -p tmp/go
+	mkdir -p tmp/include -p tmp/go tmp/bin
 	
 	cd $(PROTOC_TMP); curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_VERSION)-$(PROTOC_OS)-$(PROTOC_ARCH).zip -o protoc.zip
 	cd $(PROTOC_TMP); unzip protoc.zip && mv include/google $(PWD)/tmp/include/
 	cd $(PROTOC_TMP); git clone https://github.com/prometheus/client_model.git && mv client_model/io/ $(PWD)/tmp/go/
 
-	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin
+	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin/protoc
 	GOBIN=$(PWD)/tmp/bin go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	GOBIN=$(PWD)/tmp/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 
