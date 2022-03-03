@@ -1,8 +1,7 @@
 package model
 
 import (
-	"encoding/json"
-	"fmt"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -80,22 +79,12 @@ func NewWithFilteredCtx(ctx map[string]interface{}, name, desc string, keys ...s
 		return &Event{Name: name, Desc: desc}, nil
 	}
 
-	values := make(map[string]interface{})
-
-	for _, key := range keys {
-		val, ok := ctx[key]
-		if !ok {
-			return nil, fmt.Errorf("%s, missing key %q", name, key)
-		}
-		values[key] = val
-	}
-
-	valuesb, err := json.Marshal(values)
+	values, err := structpb.NewStruct(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Event{Name: name, Desc: desc, Values: valuesb}, nil
+	return &Event{Name: name, Desc: desc, Values: values}, nil
 }
 
 // NewWithCtx returns an event whose context is equal to the given context.

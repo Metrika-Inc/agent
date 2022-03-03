@@ -39,7 +39,7 @@ func EmitEvent(w Emitter, t time.Time, ev *model.Event) error {
 		Body:      evBytes,
 	}
 
-	zap.S().Debug("emitting event: ", ev.Name, string(ev.Values))
+	zap.S().Debug("emitting event: ", ev.Name, ev.Values.String())
 
 	w.Emit(message)
 
