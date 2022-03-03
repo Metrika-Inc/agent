@@ -1,7 +1,8 @@
 syntax = "proto3";
 package metrika;
 
-option go_package = "./;model";
+option go_package = ".;model";
+import "google/protobuf/struct.proto";
 
 enum NodeState {
     down = 0;
@@ -30,7 +31,7 @@ message Message {
 message Event {
     string name = 1;
     string desc = 2;
-    bytes values = 3;
+    google.protobuf.Struct values = 3;
 }
 
 message PlatformMessage {

@@ -308,7 +308,7 @@ func emitEventWithError(t *Transport, err error, name, desc string) error {
 
 func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) error {
 	ev := model.NewWithCtx(ctx, name, desc)
-	t.log.Debugf("emitting event: %s, %v", ev.Name, string(ev.Values))
+	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
 	evBytes, err := proto.Marshal(ev)
 	if err != nil {
