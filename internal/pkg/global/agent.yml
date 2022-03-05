@@ -19,7 +19,6 @@ runtime:
   metrics_addr: :9000
   sampling_interval: 5s
   wachers:
-    - type: algorand.node.restart
     - type: prometheus.proc.cpu
     - type: prometheus.proc.net.netstat_linux
     - type: prometheus.proc.net.arp_linux
