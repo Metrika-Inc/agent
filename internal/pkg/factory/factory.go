@@ -9,17 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// algorandWatchersFactory creates algorand specific watchers
-func algorandWatchersFactory(conf global.WatchConfig) watch.Watcher {
-	var w watch.Watcher
-	switch conf.Type {
-	default:
-		zap.S().Fatalw("specified watcher constructor not found", "watcher", conf.Type)
-	}
-
-	return w
-}
-
 // prometheusCollectorsFactory creates watchers backed by pkg/collector.
 func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 	clrFunc, ok := collector.CollectorsFactory[string(t)]
@@ -38,8 +27,6 @@ func prometheusCollectorsFactory(t watch.WatchType) prometheus.Collector {
 func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
 	var w watch.Watcher
 	switch {
-	case conf.Type.IsAlgorand(): // algorand
-		w = algorandWatchersFactory(conf)
 	case conf.Type.IsPrometheus(): // prometheus
 		var clr prometheus.Collector
 		clr = prometheusCollectorsFactory(conf.Type)
