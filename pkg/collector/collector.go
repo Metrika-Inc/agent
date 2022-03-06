@@ -18,10 +18,6 @@ var (
 	log *zap.SugaredLogger
 )
 
-func IsNoDataError(err error) bool {
-	return err == ErrNoData
-}
-
 type NodeExporterCollectErr struct {
 	Err error
 }

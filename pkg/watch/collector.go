@@ -16,6 +16,7 @@ package watch
 
 import (
 	"agent/api/v1/model"
+	"agent/pkg/timesync"
 	"sync"
 	"time"
 
@@ -39,8 +40,7 @@ type CollectorWatch struct {
 	Watch
 
 	wg              *sync.WaitGroup
-	ch              chan prometheus.Metric
-	ch1             chan []*dto.MetricFamily
+	handlerch       chan []*dto.MetricFamily
 	stopCollectorCh chan bool
 }
 
@@ -51,8 +51,7 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	w.Log = w.Log.With("collector", w.Type)
 
 	w.wg = new(sync.WaitGroup)
-	w.ch = make(chan prometheus.Metric, 1000)
-	w.ch1 = make(chan []*dto.MetricFamily, 1000)
+	w.handlerch = make(chan []*dto.MetricFamily, 1000)
 	w.stopCollectorCh = make(chan bool, 1)
 
 	return w
@@ -73,7 +72,7 @@ func (c *CollectorWatch) StartUnsafe() {
 
 					continue
 				}
-				c.ch1 <- metricFamilies
+				c.handlerch <- metricFamilies
 			case <-c.stopCollectorCh:
 			}
 		}
@@ -86,7 +85,7 @@ func (c *CollectorWatch) StartUnsafe() {
 func (c *CollectorWatch) handlePrometheusMetric() {
 	for {
 		select {
-		case metricFams := <-c.ch1:
+		case metricFams := <-c.handlerch:
 			for _, metricFam := range metricFams {
 				out, err := proto.Marshal(metricFam)
 				if err != nil {
@@ -97,7 +96,7 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				// Create & emit the metric
 				metricInternal := model.Message{
 					Name:      string(c.Type),
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: timesync.Default.Now().UTC().UnixMilli(),
 					Type:      model.MessageType_metric,
 					Body:      out,
 				}
