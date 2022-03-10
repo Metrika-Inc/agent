@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 type platformState int32
@@ -192,8 +193,9 @@ func (t *Transport) Connect() error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
 	defer cancel()
 
+	tlsConfig := &tls.Config{InsecureSkipVerify: false}
 	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
-		grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
 	if err != nil {
 		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
 		return err
