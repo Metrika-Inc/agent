@@ -21,6 +21,7 @@ import (
 	"agent/pkg/watch"
 	"agent/publisher"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -63,7 +64,8 @@ func init() {
 	}
 
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
+		promHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
+		http.Handle("/metrics", promHandler)
 		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
 	}()
 }
