@@ -146,18 +146,19 @@ func (w *DockerLogWatch) StartUnsafe() {
 			n, err := rc.Read(hdr)
 			if err != nil {
 				if err == io.EOF {
-					w.Log.Error("EOF reached (hdr), resetting stream")
+					w.Log.Error("EOF reached (hdr), resetting stream in 5s")
+					<-time.After(5 * time.Second)
 
 					ev := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
 					emit.EmitEvent(w, timesync.Now(), ev)
 
 					cancel()
-
+					rc.Close()
 					wg.Add(1)
 					go newStream()
 					wg.Wait()
 				} else {
-					w.Log.Error("error reading header", err)
+					w.Log.Errorw("error reading header", zap.Error(err))
 				}
 
 				continue
@@ -183,14 +184,16 @@ func (w *DockerLogWatch) StartUnsafe() {
 			n, err = rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
-					w.Log.Error("EOF reached (data), resetting stream")
+					w.Log.Error("EOF reached (data), resetting stream in 5s")
+					<-time.After(5 * time.Second)
 					cancel()
 
+					rc.Close()
 					wg.Add(1)
 					go newStream()
 					wg.Wait()
 				} else {
-					w.Log.Error("error reading data", err)
+					w.Log.Errorw("error reading data", zap.Error(err))
 
 				}
 
@@ -205,7 +208,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 			jsonMap, err := w.parseJSON(buf)
 			if err != nil {
-				w.Log.Error("error parsing events from log line:", err)
+				w.Log.Errorw("error parsing events from log line:", zap.Error(err))
 			}
 
 			w.emitEvents(jsonMap)
