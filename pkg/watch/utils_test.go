@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"testing"
 	"time"
 
@@ -58,9 +59,10 @@ func TestDtoToOpenMetrics(t *testing.T) {
 				gauge := metric.GetCounter()
 				require.NotNil(t, openGauge)
 				require.Equal(t, gauge.GetValue(), openGauge.GetDoubleValue())
+				exemplar := gauge.GetExemplar()
 				openExemplar := openGauge.GetExemplar()
-				if openExemplar != nil {
-					exemplar := gauge.GetExemplar()
+				if exemplar != nil {
+					require.Equal(t, exemplar.GetValue(), openExemplar.GetValue())
 					require.True(t, proto.Equal(exemplar.GetTimestamp(), openExemplar.GetTimestamp()))
 					openExemplarLabels := openExemplar.GetLabel()
 					exemplarLabels := exemplar.GetLabel()
@@ -73,9 +75,54 @@ func TestDtoToOpenMetrics(t *testing.T) {
 					require.Nil(t, openExemplar)
 				}
 			case io_prometheus_client.MetricType_HISTOGRAM:
-				continue
+				openHistogram := openMetricPoints[0].GetHistogramValue()
+				require.NotNil(t, openHistogram)
+				histogram := metric.GetHistogram()
+				require.NotNil(t, histogram)
+				require.Equal(t, histogram.GetSampleCount(), openHistogram.Count)
+				if math.IsNaN(histogram.GetSampleSum()) {
+					require.True(t, math.IsNaN(openHistogram.GetDoubleValue()))
+				} else {
+					require.Equal(t, histogram.GetSampleSum(), openHistogram.GetDoubleValue())
+				}
+				buckets := histogram.GetBucket()
+				openBuckets := openHistogram.GetBuckets()
+
+				require.Len(t, openBuckets, len(buckets))
+				for i, bucket := range buckets {
+					require.Equal(t, bucket.GetCumulativeCount(), openBuckets[i].GetCount())
+					require.Equal(t, bucket.GetUpperBound(), openBuckets[i].GetUpperBound())
+					exemplar := bucket.GetExemplar()
+					openExemplar := openBuckets[i].GetExemplar()
+					if exemplar != nil {
+						require.Equal(t, exemplar.GetValue(), openExemplar.GetValue())
+						require.True(t, proto.Equal(openExemplar.GetTimestamp(), exemplar.GetTimestamp()))
+						exemplarLabels := exemplar.GetLabel()
+						openExemplarLabels := openExemplar.GetLabel()
+
+						require.Len(t, openExemplarLabels, len(exemplarLabels))
+						for j := range exemplarLabels {
+							require.Equal(t, exemplarLabels[i].GetName(), openExemplarLabels[j].GetName())
+							require.Equal(t, exemplarLabels[i].GetName(), openExemplarLabels[i].GetName())
+						}
+					} else {
+						require.Nil(t, openExemplar)
+					}
+				}
 			case io_prometheus_client.MetricType_SUMMARY:
-				continue
+				openSummary := openMetricPoints[0].GetSummaryValue()
+				require.NotNil(t, openSummary)
+				summary := metric.GetSummary()
+				require.NotNil(t, summary)
+				require.Equal(t, summary.GetSampleCount(), openSummary.GetCount())
+				require.Equal(t, summary.GetSampleSum(), openSummary.GetDoubleValue())
+				quantiles := summary.GetQuantile()
+				openQuantiles := openSummary.GetQuantile()
+				require.Len(t, openQuantiles, len(quantiles))
+				for i, quantile := range quantiles {
+					require.Equal(t, quantile.GetQuantile(), openQuantiles[i].GetQuantile())
+					require.Equal(t, quantile.GetValue(), openQuantiles[i].GetValue())
+				}
 			}
 		}
 	}
