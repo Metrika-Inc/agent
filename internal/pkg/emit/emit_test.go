@@ -48,7 +48,7 @@ func TestSimpleEmitter(t *testing.T) {
 	}
 }
 
-func TestEmitEvent(t *testing.T) {
+func TestEv(t *testing.T) {
 	emitch := make(chan interface{}, 1)
 	retch := make(chan interface{}, 1)
 
@@ -83,7 +83,7 @@ func TestEmitEvent(t *testing.T) {
 
 	se := &SimpleEmitter{emitch}
 
-	err = EmitEvent(se, evTime, ev)
+	err = Ev(se, evTime, ev)
 	require.Nil(t, err)
 
 	select {

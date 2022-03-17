@@ -6,7 +6,7 @@ import (
 	"agent/internal/pkg/emit"
 	"agent/pkg/timesync"
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -55,26 +55,38 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	containers, err := utils.GetRunningContainers()
 	if err != nil {
 		return nil, nil, err
-	} else {
-		container, err := utils.MatchContainer(containers, w.Regex)
-		if err != nil {
-			emit.EmitEvent(w, timesync.Now(), model.NewWithCtx(
-				map[string]interface{}{"error": err.Error()},
-				model.AgentNodeDownName,
-				model.AgentNodeDownDesc))
+	}
 
+	container, err := utils.MatchContainer(containers, w.Regex)
+	if err != nil {
+		ev, err := model.NewWithCtx(
+			map[string]interface{}{"error": err.Error()},
+			model.AgentNodeDownName,
+			model.AgentNodeDownDesc)
+		if err != nil {
 			return nil, nil, err
 		}
-		w.updateContainer(container)
 
-		emit.EmitEvent(w, timesync.Now(), model.NewWithCtx(
-			map[string]interface{}{
-				"image":  container.Image,
-				"state":  container.State,
-				"status": container.Status,
-				"names":  container.Names,
-			},
-			model.AgentNodeUpName, model.AgentNodeUpDesc))
+		if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+			return nil, nil, fmt.Errorf("error emitting event about error: %v", err)
+		}
+
+		return nil, nil, err
+	}
+	w.updateContainer(container)
+
+	ev, err := model.NewWithCtx(map[string]interface{}{
+		"image":  container.Image,
+		"state":  container.State,
+		"status": container.Status,
+		"names":  container.Names[0],
+	}, model.AgentNodeUpName, model.AgentNodeUpDesc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+		return nil, nil, fmt.Errorf("error emitting event about error: %v", err)
 	}
 
 	filter := filters.NewArgs()
@@ -96,31 +108,25 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error) {
 	var ev *model.Event
+	var err error
+	ctx := map[string]interface{}{"id": m.ID, "status": m.Status, "action": m.Action}
 
 	switch m.Status {
 	case "start":
-		ev = model.NewWithCtx(
-			map[string]interface{}{
-				"image":  w.container.Image,
-				"state":  w.container.State,
-				"status": w.container.Status,
-				"names":  w.container.Names,
-			},
-			model.AgentNodeUpName, model.AgentNodeUpDesc)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeUpName, model.AgentNodeUpDesc)
 	case "restart":
-		ev = model.NewWithCtx(
-			map[string]interface{}{"id": m.ID},
-			model.AgentNodeRestartName, model.AgentNodeRestartDesc)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, model.AgentNodeRestartDesc)
 	case "die":
-		signal, ok := m.Actor.Attributes["signal"]
-		if !ok {
-			return nil, errors.New("'signal' attribute missing from docker kill event")
+		exitCode, ok := m.Actor.Attributes["exitCode"]
+		if ok {
+			ctx["exitCode"] = exitCode
 		}
 
-		ev = model.NewWithCtx(
-			map[string]interface{}{"id": m.ID, "signal": signal},
-			model.AgentNodeDownName, model.AgentNodeDownDesc,
-		)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeDownName, model.AgentNodeDownDesc)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return ev, nil
@@ -143,10 +149,7 @@ func (w *ContainerWatch) StartUnsafe() {
 		err     error
 	)
 
-	wg := &sync.WaitGroup{}
 	newEventStream := func() {
-		defer wg.Done()
-
 		for {
 			// retry forever to re-establish the stream.
 			ctx, cancel = context.WithCancel(context.Background())
@@ -161,31 +164,37 @@ func (w *ContainerWatch) StartUnsafe() {
 			break
 		}
 	}
-	wg.Add(1)
-	go newEventStream()
+	newEventStream()
 
-	// wait for event stream channels to be ready
-	// before entering their select{}.
-	wg.Wait()
-
+	w.Wg.Add(1)
 	go func() {
+		defer w.Wg.Done()
+
 		for {
 			select {
 			case m := <-msgchan:
 				w.Log.Debugf("docker event message: ID:%s, status:%s, signal:%s",
-					m.ID[:8], m.Status, m.Actor.Attributes["signal"])
+					m.ID, m.Status, m.Actor.Attributes["signal"])
 
 				ev, err := w.parseDockerEvent(m)
 				if err != nil {
-					w.Log.Error("error emitting docker event", err)
+					w.Log.Error("error parsing docker event", err)
+
+					continue
+				} else {
+					if ev == nil {
+						// nothing to do
+						continue
+					}
 				}
 
-				emit.EmitEvent(w, timesync.Now(), ev)
+				if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+					w.Log.Error("error emitting docker event", err)
+				}
 			case err := <-errchan:
 				w.Log.Debugf("docker event error: %v, will try to recover the stream", err)
 				cancel()
 
-				wg.Add(1)
 				newEventStream()
 			case <-w.StopKey:
 				cancel()

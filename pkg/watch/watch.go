@@ -34,6 +34,7 @@ type Watch struct {
 	Running bool
 
 	StopKey chan bool
+	Wg      *sync.WaitGroup
 
 	startOnce *sync.Once
 	listeners []chan<- interface{}
@@ -46,6 +47,7 @@ func NewWatch() Watch {
 		StopKey:   make(chan bool, 1),
 		startOnce: &sync.Once{},
 		Log:       zap.S(),
+		Wg:        &sync.WaitGroup{},
 	}
 }
 

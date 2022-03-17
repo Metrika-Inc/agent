@@ -198,7 +198,10 @@ func main() {
 	go func() {
 		sig := <-sigs
 		ctx := map[string]interface{}{"signal_number": sig}
-		ev := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+		ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+		if err != nil {
+			log.Error("error creating event: ", err)
+		}
 
 		go func() {
 			// force kill if we get more signals after the first one
@@ -209,8 +212,14 @@ func main() {
 				"signal_number": sig,
 				"error":         "agent forced to exit",
 			}
-			ev := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
-			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+			ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+			if err != nil {
+				log.Error("error creating event: ", err)
+			} else {
+				if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+					log.Error("error emitting event: ", err)
+				}
+			}
 			os.Exit(1)
 		}()
 
@@ -222,13 +231,17 @@ func main() {
 			pub.Stop()
 			wg.Wait()
 
-			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+			if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+				log.Error("error emitting event: ", err)
+			}
 
 			log.Info("agent shutdown complete, exiting")
 		case os.Kill:
 			log.Info("agent killed, exiting")
 
-			emit.EmitEvent(simpleEmitter, timesync.Now(), ev)
+			if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+				log.Error("error emitting event: ", err)
+			}
 			os.Exit(1)
 		}
 		done <- true

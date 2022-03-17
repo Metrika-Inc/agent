@@ -26,7 +26,7 @@ func (s *SimpleEmitter) Emit(message interface{}) {
 	s.Emitch <- message
 }
 
-func EmitEvent(w Emitter, t time.Time, ev *model.Event) error {
+func Ev(w Emitter, t time.Time, ev *model.Event) error {
 	evBytes, err := proto.Marshal(ev)
 	if err != nil {
 		return err
