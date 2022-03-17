@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"regexp"
@@ -120,4 +122,28 @@ func TestMatchContainer(t *testing.T) {
 			require.Equal(t, containers[tc.expectedResult], container)
 		}
 	}
+}
+
+func TestGetRunningContainers(t *testing.T) {
+	out, err := ioutil.ReadFile("testcases/containers.json")
+	require.NoError(t, err)
+
+	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(out)
+	})
+
+	ts := httptest.NewServer(handleFunc)
+	defer ts.Close()
+
+	os.Setenv("DOCKER_HOST", ts.URL)
+	defer os.Unsetenv("DOCKER_HOST")
+
+	containers, err := GetRunningContainers()
+	require.Nil(t, err)
+
+	var expcontainers []dt.Container
+	err = json.Unmarshal(out, &expcontainers)
+	require.NoError(t, err)
+
+	require.Equal(t, expcontainers, containers)
 }

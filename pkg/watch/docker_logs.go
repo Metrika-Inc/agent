@@ -82,7 +82,7 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 			continue
 		}
 
-		if err := emit.EmitEvent(w, timesync.Now(), newev); err != nil {
+		if err := emit.Ev(w, timesync.Now(), newev); err != nil {
 			zap.S().Error(err)
 
 			continue
@@ -126,8 +126,20 @@ func (w *DockerLogWatch) StartUnsafe() {
 				continue
 			}
 
-			ev := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
-			emit.EmitEvent(w, timesync.Now(), ev)
+			ev, err := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
+			if err != nil {
+				w.Log.Error("error creating event: ", err)
+				time.Sleep(5 * time.Second)
+
+				continue
+			}
+
+			if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+				w.Log.Error("error emitting event: ", err)
+				time.Sleep(5 * time.Second)
+
+				continue
+			}
 
 			break
 		}
@@ -149,8 +161,14 @@ func (w *DockerLogWatch) StartUnsafe() {
 					w.Log.Error("EOF reached (hdr), resetting stream in 5s")
 					<-time.After(5 * time.Second)
 
-					ev := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
-					emit.EmitEvent(w, timesync.Now(), ev)
+					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					if err != nil {
+						w.Log.Error("error creating event: ", err)
+					} else {
+						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+							w.Log.Error("error emitting event: ", err)
+						}
+					}
 
 					cancel()
 					rc.Close()

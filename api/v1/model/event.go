@@ -88,19 +88,20 @@ func NewWithFilteredCtx(ctx map[string]interface{}, name, desc string, keys ...s
 }
 
 // NewWithCtx returns an event whose context is equal to the given context.
-func NewWithCtx(ctx map[string]interface{}, name, desc string) *Event {
+func NewWithCtx(ctx map[string]interface{}, name, desc string) (*Event, error) {
 	keys := []string{}
 	for key := range ctx {
 		keys = append(keys, key)
 	}
 
-	ev, _ := NewWithFilteredCtx(ctx, name, desc, keys...)
+	ev, err := NewWithFilteredCtx(ctx, name, desc, keys...)
+	if err != nil {
+		return nil, err
+	}
 
-	return ev
+	return ev, nil
 }
 
-func New(name, desc string) *Event {
-	ev, _ := NewWithFilteredCtx(nil, name, desc, []string{}...)
-
-	return ev
+func New(name, desc string) (*Event, error) {
+	return NewWithFilteredCtx(nil, name, desc, []string{}...)
 }

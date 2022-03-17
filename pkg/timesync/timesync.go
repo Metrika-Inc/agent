@@ -243,8 +243,14 @@ func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name, desc string
 			defaultCtx[key] = val
 		}
 	}
-	ev := model.NewWithCtx(ctx, name, desc)
-	emit.EmitEvent(t, Now(), ev)
+	ev, err := model.NewWithCtx(ctx, name, desc)
+	if err != nil {
+		return err
+	}
+
+	if err := emit.Ev(t, Now(), ev); err != nil {
+		return err
+	}
 
 	return nil
 }

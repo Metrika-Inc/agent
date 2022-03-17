@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -16,19 +18,39 @@ import (
 	"github.com/docker/docker/api/types"
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
-	docker "github.com/docker/docker/client"
+	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 )
 
 var (
 	ErrContainerNotFound = errors.New("container not found")
 	ErrEmptyLogFile      = errors.New("log file is empty")
+	DefaultDockerHost    = ""
+	DefaultDockerAdapter = DockerAdapter(&DockerProductionAdapter{})
 )
+
+type DockerAdapter interface {
+	// GetRunningContainers returns a slice of all
+	// currently running Docker containers
+	GetRunningContainers() ([]dt.Container, error)
+
+	// MatchContainer takes a slice of containers and regex strings.
+	// It returns the first running container to match any of the identifiers.
+	// If no matches are found, ErrContainerNotFound is returned.
+	MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error)
+
+	DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error)
+
+	DockerEvents(ctx context.Context, options types.EventsOptions) (
+		<-chan events.Message, <-chan error, error)
+}
+
+type DockerProductionAdapter struct{}
 
 // GetRunningContainers returns a slice of all
 // currently running Docker containers
-func GetRunningContainers() ([]dt.Container, error) {
-	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+func (a *DockerProductionAdapter) GetRunningContainers() ([]dt.Container, error) {
+	cli, err := getDockerClient()
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +70,7 @@ func GetRunningContainers() ([]dt.Container, error) {
 // MatchContainer takes a slice of containers and regex strings.
 // It returns the first running container to match any of the identifiers.
 // If no matches are found, ErrContainerNotFound is returned.
-func MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
+func (a *DockerProductionAdapter) MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	for _, container := range containers {
 		for _, rStr := range identifiers {
 			r, err := regexp.Compile(rStr)
@@ -70,6 +92,45 @@ func MatchContainer(containers []dt.Container, identifiers []string) (dt.Contain
 		}
 	}
 	return dt.Container{}, ErrContainerNotFound
+}
+
+func (a *DockerProductionAdapter) DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
+	cli, err := getDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.ContainerLogs(ctx, container, options)
+}
+
+func (a *DockerProductionAdapter) DockerEvents(ctx context.Context, options types.EventsOptions) (
+	<-chan events.Message, <-chan error, error) {
+
+	cli, err := getDockerClient()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	msgchan, errchan := cli.Events(ctx, options)
+	return msgchan, errchan, nil
+}
+
+func GetRunningContainers() ([]dt.Container, error) {
+	return DefaultDockerAdapter.GetRunningContainers()
+}
+
+func MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
+	return DefaultDockerAdapter.MatchContainer(containers, identifiers)
+}
+
+func DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
+	return DefaultDockerAdapter.DockerLogs(ctx, container, options)
+}
+
+func DockerEvents(ctx context.Context, options types.EventsOptions) (
+	<-chan events.Message, <-chan error, error) {
+
+	return DefaultDockerAdapter.DockerEvents(ctx, options)
 }
 
 // PidOf returns the PID of a specified process name.
@@ -128,23 +189,27 @@ func GetLogLine(r io.Reader) ([]byte, error) {
 	return scan.Bytes(), nil
 }
 
-func DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
-	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+func getDockerClient() (*client.Client, error) {
+	defaultOpts := []client.Opt{
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	}
+
+	if DefaultDockerHost != "" {
+		defaultOpts = append(defaultOpts, client.WithHTTPClient(
+			&http.Client{
+				Transport: &http.Transport{
+					Dial: func(network, addr string) (net.Conn, error) {
+						return net.DialTimeout(network, addr, time.Second)
+					},
+				},
+			}))
+	}
+
+	cli, err := client.NewClientWithOpts(defaultOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return cli.ContainerLogs(ctx, container, options)
-}
-
-func DockerEvents(ctx context.Context, options types.EventsOptions) (
-	<-chan events.Message, <-chan error, error) {
-
-	cli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	msgchan, errchan := cli.Events(ctx, options)
-	return msgchan, errchan, nil
+	return cli, nil
 }
