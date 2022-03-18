@@ -48,6 +48,7 @@ func (w *DotPidWatch) StartUnsafe() {
 	w.FileWatch.Subscribe(w.fileWatchCh)
 	Start(w.FileWatch)
 
+	w.Wg.Add(1)
 	go w.handlePidFileChanges()
 
 	// Read initial pid
@@ -60,6 +61,8 @@ func (w *DotPidWatch) StartUnsafe() {
 }
 
 func (w *DotPidWatch) handlePidFileChanges() {
+	defer w.Wg.Done()
+
 	for {
 		select {
 		case op := <-w.fileWatchCh:

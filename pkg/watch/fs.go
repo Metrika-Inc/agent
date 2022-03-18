@@ -126,7 +126,10 @@ func (w *FileNotifyWatch) StartUnsafe() {
 		panic("Missing required argument 'path'") //todo handle
 	}
 
+	w.Wg.Add(1)
 	go func() {
+		defer w.Wg.Done()
+
 		w.tryCreateWatcher()
 		w.pollEvents()
 	}()

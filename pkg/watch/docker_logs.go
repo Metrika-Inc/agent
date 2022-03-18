@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -18,9 +17,12 @@ import (
 
 const maxLineBytes = uint32(1024 * 1024)
 
+var defaultRetryIntv = 3 * time.Second
+
 type DockerLogWatchConf struct {
-	Regex  []string
-	Events map[string]model.FromContext
+	Regex     []string
+	Events    map[string]model.FromContext
+	RetryIntv time.Duration
 }
 
 type DockerLogWatch struct {
@@ -35,6 +37,10 @@ func NewDockerLogWatch(conf DockerLogWatchConf) *DockerLogWatch {
 	w.DockerLogWatchConf = conf
 	w.Watch = NewWatch()
 	w.Log = w.Log.With("watch", "docker_logs")
+	if w.RetryIntv == 0 {
+		w.RetryIntv = defaultRetryIntv
+	}
+
 	return w
 }
 
@@ -107,21 +113,24 @@ func (w *DockerLogWatch) StartUnsafe() {
 		rc     io.ReadCloser
 		ctx    context.Context
 		cancel context.CancelFunc
+		sleep  bool
 		err    error
 	)
 
-	wg := &sync.WaitGroup{}
 	newStream := func() {
-		defer wg.Done()
-
 		for {
+			if sleep {
+				time.Sleep(w.RetryIntv)
+			} else {
+				sleep = true
+			}
+
 			// retry forever to re-establish the stream.
 			ctx, cancel = context.WithCancel(context.Background())
 
 			rc, err = w.repairLogStream(ctx)
 			if err != nil {
 				w.Log.Error("error getting stream:", err)
-				time.Sleep(5 * time.Second)
 
 				continue
 			}
@@ -129,37 +138,38 @@ func (w *DockerLogWatch) StartUnsafe() {
 			ev, err := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
 			if err != nil {
 				w.Log.Error("error creating event: ", err)
-				time.Sleep(5 * time.Second)
-
-				continue
-			}
-
-			if err := emit.Ev(w, timesync.Now(), ev); err != nil {
-				w.Log.Error("error emitting event: ", err)
-				time.Sleep(5 * time.Second)
-
-				continue
+			} else {
+				if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+					w.Log.Error("error emitting event: ", err)
+				}
 			}
 
 			break
 		}
 	}
+	newStream()
 
-	wg.Add(1)
-	go newStream()
-	wg.Wait()
-
+	w.Wg.Add(1)
 	go func() {
+		defer w.Wg.Done()
 
 		hdr := make([]byte, 8)
 		buf := make([]byte, 1024)
 
 		for {
+			select {
+			case <-w.StopKey:
+				rc.Close()
+
+				cancel()
+				return
+			default:
+			}
+
 			n, err := rc.Read(hdr)
 			if err != nil {
 				if err == io.EOF {
-					w.Log.Error("EOF reached (hdr), resetting stream in 5s")
-					<-time.After(5 * time.Second)
+					w.Log.Error("EOF reached (hdr), resetting stream")
 
 					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
 					if err != nil {
@@ -172,9 +182,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 					cancel()
 					rc.Close()
-					wg.Add(1)
-					go newStream()
-					wg.Wait()
+					newStream()
 				} else {
 					w.Log.Errorw("error reading header", zap.Error(err))
 				}
@@ -191,7 +199,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 			count := binary.BigEndian.Uint32(hdr[4:])
 			if int(count) > cap(buf) {
 				if count < maxLineBytes {
-					w.Log.Warnf("increasing log buffer capacity to %d bytes (from %d)", count, cap(buf))
+					w.Log.Debugf("increasing log buffer capacity to %d bytes (from %d)", count, cap(buf))
 
 					buf = make([]byte, count)
 				}
@@ -202,17 +210,22 @@ func (w *DockerLogWatch) StartUnsafe() {
 			n, err = rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
-					w.Log.Error("EOF reached (data), resetting stream in 5s")
-					<-time.After(5 * time.Second)
-					cancel()
+					w.Log.Error("EOF reached (data), resetting stream")
 
+					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					if err != nil {
+						w.Log.Error("error creating event: ", err)
+					} else {
+						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+							w.Log.Error("error emitting event: ", err)
+						}
+					}
+
+					cancel()
 					rc.Close()
-					wg.Add(1)
-					go newStream()
-					wg.Wait()
+					newStream()
 				} else {
 					w.Log.Errorw("error reading data", zap.Error(err))
-
 				}
 
 				continue
@@ -227,6 +240,8 @@ func (w *DockerLogWatch) StartUnsafe() {
 			jsonMap, err := w.parseJSON(buf)
 			if err != nil {
 				w.Log.Errorw("error parsing events from log line:", zap.Error(err))
+
+				continue
 			}
 
 			w.emitEvents(jsonMap)

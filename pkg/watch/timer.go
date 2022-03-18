@@ -31,10 +31,13 @@ func NewTimerWatch(conf TimerWatchConf) *TimerWatch {
 func (w *TimerWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
+	w.Wg.Add(1)
 	go w.timerLoop()
 }
 
 func (w *TimerWatch) timerLoop() {
+	defer w.Wg.Done()
+
 	for {
 		select {
 		case <-time.After(w.Interval):

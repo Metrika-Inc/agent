@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,7 +23,6 @@ type HttpGetWatch struct {
 	Watch
 
 	client *http.Client
-	wg     *sync.WaitGroup
 
 	httpDataCh chan []byte
 }
@@ -38,7 +36,6 @@ func NewHttpGetWatch(conf HttpGetWatchConf) *HttpGetWatch {
 
 	w.Log = w.Log.With("url", w.Url)
 
-	w.wg = new(sync.WaitGroup)
 	return w
 }
 
@@ -49,10 +46,10 @@ func (h *HttpGetWatch) StartUnsafe() {
 		h.client = &http.Client{}
 	}
 
-	h.wg.Add(1)
-
+	h.Wg.Add(1)
 	go func() {
-		defer h.wg.Done()
+		defer h.Wg.Done()
+
 		for {
 			select {
 			case <-time.After(h.Interval):
@@ -96,5 +93,4 @@ func (h *HttpGetWatch) StartUnsafe() {
 
 func (h *HttpGetWatch) Stop() {
 	h.Watch.Stop()
-	h.wg.Wait()
 }

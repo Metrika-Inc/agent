@@ -6,7 +6,6 @@ import (
 	"agent/pkg/timesync"
 	"bytes"
 	"strings"
-	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -18,7 +17,6 @@ type PEFWatch struct {
 	httpWatch Watcher
 
 	httpDataCh chan interface{}
-	wg         *sync.WaitGroup
 }
 
 type PEFWatchConf struct {
@@ -31,7 +29,6 @@ func NewPEFWatch(conf PEFWatchConf, httpWatch Watcher) *PEFWatch {
 		PEFWatchConf: conf,
 		httpWatch:    httpWatch,
 		httpDataCh:   make(chan interface{}, 10),
-		wg:           new(sync.WaitGroup),
 	}
 
 	return p
@@ -43,12 +40,13 @@ func (p *PEFWatch) StartUnsafe() {
 	p.httpWatch.Subscribe(p.httpDataCh)
 	Start(p.httpWatch)
 
-	p.wg.Add(1)
+	p.Wg.Add(1)
 	go p.parseAndEmit()
 }
 
 func (p *PEFWatch) parseAndEmit() {
-	defer p.wg.Done()
+	defer p.Wg.Done()
+
 	for {
 		select {
 		case r := <-p.httpDataCh:
@@ -88,5 +86,4 @@ func (p *PEFWatch) parseAndEmit() {
 func (p *PEFWatch) Stop() {
 	p.httpWatch.Stop()
 	p.Watch.Stop()
-	p.wg.Wait()
 }
