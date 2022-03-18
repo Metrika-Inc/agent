@@ -1,15 +1,17 @@
 package watch
 
 import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"io"
+	"time"
+
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/emit"
 	"agent/pkg/timesync"
-	"context"
-	"encoding/binary"
-	"encoding/json"
-	"io"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
@@ -52,7 +54,7 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 		Follow:     true,
 		Tail:       "0",
 		// TODO: restore offset from a WAL.
-		//Since: "2022-02-25T19:14:59.721119832Z",
+		// Since: "2022-02-25T19:14:59.721119832Z",
 	}
 
 	rc, err := utils.DockerLogs(ctx, w.Regex[0], options)
@@ -116,7 +118,6 @@ func (w *DockerLogWatch) StartUnsafe() {
 		err    error
 	)
 
-	sleepch := make(chan bool, 1)
 	newEventStream := func() bool {
 		// Retry forever to re-establish the stream. Ensures
 		// periodic retries according to the specified interval and
@@ -125,10 +126,9 @@ func (w *DockerLogWatch) StartUnsafe() {
 			select {
 			case <-w.StopKey:
 				return true
-			case <-sleepch:
-				time.Sleep(w.RetryIntv)
 			default:
 			}
+			time.Sleep(w.RetryIntv)
 
 			// retry forever to re-establish the stream.
 			ctx, cancel = context.WithCancel(context.Background())
@@ -140,15 +140,6 @@ func (w *DockerLogWatch) StartUnsafe() {
 				continue
 			}
 
-			ev, err := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
-			if err != nil {
-				w.Log.Error("error creating event: ", err)
-			} else {
-				if err := emit.Ev(w, timesync.Now(), ev); err != nil {
-					w.Log.Error("error emitting event: ", err)
-				}
-			}
-
 			return false
 		}
 	}
@@ -157,6 +148,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 		return
 	}
 
+	lastErr := errors.New("node log missing")
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
@@ -176,8 +168,10 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 			n, err := rc.Read(hdr)
 			if err != nil {
+				lastErr = err
 				if err == io.EOF {
 					w.Log.Error("EOF reached (hdr), resetting stream")
+					time.Sleep(5 * time.Second)
 
 					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
 					if err != nil {
@@ -220,6 +214,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 			n, err = rc.Read(buf)
 			if err != nil {
+				lastErr = err
 				if err == io.EOF {
 					w.Log.Error("EOF reached (data), resetting stream")
 
@@ -249,6 +244,18 @@ func (w *DockerLogWatch) StartUnsafe() {
 				w.Log.Error("read unexpected number of data bytes")
 
 				continue
+			}
+
+			if lastErr != nil {
+				ev, err := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
+				if err != nil {
+					w.Log.Error("error creating event: ", err)
+				} else {
+					if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+						w.Log.Error("error emitting event: ", err)
+					}
+				}
+				lastErr = nil
 			}
 
 			jsonMap, err := w.parseJSON(buf)

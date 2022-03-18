@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
+	"agent/pkg/contrib"
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 	"agent/pkg/watch"
@@ -33,16 +36,26 @@ var (
 	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
 	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
 
-	ch            = make(chan interface{}, 10000)
+	ch            = newSubscriptionChan()
+	subscriptions = []chan<- interface{}{ch}
 	simpleEmitter = emit.NewSimpleEmitter(ch)
+
+	wg     *sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
 )
+
+func newSubscriptionChan() chan interface{} {
+	return make(chan interface{}, 1000)
+}
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	flag.Parse()
 
 	if err := global.LoadDefaultConfig(); err != nil {
-		fmt.Printf("%v", err)
+		log.Fatal(err)
+
 		os.Exit(1)
 	}
 
@@ -50,6 +63,8 @@ func init() {
 
 	global.BlockchainNode = discover.AutoConfig(*reset)
 	if *configureOnly {
+		fmt.Fprintf(os.Stdout, "configure only mode on, exiting")
+
 		os.Exit(0)
 	}
 
@@ -68,6 +83,27 @@ func init() {
 		http.Handle("/metrics", promHandler)
 		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
 	}()
+
+	// var err error
+	// agentUUID, err = global.FingerprintSetup()
+	// if err != nil {
+	// 	log.Fatal("fingerprint initialization error: ", err)
+	// }
+
+	wg = &sync.WaitGroup{}
+	ctx, cancel = context.WithCancel(context.Background())
+	if global.AgentRuntimeConfig.Runtime.ReadStream {
+		subCh := newSubscriptionChan()
+		subscriptions = append(subscriptions, subCh)
+
+		newStream, err := contrib.NewFileStream()
+		if err != nil {
+			log.Fatalf("could not create file stream: %v", err)
+		}
+
+		contrib.DefaultStreamRegisterer.Register(newStream)
+		contrib.DefaultStreamRegisterer.Start(ctx, wg, subCh)
+	}
 }
 
 func setupZapLogger() {
@@ -138,6 +174,10 @@ func defaultWatchers() []watch.Watcher {
 	return dw
 }
 
+func registerReadStream() error {
+	return nil
+}
+
 func registerWatchers() error {
 	watchersEnabled := []watch.Watcher{}
 
@@ -163,14 +203,9 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	agentUUID, err := global.FingerprintSetup()
-	if err != nil {
-		log.Fatal("fingerprint initialization error: ", err)
-	}
-
 	conf := publisher.TransportConf{
 		URL:            global.AgentRuntimeConfig.Platform.Addr,
-		UUID:           agentUUID,
+		UUID:           global.AgentUUID,
 		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
 		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,
@@ -181,14 +216,13 @@ func main() {
 
 	pub := publisher.NewTransport(ch, conf)
 
-	wg := &sync.WaitGroup{}
 	pub.Start(wg)
 
 	if err := registerWatchers(); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := global.WatcherRegistry.Start(ch); err != nil {
+	if err := global.WatcherRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
 	}
 
@@ -234,6 +268,7 @@ func main() {
 
 		// stop publisher and wait for buffers to drain
 		pub.Stop()
+		cancel()
 		wg.Wait()
 
 		log.Info("agent shutdown complete")

@@ -7,9 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	PrometheusWatchPrefix = "prometheus"
-)
+var PrometheusWatchPrefix = "prometheus"
 
 type WatchType string
 

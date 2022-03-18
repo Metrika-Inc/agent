@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -15,10 +14,9 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
-	"google.golang.org/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/proto"
 )
 
 type platformState int32
@@ -193,9 +191,10 @@ func (t *Transport) Connect() error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
 	defer cancel()
 
-	tlsConfig := &tls.Config{InsecureSkipVerify: false}
+	// tlsConfig := &tls.Config{InsecureSkipVerify: false}
 	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
+		// grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
+		grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
 		return err
@@ -310,9 +309,9 @@ func emitEventWithError(t *Transport, err error, name, desc string) error {
 
 func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) error {
 	ev, err := model.NewWithCtx(ctx, name, desc)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
 	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 

@@ -1,16 +1,17 @@
 package dapper
 
 import (
-	"agent/internal/pkg/global"
 	"fmt"
 	"io/ioutil"
+
+	"agent/internal/pkg/global"
 
 	yaml "gopkg.in/yaml.v3"
 )
 
 const (
-	DefaultDapperPath   = "./internal/pkg/global/dapper.yml"
-	DefaultTemplatePath = "./configs/dapper.template"
+	DefaultDapperPath   = "/etc/metrikad/configs/dapper.yml"
+	DefaultTemplatePath = "/etc/metrikad/configs/dapper.template"
 )
 
 var DapperConf *DapperConfig
@@ -54,7 +55,7 @@ func (d *DapperConfig) Load() (DapperConfig, error) {
 // Default overrides the configuration file specified in configPath
 // with the template preset, and then loads it in memory.
 func (d *DapperConfig) Default() (DapperConfig, error) {
-	if err := global.GenerateConfigFromTemplate("./configs/dapper.template", d.configPath, d); err != nil {
+	if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, d.configPath, d); err != nil {
 		return DapperConfig{}, fmt.Errorf("failed to generate default template: %w", err)
 	}
 

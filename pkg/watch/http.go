@@ -87,7 +87,6 @@ func (h *HttpGetWatch) StartUnsafe() {
 				return
 			}
 		}
-
 	}()
 }
 

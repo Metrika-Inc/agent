@@ -1,13 +1,16 @@
 package global
 
 import (
-	"agent/pkg/watch"
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"agent/pkg/watch"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -15,11 +18,28 @@ import (
 )
 
 var (
-	AgentRuntimeConfig         AgentConfig
-	DapperConf                 *DapperConfig
-	DefaultConfigPath          = "./internal/pkg/global/agent.yml"
+	// AgentRuntimeConfig the agent runtime configuration
+	AgentRuntimeConfig AgentConfig
+
+	// AppName name to use for directories
+	AppName = "metrikad"
+
+	// OptPath for agent binary
+	OptPath = filepath.Join("/opt", AppName)
+
+	// EtcPath for agent configuration files
+	EtcPath = filepath.Join("/etc", AppName)
+
+	// DefaultConfigPath file path to load agent config from
+	DefaultConfigPath = filepath.Join(EtcPath, "agent.yml")
+
+	// DefaultFingerprintFilename filename to use for the agent's hostname
 	DefaultFingerprintFilename = "fingerprint"
-	AgentCacheDir              string
+
+	// AgentCacheDir directory for writing agent runtime data (i.e. hostname)
+	AgentCacheDir string
+
+	AgentUUID string
 )
 
 func init() {
@@ -28,6 +48,12 @@ func init() {
 	AgentCacheDir, err = os.UserCacheDir()
 	if err != nil {
 		zap.S().Fatalw("user cache directory error: ", zap.Error(err))
+	}
+	AgentCacheDir = filepath.Join(AgentCacheDir, AppName)
+
+	AgentUUID, err = FingerprintSetup()
+	if err != nil {
+		log.Fatal("fingerprint initialization error: ", err)
 	}
 }
 
@@ -54,6 +80,7 @@ type RuntimeConfig struct {
 	MetricsAddr      string         `yaml:"metrics_addr"`
 	Log              LogConfig      `yaml:"logging"`
 	SamplingInterval time.Duration  `yaml:"sampling_interval"`
+	ReadStream       bool           `yaml:"read_stream"`
 	Watchers         []*WatchConfig `yaml:"watchers"`
 }
 
@@ -91,8 +118,19 @@ func (l LogConfig) Level() zapcore.Level {
 }
 
 func LoadDefaultConfig() error {
+	log := zap.S()
+
+	log.Error("trying config: %s", DefaultConfigPath)
 	content, err := ioutil.ReadFile(DefaultConfigPath)
 	if err != nil {
+		metaPath := filepath.Join(EtcPath, DefaultConfigPath)
+
+		log.Error("trying config: %s", metaPath)
+		content, err = ioutil.ReadFile(metaPath)
+		if err != nil {
+			return err
+		}
+
 		return err
 	}
 
@@ -123,7 +161,7 @@ func createLogFolders() error {
 			continue
 		}
 		folder := strings.Join(pathSplit[:len(pathSplit)-1], "/")
-		if err := os.MkdirAll(folder, 0755); err != nil {
+		if err := os.MkdirAll(folder, 0o755); err != nil {
 			return err
 		}
 	}

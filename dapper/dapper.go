@@ -1,9 +1,6 @@
 package dapper
 
 import (
-	"agent/api/v1/model"
-	"agent/internal/pkg/discover/utils"
-	"agent/internal/pkg/global"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,6 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"agent/api/v1/model"
+	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/global"
 
 	dt "github.com/docker/docker/api/types"
 	"go.uber.org/zap"
@@ -113,7 +114,7 @@ func (d *Dapper) Discover() error {
 	}
 
 	if d.renderNeeded {
-		if err := global.GenerateConfigFromTemplate("./configs/dapper.template",
+		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath,
 			DefaultDapperPath, d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
@@ -173,6 +174,8 @@ func (d *Dapper) DiscoverPEFEndpoints() error {
 	var found bool
 	portsToTry := map[int]struct{}{
 		8080: {},
+		9095: {},
+		9096: {},
 	}
 	if d.container != nil {
 		for _, port := range d.container.Ports {
