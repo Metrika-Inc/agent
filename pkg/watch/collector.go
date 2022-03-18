@@ -15,9 +15,10 @@
 package watch
 
 import (
+	"time"
+
 	"agent/api/v1/model"
 	"agent/pkg/timesync"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"

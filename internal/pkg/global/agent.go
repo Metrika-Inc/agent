@@ -1,15 +1,16 @@
 package global
 
 import (
-	"agent/api/v1/model"
-	"agent/pkg/fingerprint"
-	"agent/pkg/watch"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"agent/api/v1/model"
+	"agent/pkg/fingerprint"
+	"agent/pkg/watch"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -28,14 +29,14 @@ var (
 
 type WatchersRegisterer interface {
 	Register(w ...watch.Watcher) error
-	Start(ch chan<- interface{}) error
+	Start(ch ...chan<- interface{}) error
 	Stop()
 	Wait()
 }
 
 // Chain provides necessary configuration information
 // for the agent core. These methods represent currently
-// supported sampler configurations per blockchain protocol basis.
+// supported sampler configurations per blockchain protocol.
 type Chain interface {
 	Discover() error
 	IsConfigured() bool
@@ -74,9 +75,11 @@ func (r *DefaultWatcherRegistrar) Register(w ...watch.Watcher) error {
 	return nil
 }
 
-func (r *DefaultWatcherRegistrar) Start(ch chan<- interface{}) error {
+func (r *DefaultWatcherRegistrar) Start(ch ...chan<- interface{}) error {
 	for _, w := range r.watchers {
-		w.Subscribe(ch)
+		for _, c := range ch {
+			w.Subscribe(c)
+		}
 		watch.Start(w)
 	}
 
@@ -96,7 +99,7 @@ func (r *DefaultWatcherRegistrar) Wait() {
 }
 
 func NewFingerprintWriter(path string) io.WriteCloser {
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		zap.S().Fatalw("failed opening a fingerprint file for writing", zap.Error(err))
 	}
@@ -105,7 +108,7 @@ func NewFingerprintWriter(path string) io.WriteCloser {
 }
 
 func NewFingerprintReader(path string) io.ReadCloser {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	file, err := os.OpenFile(path, os.O_RDONLY, 0o644)
 	if err != nil {
 		zap.S().Fatalw("failed opening fingerprint file for reading", zap.Error(err))
 	}
@@ -114,8 +117,18 @@ func NewFingerprintReader(path string) io.ReadCloser {
 }
 
 func FingerprintSetup() (string, error) {
-	if _, err := os.Stat(AgentCacheDir); errors.Is(err, fs.ErrNotExist) {
+	_, err := os.Stat(AgentCacheDir)
+
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return "", err
+	}
+
+	if errors.Is(err, fs.ErrNotExist) {
+		zap.S().Info("intializing cache directory: %s", AgentCacheDir)
+
+		if err := os.MkdirAll(AgentCacheDir, 0o755); err != nil {
+			return "", err
+		}
 	}
 
 	fpp := filepath.Join(AgentCacheDir, DefaultFingerprintFilename)
