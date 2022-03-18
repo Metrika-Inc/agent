@@ -20,6 +20,7 @@ func (w WatchType) IsPrometheus() bool {
 type Watcher interface {
 	StartUnsafe()
 	Stop()
+	Wait()
 
 	Subscribe(chan<- interface{})
 
@@ -53,6 +54,10 @@ func NewWatch() Watch {
 
 func (w *Watch) StartUnsafe() {
 	w.Running = true
+}
+
+func (w *Watch) Wait() {
+	w.Wg.Wait()
 }
 
 func (w *Watch) Stop() {

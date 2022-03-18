@@ -17,7 +17,6 @@ package watch
 import (
 	"agent/api/v1/model"
 	"agent/pkg/timesync"
-	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -39,7 +38,6 @@ type CollectorWatch struct {
 	CollectorWatchConf
 	Watch
 
-	wg              *sync.WaitGroup
 	handlerch       chan []*dto.MetricFamily
 	stopCollectorCh chan bool
 }
@@ -50,7 +48,6 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	w.Watch = NewWatch()
 	w.Log = w.Log.With("collector", w.Type)
 
-	w.wg = new(sync.WaitGroup)
 	w.handlerch = make(chan []*dto.MetricFamily, 1000)
 	w.stopCollectorCh = make(chan bool, 1)
 
@@ -60,9 +57,10 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 func (c *CollectorWatch) StartUnsafe() {
 	c.Watch.StartUnsafe()
 
-	c.wg.Add(1)
+	c.Wg.Add(1)
 	go func() {
-		defer c.wg.Done()
+		defer c.Wg.Done()
+
 		for {
 			select {
 			case <-time.After(c.Interval):

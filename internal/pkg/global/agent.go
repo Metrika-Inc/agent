@@ -30,6 +30,7 @@ type WatchersRegisterer interface {
 	Register(w ...watch.Watcher) error
 	Start(ch chan<- interface{}) error
 	Stop()
+	Wait()
 }
 
 // Chain provides necessary configuration information
@@ -81,6 +82,12 @@ func (r *DefaultWatcherRegistrar) Start(ch chan<- interface{}) error {
 func (r *DefaultWatcherRegistrar) Stop() {
 	for _, w := range r.watchers {
 		w.Stop()
+	}
+}
+
+func (r *DefaultWatcherRegistrar) Wait() {
+	for _, w := range r.watchers {
+		w.Wait()
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"agent/api/v1/model"
@@ -192,25 +193,22 @@ func main() {
 	}
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, os.Kill)
-	done := make(chan bool, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	sig := <-sigs
 
 	go func() {
-		sig := <-sigs
-		ctx := map[string]interface{}{"signal_number": sig}
-		ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
-		if err != nil {
-			log.Error("error creating event: ", err)
-		}
+		// force exit if we get more signals after the first one
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
-		go func() {
-			// force kill if we get more signals after the first one
-			sig := <-sigs
-			log.Infof("received OS signal %v", sig)
+		sig := <-sigs
+		switch sig {
+		case os.Interrupt, syscall.SIGTERM:
+			log.Infof("received OS signal %v (forced)", sig)
 
 			ctx := map[string]interface{}{
-				"signal_number": sig,
-				"error":         "agent forced to exit",
+				"signal_number": sig.String(),
+				"error":         "agent exit (forced)",
 			}
 			ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
 			if err != nil {
@@ -221,32 +219,44 @@ func main() {
 				}
 			}
 			os.Exit(1)
-		}()
-
-		log.Infof("received OS signal %v", sig)
-		switch sig {
-		case os.Interrupt:
-			log.Debug("shutting down the agent")
-			global.WatcherRegistry.Stop()
-			pub.Stop()
-			wg.Wait()
-
-			if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-				log.Error("error emitting event: ", err)
-			}
-
-			log.Info("agent shutdown complete, exiting")
-		case os.Kill:
-			log.Info("agent killed, exiting")
-
-			if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-				log.Error("error emitting event: ", err)
-			}
+		default:
+			// just exit
 			os.Exit(1)
 		}
-		done <- true
 	}()
 
-	<-done
+	ctx := map[string]interface{}{"signal_number": sig.String()}
+	ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+	if err != nil {
+		log.Error("error creating event: ", err)
+	}
+
+	log.Infof("received OS signal %v", sig)
+	switch sig {
+	case os.Interrupt, syscall.SIGTERM:
+		log.Debug("agent shut down")
+
+		// stop watchers and wait for goroutine cleanup
+		global.WatcherRegistry.Stop()
+		global.WatcherRegistry.Wait()
+
+		// stop publisher and wait for buffers to drain
+		pub.Stop()
+		wg.Wait()
+
+		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+			log.Error("error emitting event: ", err)
+		}
+
+		log.Info("agent shutdown complete")
+	default:
+		log.Info("agent killed")
+
+		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+			log.Error("error emitting event: ", err)
+		}
+		os.Exit(1)
+	}
+
 	log.Info("goodbye")
 }
