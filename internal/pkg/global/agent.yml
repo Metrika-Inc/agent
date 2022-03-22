@@ -1,24 +1,59 @@
 ---
 platform:
+
+  # batch_n: integer, the maximum number of metrics/events to be emitted at
+  # each publish operation to the platform.
   batch_n: 1000
-  transport_timeout: 10s
+
+  # max_publish_interval: duration, the maximum interval to wait between two
+  # consecutive publish operations to the platform.
   max_publish_interval: 5s
+  
+  # transport_timeout: duration, configures the timeout for publish
+  # operations to the platform.
+  transport_timeout: 10s
+
+  # addr: string, network address of the platform for publishing
   addr: 10.96.1.147:9600
+
+  # uri: string, platform publishing endpoint
   uri: /
+
 buffer:
+
+  # size: integer, the maximum memory the agent is allowed to preserve in bytes.
   size: 52428800
+
+  # ttl: duration, a Time-To-Live for any buffered data. Data will never expire
+  # for zero TTL values.
   ttl: 0s
+
 runtime:
+
   logging:
+
+    # outputs: list of outputs for runtime logs.
+    #
+    # Possible values are one of the standard I/O streams # (i.e stdout, stderr)
+    # or a full/relative path to a filename (i.e logs/agent.log).
     outputs:
       - stdout
-      # - logs/agent.log
-    # TODO: warning on prod
+
+    # level: logging level for runtime logs.
+    #
+    # Possible values are: info, warning (recommended), debug, error.
     level: debug
-  fingerprint: True
+
+  # metrics_addr: string, network address to get Prometheus metrics about the
+  # agent's runtime.
   metrics_addr: :9000
+
+  # sampling_interval: duration, default interval used by Watchers that use
+  # polling for collecting metrics/events.
   sampling_interval: 5s
-  wachers:
+
+  # watchers: list[object], list of watchers to be enabled on agent startup.
+  watchers:
     - type: prometheus.proc.cpu
     - type: prometheus.proc.net.netstat_linux
     - type: prometheus.proc.net.arp_linux
