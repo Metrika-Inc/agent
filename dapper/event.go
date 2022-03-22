@@ -66,7 +66,7 @@ func isOnFinalizedBlock(v map[string]interface{}) bool {
 type OnFinalizedBlock struct{}
 
 func (o *OnFinalizedBlock) New(v map[string]interface{}) (*model.Event, error) {
-	if !isOnProposingBlock(v) {
+	if !isOnFinalizedBlock(v) {
 		return nil, nil
 	}
 
