@@ -110,12 +110,6 @@ func NewFingerprintReader(path string) io.ReadCloser {
 }
 
 func FingerprintSetup() (string, error) {
-	if !AgentRuntimeConfig.Runtime.Fingerprint {
-		// fingerprint disabled, nothing to do
-
-		return "", nil
-	}
-
 	if _, err := os.Stat(AgentCacheDir); errors.Is(err, fs.ErrNotExist) {
 		return "", err
 	}

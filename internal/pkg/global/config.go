@@ -55,7 +55,6 @@ type RuntimeConfig struct {
 	Log              LogConfig      `yaml:"logging"`
 	SamplingInterval time.Duration  `yaml:"sampling_interval"`
 	Watchers         []*WatchConfig `yaml:"watchers"`
-	Fingerprint      bool           `yaml:"fingerprint"`
 }
 
 type AgentConfig struct {
