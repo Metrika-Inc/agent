@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	protocol    string
+	blockchain  string
 	defaultPath string
 	outPath     string
 	outDir      string
@@ -28,7 +28,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&protocol, "type", "", "Blockchain type to render bindings for.")
+	flag.StringVar(&blockchain, "blockchain", "", "Blockchain type to render bindings for.")
 	flag.Parse()
 
 	srcPath = os.Getenv("MA_SRC_PATH")
@@ -36,19 +36,19 @@ func init() {
 		log.Fatalf("MA_SRC_PATH not set (i.e. MA_SRC_PATH=/home/me/src/agent)")
 	}
 
-	switch protocol {
+	switch blockchain {
 	case "":
-		log.Fatalf("-protocol is required (i.e. dapper)")
+		log.Fatalf("-blockchain is required (i.e. dapper)")
 	case "dapper", "algorand":
 	default:
-		log.Fatalf("no bindings available for protocol %q", protocol)
+		log.Fatalf("no bindings available for protocol %q", blockchain)
 	}
 
 	defaultPath = filepath.Join(srcPath, "protobind", "node.go.template")
 	defaultOutDir := filepath.Join(srcPath, "internal", "pkg", "discover")
 
 	outPath = strings.TrimSuffix(nodeTmplFile, ".template")
-	outPath = filepath.Join(defaultOutDir, fmt.Sprintf("node_%s.go", protocol))
+	outPath = filepath.Join(defaultOutDir, fmt.Sprintf("node_%s.go", blockchain))
 }
 
 func main() {
@@ -65,9 +65,9 @@ func main() {
 	tmpl := template.Must(template.New("protobind").Funcs(funcMap).Parse(string(nodeTmpl)))
 
 	conf := struct {
-		Protocol string
+		Blockchain string
 	}{
-		Protocol: protocol,
+		Blockchain: blockchain,
 	}
 
 	f, err := os.Create(outPath)

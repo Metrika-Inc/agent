@@ -62,7 +62,7 @@ build-%: generate-%
 	go build -o=metrikad-$* -tags=$* -ldflags="\
 	-X 'agent/internal/pkg/global.Version=${VERSION}' \
 	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
-	-X 'agent/internal/pkg/global.Protocol=$*' \
+	-X 'agent/internal/pkg/global.Blockchain=$*' \
 	" cmd/agent/main.go
 
 protogen:
