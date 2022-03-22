@@ -19,11 +19,11 @@ var (
 	WatcherRegistry    WatchersRegisterer
 	PrometheusRegistry prometheus.Registerer
 	PrometheusGatherer prometheus.Gatherer
-	NodeProtocol       Chain
+	BlockchainNode     Chain
 	// Modified at runtime
 	Version    = "v0.0.0"
 	CommitHash = ""
-	Protocol   = "development"
+	Blockchain = "development"
 )
 
 type WatchersRegisterer interface {

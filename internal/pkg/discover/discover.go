@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	proto      NodeDiscovery
+	chain      NodeDiscovery
 	configPath string
 )
 
@@ -31,26 +31,26 @@ func AutoConfig(reset bool) global.Chain {
 
 	log := zap.S()
 	if reset {
-		if err := proto.ResetConfig(); err != nil {
+		if err := chain.ResetConfig(); err != nil {
 			log.Fatalw("failed to reset configuration", zap.Error(err))
 		}
 	}
 
-	chain, ok := proto.(global.Chain)
+	chn, ok := chain.(global.Chain)
 	if !ok {
-		log.Fatalw("protocol package does not implement chain interface", "protocol", global.Protocol)
+		log.Fatalw("protocol package does not implement chain interface", "protocol", global.Blockchain)
 	}
 
-	if ok := proto.IsConfigured(); ok {
+	if ok := chain.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
-		return chain
+		return chn
 	}
 
-	if err := proto.Discover(); err != nil {
+	if err := chain.Discover(); err != nil {
 		log.Fatalw("failed to automatically discover protocol configuration", zap.Error(err))
 	}
 
-	return chain
+	return chn
 }
 
 // ResetConfig removes the protocol's configuration files.
@@ -64,17 +64,17 @@ func ResetConfig() {
 }
 
 func Hello() string {
-	return proto.Hello()
+	return chain.Hello()
 }
 
 func LogEventsList() map[string]model.FromContext {
-	return proto.LogEventsList()
+	return chain.LogEventsList()
 }
 
 func ContainerRegex() []string {
-	return proto.ContainerRegex()
+	return chain.ContainerRegex()
 }
 
 func NodeLogPath() string {
-	return proto.NodeLogPath()
+	return chain.NodeLogPath()
 }

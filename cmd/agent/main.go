@@ -47,7 +47,7 @@ func init() {
 
 	setupZapLogger()
 
-	global.NodeProtocol = discover.AutoConfig(*reset)
+	global.BlockchainNode = discover.AutoConfig(*reset)
 	if *configureOnly {
 		os.Exit(0)
 	}
@@ -121,7 +121,7 @@ func defaultWatchers() []watch.Watcher {
 	}
 
 	// PEF Watch
-	eps := global.NodeProtocol.PEFEndpoints()
+	eps := global.BlockchainNode.PEFEndpoints()
 	for _, ep := range eps {
 		httpConf := watch.HttpGetWatchConf{
 			Interval: global.AgentRuntimeConfig.Runtime.SamplingInterval,
