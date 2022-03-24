@@ -40,12 +40,12 @@ func (p *PEFWatch) StartUnsafe() {
 	p.httpWatch.Subscribe(p.httpDataCh)
 	Start(p.httpWatch)
 
-	p.Wg.Add(1)
+	p.wg.Add(1)
 	go p.parseAndEmit()
 }
 
 func (p *PEFWatch) parseAndEmit() {
-	defer p.Wg.Done()
+	defer p.wg.Done()
 
 	for {
 		select {

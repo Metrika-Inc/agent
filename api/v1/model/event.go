@@ -79,7 +79,14 @@ func NewWithFilteredCtx(ctx map[string]interface{}, name, desc string, keys ...s
 		return &Event{Name: name, Desc: desc}, nil
 	}
 
-	values, err := structpb.NewStruct(ctx)
+	filtered := make(map[string]interface{})
+	for _, key := range keys {
+		if val, ok := ctx[key]; ok {
+			filtered[key] = val
+		}
+	}
+
+	values, err := structpb.NewStruct(filtered)
 	if err != nil {
 		return nil, err
 	}

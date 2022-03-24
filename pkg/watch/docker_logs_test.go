@@ -51,7 +51,7 @@ func TestDockerLogs_happy(t *testing.T) {
 		},
 		RetryIntv: 10 * time.Millisecond,
 	})
-	defer w.Wg.Wait()
+	defer w.wg.Wait()
 	defer w.Stop()
 
 	emitch := make(chan interface{}, 10)

@@ -16,8 +16,8 @@ import (
 )
 
 type ContainerWatchConf struct {
-	Regex []string
-    RetryIntv time.Duration
+	Regex     []string
+	RetryIntv time.Duration
 }
 
 type ContainerWatch struct {
@@ -40,9 +40,9 @@ func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 	w.stopEventsch = make(chan interface{}, 1)
 	w.mutex = new(sync.RWMutex)
 
-    if w.RetryIntv == 0 {
-        w.RetryIntv = defaultRetryIntv
-    }
+	if w.RetryIntv == 0 {
+		w.RetryIntv = defaultRetryIntv
+	}
 
 	return w
 }
@@ -152,18 +152,24 @@ func (w *ContainerWatch) StartUnsafe() {
 		ctx     context.Context
 		cancel  context.CancelFunc
 		err     error
-        sleep   bool
 	)
 
+	sleepch := make(chan bool, 1)
 	newEventStream := func() {
+		// Retry forever to re-establish the stream. Ensures
+		// periodic retries according to the specified interval and
+		// probes the stop channel for exit point.
 		for {
-			if sleep {
+			select {
+			case <-w.StopKey:
+				return
+			case <-sleepch:
 				time.Sleep(w.RetryIntv)
-			} else {
-				sleep = true
+			default:
 			}
 
-			// retry forever to re-establish the stream.
+			sleepch <- true
+
 			ctx, cancel = context.WithCancel(context.Background())
 
 			if msgchan, errchan, err = w.repairEventStream(ctx); err != nil {
@@ -173,14 +179,15 @@ func (w *ContainerWatch) StartUnsafe() {
 			}
 
 			w.Log.Info("docker event stream ready")
-			break
+
+			return
 		}
 	}
 	newEventStream()
 
-	w.Wg.Add(1)
+	w.wg.Add(1)
 	go func() {
-		defer w.Wg.Done()
+		defer w.wg.Done()
 
 		for {
 			select {

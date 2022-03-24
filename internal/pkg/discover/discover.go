@@ -12,19 +12,9 @@ import (
 )
 
 var (
-	chain      NodeDiscovery
+	chain      global.Chain
 	configPath string
 )
-
-type NodeDiscovery interface {
-	Discover() error
-	IsConfigured() bool
-	ResetConfig() error
-	ContainerRegex() []string
-	LogEventsList() map[string]model.FromContext
-	Hello() string
-	NodeLogPath() string
-}
 
 func AutoConfig(reset bool) global.Chain {
 	Init()
@@ -61,10 +51,6 @@ func ResetConfig() {
 			zap.S().Errorw("failed to remove a config file", zap.Error(err))
 		}
 	}
-}
-
-func Hello() string {
-	return chain.Hello()
 }
 
 func LogEventsList() map[string]model.FromContext {

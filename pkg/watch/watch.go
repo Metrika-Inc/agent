@@ -35,7 +35,7 @@ type Watch struct {
 	Running bool
 
 	StopKey chan bool
-	Wg      *sync.WaitGroup
+	wg      *sync.WaitGroup
 
 	startOnce *sync.Once
 	listeners []chan<- interface{}
@@ -48,7 +48,7 @@ func NewWatch() Watch {
 		StopKey:   make(chan bool, 1),
 		startOnce: &sync.Once{},
 		Log:       zap.S(),
-		Wg:        &sync.WaitGroup{},
+		wg:        &sync.WaitGroup{},
 	}
 }
 
@@ -57,7 +57,7 @@ func (w *Watch) StartUnsafe() {
 }
 
 func (w *Watch) Wait() {
-	w.Wg.Wait()
+	w.wg.Wait()
 }
 
 func (w *Watch) Stop() {
@@ -66,7 +66,7 @@ func (w *Watch) Stop() {
 	}
 	w.Running = false
 
-	w.StopKey <- true
+	close(w.StopKey)
 }
 
 func (w *Watch) once() *sync.Once {
