@@ -37,6 +37,10 @@ type WatchersRegisterer interface {
 // for the agent core. These methods represent currently
 // supported sampler configurations per blockchain protocol basis.
 type Chain interface {
+	Discover() error
+	IsConfigured() bool
+	ResetConfig() error
+
 	// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
 	PEFEndpoints() []PEFEndpoint
 

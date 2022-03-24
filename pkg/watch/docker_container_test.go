@@ -104,7 +104,7 @@ func TestContainerWatch_happy(t *testing.T) {
 	w := NewContainerWatch(ContainerWatchConf{
 		Regex: []string{"dapper-private-network_consensus_3_1"},
 	})
-	defer w.Wg.Wait()
+	defer w.wg.Wait()
 	defer w.Stop()
 
 	emitch := make(chan interface{}, 10)
@@ -193,7 +193,7 @@ func TestContainerWatch_error(t *testing.T) {
 		Regex:     []string{"dapper-private-network_consensus_3_1"},
 		RetryIntv: 10 * time.Millisecond,
 	})
-	defer w.Wg.Wait()
+	defer w.wg.Wait()
 	defer w.Stop()
 
 	emitch := make(chan interface{}, 10)

@@ -3,7 +3,6 @@ package timesync
 import (
 	"agent/api/v1/model"
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -83,25 +82,7 @@ func (t *TimeSync) Start(emitch chan<- interface{}) {
 	// Setup PlatformSync
 	t.Listen()
 
-	newEvCtx := func(ctx map[string]interface{}) map[string]interface{} {
-		t.RLock()
-		defaultCtx := map[string]interface{}{
-			"ntp_server":    t.host,
-			"offset_millis": time.Nanosecond * t.delta / time.Millisecond,
-		}
-		t.RUnlock()
-
-		if ctx != nil {
-			// merge default and given contexts
-			for key, val := range ctx {
-				defaultCtx[key] = val
-			}
-		}
-
-		return defaultCtx
-	}
-
-	lasterr := errors.New("")
+	var lasterr error
 	go func() {
 		defer t.wg.Done()
 		defer t.tickerLock.Unlock()
@@ -110,16 +91,20 @@ func (t *TimeSync) Start(emitch chan<- interface{}) {
 			case <-t.ticker.C:
 				err := t.QueryNTP()
 				if err != nil {
-					ctx := newEvCtx(map[string]interface{}{"error": err.Error()})
+					ctx := map[string]interface{}{"error": err.Error()}
 					EmitEventWithCtx(t, ctx, model.AgentClockNoSyncName, model.AgentClockNoSyncDesc)
 
 					zap.S().Errorw("failed to sync time with NTP server", zap.Error(err))
+
+					lasterr = err
 					continue
 				}
+
 				if lasterr != nil {
-					EmitEventWithCtx(t, newEvCtx(nil), model.AgentClockSyncName, model.AgentClockSyncDesc)
-					lasterr = nil
+					EmitEvent(t, model.AgentClockSyncName, model.AgentClockSyncDesc)
+					lasterr = err
 				}
+
 				t.setAdjustBool()
 			case <-t.tickerCtx.Done():
 				return

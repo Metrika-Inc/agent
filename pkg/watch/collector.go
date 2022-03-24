@@ -49,7 +49,7 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	w.Log = w.Log.With("collector", w.Type)
 
 	w.handlerch = make(chan []*dto.MetricFamily, 1000)
-	w.stopCollectorCh = make(chan bool, 1)
+	w.stopCollectorCh = make(chan bool)
 
 	return w
 }
@@ -57,9 +57,9 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 func (c *CollectorWatch) StartUnsafe() {
 	c.Watch.StartUnsafe()
 
-	c.Wg.Add(1)
+	c.wg.Add(1)
 	go func() {
-		defer c.Wg.Done()
+		defer c.wg.Done()
 
 		for {
 			select {
@@ -72,15 +72,19 @@ func (c *CollectorWatch) StartUnsafe() {
 				}
 				c.handlerch <- metricFamilies
 			case <-c.stopCollectorCh:
+				return
 			}
 		}
 	}()
 
 	// Listen to events
+	c.wg.Add(1)
 	go c.handlePrometheusMetric()
 }
 
 func (c *CollectorWatch) handlePrometheusMetric() {
+	defer c.wg.Done()
+
 	for {
 		select {
 		case metricFams := <-c.handlerch:
@@ -103,7 +107,9 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 
 			}
 		case <-c.StopKey:
-			c.stopCollectorCh <- true
+			close(c.stopCollectorCh)
+
+			return
 		}
 	}
 }

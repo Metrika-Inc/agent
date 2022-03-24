@@ -33,7 +33,7 @@ var (
 	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
 
 	ch            = make(chan interface{}, 10000)
-	simpleEmitter = &emit.SimpleEmitter{Emitch: ch}
+	simpleEmitter = emit.NewSimpleEmitter(ch)
 )
 
 func init() {
@@ -51,8 +51,6 @@ func init() {
 	if *configureOnly {
 		os.Exit(0)
 	}
-
-	zap.S().Info("node discovered: ", discover.Hello())
 
 	timesync.Default.Start(ch)
 	if err := timesync.Default.SyncNow(); err != nil {
@@ -204,20 +202,8 @@ func main() {
 		sig := <-sigs
 		switch sig {
 		case os.Interrupt, syscall.SIGTERM:
-			log.Infof("received OS signal %v (forced)", sig)
+			log.Warnf("received OS signal %v (forced)", sig)
 
-			ctx := map[string]interface{}{
-				"signal_number": sig.String(),
-				"error":         "agent exit (forced)",
-			}
-			ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
-			if err != nil {
-				log.Error("error creating event: ", err)
-			} else {
-				if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-					log.Error("error emitting event: ", err)
-				}
-			}
 			os.Exit(1)
 		default:
 			// just exit
@@ -236,6 +222,10 @@ func main() {
 	case os.Interrupt, syscall.SIGTERM:
 		log.Debug("agent shut down")
 
+		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+			log.Error("error emitting event: ", err)
+		}
+
 		// stop watchers and wait for goroutine cleanup
 		global.WatcherRegistry.Stop()
 		global.WatcherRegistry.Wait()
@@ -244,17 +234,10 @@ func main() {
 		pub.Stop()
 		wg.Wait()
 
-		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-			log.Error("error emitting event: ", err)
-		}
-
 		log.Info("agent shutdown complete")
 	default:
-		log.Info("agent killed")
+		log.Warn("agent killed with %v", sig)
 
-		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-			log.Error("error emitting event: ", err)
-		}
 		os.Exit(1)
 	}
 

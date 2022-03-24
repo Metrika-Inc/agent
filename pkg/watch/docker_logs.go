@@ -113,16 +113,21 @@ func (w *DockerLogWatch) StartUnsafe() {
 		rc     io.ReadCloser
 		ctx    context.Context
 		cancel context.CancelFunc
-		sleep  bool
 		err    error
 	)
 
-	newStream := func() {
+	sleepch := make(chan bool, 1)
+	newEventStream := func() bool {
+		// Retry forever to re-establish the stream. Ensures
+		// periodic retries according to the specified interval and
+		// probes the stop channel for exit point.
 		for {
-			if sleep {
+			select {
+			case <-w.StopKey:
+				return true
+			case <-sleepch:
 				time.Sleep(w.RetryIntv)
-			} else {
-				sleep = true
+			default:
 			}
 
 			// retry forever to re-establish the stream.
@@ -144,14 +149,17 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 			}
 
-			break
+			return false
 		}
 	}
-	newStream()
 
-	w.Wg.Add(1)
+	if stopped := newEventStream(); stopped {
+		return
+	}
+
+	w.wg.Add(1)
 	go func() {
-		defer w.Wg.Done()
+		defer w.wg.Done()
 
 		hdr := make([]byte, 8)
 		buf := make([]byte, 1024)
@@ -182,7 +190,10 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 					cancel()
 					rc.Close()
-					newStream()
+
+					if stopped := newEventStream(); stopped {
+						return
+					}
 				} else {
 					w.Log.Errorw("error reading header", zap.Error(err))
 				}
@@ -223,7 +234,10 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 					cancel()
 					rc.Close()
-					newStream()
+
+					if stopped := newEventStream(); stopped {
+						return
+					}
 				} else {
 					w.Log.Errorw("error reading data", zap.Error(err))
 				}

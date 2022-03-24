@@ -246,15 +246,13 @@ func (d *Dapper) ContainerRegex() []string {
 }
 
 // LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
-// TODO: change to models.FromContext when merging
 func (d *Dapper) LogEventsList() map[string]model.FromContext {
 	return eventsFromContext
 }
 
 // NodeLogPath returns the path to the log file to watch.
-// TODO: string -> []string perhaps
 func (d *Dapper) NodeLogPath() string {
-	return "" // TODO: copy over from Events branch
+	return ""
 }
 
 func (d *Dapper) Hello() string {

@@ -1,6 +1,9 @@
 package algorand
 
-import "agent/api/v1/model"
+import (
+	"agent/api/v1/model"
+	"agent/internal/pkg/global"
+)
 
 type Algorand struct {
 }
@@ -27,6 +30,10 @@ func (a *Algorand) Discover() error {
 }
 
 func (a *Algorand) ResetConfig() error {
+	panic("implement me!")
+}
+
+func (d *Algorand) PEFEndpoints() []global.PEFEndpoint {
 	panic("implement me!")
 }
 

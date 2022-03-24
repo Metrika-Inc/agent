@@ -46,9 +46,9 @@ func (h *HttpGetWatch) StartUnsafe() {
 		h.client = &http.Client{}
 	}
 
-	h.Wg.Add(1)
+	h.wg.Add(1)
 	go func() {
-		defer h.Wg.Done()
+		defer h.wg.Done()
 
 		for {
 			select {
