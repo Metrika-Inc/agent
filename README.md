@@ -30,7 +30,7 @@ The core piece of the protocol is `Message`. It contains:
 
 ### Metric Encoding
 
-We encode metrics with OpenMetrics model, which is an open-source metrics specification which extends Prometheus Exposition Format (PEF). Useful links:
+We encode metrics with OpenMetrics model. It is an open-source metrics specification which extends Prometheus Exposition Format (PEF). Useful links:
 * [Specification](https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md)
 * [protobuf file](https://github.com/OpenObservability/OpenMetrics/blob/main/proto/openmetrics_data_model.proto)
 
