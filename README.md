@@ -19,7 +19,7 @@ Found in [global](internal/pkg/global/agent.go) package.
 
 ## Wire Protocol
 
-Wire Protocol model is used for communication between the agent and the platform it is pushing its data to. It is defined in [agent.proto](api/v1/proto/agent.proto) file.
+The Metrika team intends to use OpenTelemetry (OTLP) once the Logs and Metrics specifications are stable and SDKs are available for Golang. Currently we use a custom wire Protocol model for communication between the agent and the platform it is pushing its data to. It is defined in [agent.proto](api/v1/proto/agent.proto) file.
 
 The core piece of the protocol is `Message`. It contains:
 
