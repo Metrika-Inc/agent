@@ -22,10 +22,11 @@ HASH := $(shell git rev-parse --short HEAD)
 # Protocol Buffer related vars
 PROTOC_VERSION := 3.19.0
 PROTOC_GEN_GO_GRPC_VERSION := v1.1
-PROTOC_GEN_GO_VERSION := v1.3.5
+PROTOC_GEN_GO_VERSION := v1.5.2
 PROTOC_OS = linux
 PROTOC_ARCH = x86_64
 PROM_CLIENT_VERSION := 1.12.1
+OPENMETRICS_VERSION := 1.0.0
 
 # List of supported blockchains by the agent
 DAPPER := dapper
@@ -68,21 +69,23 @@ build-%: generate-%
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
 	rm -rf $(PWD)/tmp/include/google $(PWD)/tmp/go/io
-	mkdir -p tmp/include -p tmp/go tmp/bin
+	mkdir -p tmp/include tmp/go tmp/bin tmp/openmetrics
 	
 	cd $(PROTOC_TMP); curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_VERSION)-$(PROTOC_OS)-$(PROTOC_ARCH).zip -o protoc.zip
 	cd $(PROTOC_TMP); unzip protoc.zip && mv include/google $(PWD)/tmp/include/
 	cd $(PROTOC_TMP); git clone https://github.com/prometheus/client_model.git && mv client_model/io/ $(PWD)/tmp/go/
+	cd $(PROTOC_TMP); git clone https://github.com/OpenObservability/OpenMetrics.git && mv OpenMetrics/proto/openmetrics_data_model.proto $(PWD)/tmp/openmetrics/openmetrics.proto
 
 	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin/protoc
 	GOBIN=$(PWD)/tmp/bin go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	GOBIN=$(PWD)/tmp/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 
 	PATH=$(PWD)/tmp/bin:$$PATH protoc \
-	-I tmp/include -I tmp/go -I api/v1/proto \
+	-I tmp/include -I tmp/go -I api/v1/proto -I tmp/openmetrics \
+	--go_opt=Mtmp/openmetrics/openmetrics.proto=agent/api/v1/model \
 	--go_out=api/v1/model \
 	--go-grpc_out=api/v1/model \
-	api/v1/proto/agent.proto
+	api/v1/proto/agent.proto tmp/openmetrics/openmetrics.proto
 
 .PHONY: build
 build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))

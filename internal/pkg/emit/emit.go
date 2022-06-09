@@ -4,8 +4,8 @@ import (
 	"agent/api/v1/model"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 type Emitter interface {

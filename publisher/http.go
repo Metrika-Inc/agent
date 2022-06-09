@@ -15,7 +15,7 @@ import (
 	"agent/internal/pkg/buf"
 	"agent/pkg/timesync"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

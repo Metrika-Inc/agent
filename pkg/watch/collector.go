@@ -19,10 +19,10 @@ import (
 	"agent/pkg/timesync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 const namespace = "node"
@@ -89,7 +89,11 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 		select {
 		case metricFams := <-c.handlerch:
 			for _, metricFam := range metricFams {
-				out, err := proto.Marshal(metricFam)
+				openMetricFam, err := dtoToOpenMetrics(metricFam)
+				if err != nil {
+					c.Log.Errorw("failed to convert metric to openmetrics", err)
+				}
+				out, err := proto.Marshal(openMetricFam)
 				if err != nil {
 					c.Log.Errorw("failed to marshal a metric", zap.Error(err))
 					continue
@@ -104,7 +108,6 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				}
 
 				c.Emit(metricInternal)
-
 			}
 		case <-c.StopKey:
 			close(c.stopCollectorCh)

@@ -5,8 +5,12 @@ import (
 )
 
 // Bytes estimates the total size of the metric in bytes.
-func (m Message) Bytes() uint {
-	return uint(unsafe.Sizeof(m)) + multipleOf8(len(m.Name)) + multipleOf8(len(m.Body)) + protoBytes(len(m.XXX_unrecognized))
+func (m *Message) Bytes() uint {
+	if m == nil {
+		return uint(unsafe.Sizeof(m))
+	}
+	// FIXME: Sizeof(m) might not work due to pointer ref; new model does not have XXX vars but has others.
+	return uint(unsafe.Sizeof(*m)) + multipleOf8(len(m.Name)) + multipleOf8(len(m.Body))
 }
 
 // multipleOf8 is a helper function for padding.
