@@ -16,6 +16,7 @@ func newString(n int) string {
 }
 
 func TestMessageBytes(t *testing.T) {
+	baseSize := 104
 	tests := []struct {
 		name     string
 		metric   Message
@@ -30,7 +31,7 @@ func TestMessageBytes(t *testing.T) {
 				AgentState: 1,
 				Name:       newString(0),
 				Body:       []byte(newString(32))},
-			expBytes: 96 + len(newString(0)) + len([]byte(newString(32))),
+			expBytes: baseSize + len(newString(0)) + len([]byte(newString(32))),
 		},
 		{
 			name: "basic with padding",
@@ -40,7 +41,7 @@ func TestMessageBytes(t *testing.T) {
 				Name:      newString(6),
 				Body:      []byte(newString(7)),
 			},
-			expBytes: 96 + len(newString(8)) + len([]byte(newString(8))),
+			expBytes: baseSize + len(newString(8)) + len([]byte(newString(8))),
 		},
 		{
 			name: "basic with padding again",
@@ -50,7 +51,7 @@ func TestMessageBytes(t *testing.T) {
 				Name:      newString(34),
 				Body:      []byte(newString(34)),
 			},
-			expBytes: 96 + len(newString(40)) + len([]byte(newString(40))),
+			expBytes: baseSize + len(newString(40)) + len([]byte(newString(40))),
 		},
 		{
 			name: "body nil",
@@ -60,7 +61,7 @@ func TestMessageBytes(t *testing.T) {
 				Name:      newString(0),
 				Body:      []byte(nil),
 			},
-			expBytes: 96 + len(newString(0)) + len([]byte(nil)),
+			expBytes: baseSize + len(newString(0)) + len([]byte(nil)),
 		},
 		{
 			name: "body empty string",
@@ -70,14 +71,14 @@ func TestMessageBytes(t *testing.T) {
 				Name:      newString(8),
 				Body:      []byte(newString(0)),
 			},
-			expBytes: 96 + len(newString(8)) + len([]byte(newString(0))),
+			expBytes: baseSize + len(newString(8)) + len([]byte(newString(0))),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.metric.Bytes()
-			assert.Equal(t, int(tt.expBytes), int(got))
+			assert.Equal(t, tt.expBytes, int(got))
 		})
 	}
 }
