@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// TestGenerateCollectorSamples generates a JSONL fixture file
+// Where each line is a JSON-serialized dto.MetricFamily type
 func TestGenerateCollectorSamples(t *testing.T) {
-	os.Setenv("AGENT_COLLECTOR_FIXTURE_PATH",
-		"testdata/metricfamily/collector_data.jsonl")
 	outputPath := os.Getenv("AGENT_COLLECTOR_FIXTURE_PATH")
 	if outputPath == "" {
 		t.Skip()

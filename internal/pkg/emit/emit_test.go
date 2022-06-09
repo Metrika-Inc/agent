@@ -37,7 +37,7 @@ func TestSimpleEmitter(t *testing.T) {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	se := SimpleEmitter{emitch}
+	se := simpleEmitter{emitch}
 	se.Emit(exp)
 
 	select {
@@ -81,7 +81,7 @@ func TestEv(t *testing.T) {
 		Body:      evb,
 	}
 
-	se := &SimpleEmitter{emitch}
+	se := &simpleEmitter{emitch}
 
 	err = Ev(se, evTime, ev)
 	require.Nil(t, err)

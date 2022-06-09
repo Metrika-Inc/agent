@@ -18,6 +18,7 @@ platform:
 
   # uri: string, platform publishing endpoint
   uri: /
+
 buffer:
 
   # size: integer, the maximum memory the agent is allowed to preserve in bytes.
