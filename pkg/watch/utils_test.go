@@ -21,11 +21,11 @@ func TestDtoToOpenMetrics(t *testing.T) {
 	require.NoError(t, err, "failed to read file")
 	res = bytes.Trim(res, "\n")
 	metricFams := []*dto.MetricFamily{}
-	for _, item := range bytes.Split(res, []byte{'\n'}) {
+	for i, item := range bytes.Split(res, []byte{'\n'}) {
 		buf := bytes.NewBuffer(item)
 		m := &dto.MetricFamily{}
 		err := jsonpb.Unmarshal(buf, m)
-		require.NoError(t, err)
+		require.NoError(t, err, "error on line %d", i+1)
 		metricFams = append(metricFams, m)
 	}
 	require.NoError(t, err)

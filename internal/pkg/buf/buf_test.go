@@ -14,7 +14,7 @@ import (
 
 var (
 	defaultMaxBufferBytes = uint(1024 * 1024) // 1MB
-	testItemSz            = 152               // 152Bytes
+	testItemSz            = 160               // 152Bytes
 )
 
 func newTestItem(priority uint, m model.Message) Item {
@@ -179,13 +179,14 @@ func TestPriorityBufferInsertMaxSize(t *testing.T) {
 // and checks:
 // - buffer size in bytes is equal to buffer's max size
 func TestPriorityBufferBytes(t *testing.T) {
-	pb := NewPriorityBuffer(760, time.Duration(0))
+	sz := uint(testItemSz * 5)
+	pb := NewPriorityBuffer(sz, time.Duration(0))
 	m := newTestItemBatch(5)
 
 	_, err := pb.Insert(m...)
 	require.NoError(t, err)
 
-	require.Equal(t, 760, int(pb.Bytes()))
+	require.Equal(t, sz, pb.Bytes())
 }
 
 func TestItemBatchAdd(t *testing.T) {
@@ -221,5 +222,5 @@ func TestItemBatchBytes(t *testing.T) {
 	b.Add(item)
 
 	require.Equal(t, 1, len(*b))
-	require.Equal(t, 160, int(b.Bytes()))
+	require.Equal(t, testItemSz+8, int(b.Bytes()))
 }
