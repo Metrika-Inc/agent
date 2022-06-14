@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/emit"
 	"agent/pkg/timesync"
@@ -119,9 +120,9 @@ func (w *DockerLogWatch) StartUnsafe() {
 	)
 
 	newEventStream := func() bool {
-		// Retry forever to re-establish the stream. Ensures
-		// periodic retries according to the specified interval and
-		// probes the stop channel for exit point.
+		// Retry forever to establish the stream. Ensures periodic retries
+		// according to the specified interval and probes the stop channel
+		// for exit point.
 		for {
 			select {
 			case <-w.StopKey:
@@ -135,8 +136,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 			rc, err = w.repairLogStream(ctx)
 			if err != nil {
-				w.Log.Error("error getting stream:", err)
-
+				w.Log.Warnw("error getting stream", zap.Error(err))
 				continue
 			}
 
@@ -172,18 +172,25 @@ func (w *DockerLogWatch) StartUnsafe() {
 				if err == io.EOF {
 					w.Log.Error("EOF reached (hdr), resetting stream")
 					time.Sleep(5 * time.Second)
+					ctx := map[string]interface{}{
+						"node_id":      discover.NodeID(),
+						"node_type":    discover.NodeType(),
+						"node_version": discover.NodeVersion(),
+					}
 
-					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
 					if err != nil {
-						w.Log.Error("error creating event: ", err)
+						w.Log.Errorw("error creating event: ", zap.Error(err))
 					} else {
 						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
-							w.Log.Error("error emitting event: ", err)
+							w.Log.Errorw("error emitting event: ", zap.Error(err))
 						}
 					}
 
 					cancel()
-					rc.Close()
+					if err := rc.Close(); err != nil {
+						w.Log.Errorw("error closing docker logs stream", zap.Error(err))
+					}
 
 					if stopped := newEventStream(); stopped {
 						return
@@ -217,18 +224,25 @@ func (w *DockerLogWatch) StartUnsafe() {
 				lastErr = err
 				if err == io.EOF {
 					w.Log.Error("EOF reached (data), resetting stream")
+					ctx := map[string]interface{}{
+						"node_id":      discover.NodeID(),
+						"node_type":    discover.NodeType(),
+						"node_version": discover.NodeVersion(),
+					}
 
-					ev, err := model.New(model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
 					if err != nil {
-						w.Log.Error("error creating event: ", err)
+						w.Log.Errorw("error creating event: ", zap.Error(err))
 					} else {
 						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
-							w.Log.Error("error emitting event: ", err)
+							w.Log.Errorw("error emitting event: ", zap.Error(err))
 						}
 					}
 
 					cancel()
-					rc.Close()
+					if err := rc.Close(); err != nil {
+						w.Log.Errorw("error closing docker logs stream: ", zap.Error(err))
+					}
 
 					if stopped := newEventStream(); stopped {
 						return
@@ -247,12 +261,18 @@ func (w *DockerLogWatch) StartUnsafe() {
 			}
 
 			if lastErr != nil {
-				ev, err := model.New(model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
+				ctx := map[string]interface{}{
+					"node_id":      discover.NodeID(),
+					"node_type":    discover.NodeType(),
+					"node_version": discover.NodeVersion(),
+				}
+				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
+
 				if err != nil {
-					w.Log.Error("error creating event: ", err)
+					w.Log.Errorw("error creating event: ", zap.Error(err))
 				} else {
 					if err := emit.Ev(w, timesync.Now(), ev); err != nil {
-						w.Log.Error("error emitting event: ", err)
+						w.Log.Errorw("error emitting event: ", zap.Error(err))
 					}
 				}
 				lastErr = nil

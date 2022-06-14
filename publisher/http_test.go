@@ -72,7 +72,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.Message{
+			m := &model.Message{
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
@@ -146,7 +146,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.Message{
+			m := &model.Message{
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
@@ -216,7 +216,7 @@ func TestPublisher_Error(t *testing.T) {
 	go func() {
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.Message{
+			m := &model.Message{
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
@@ -274,7 +274,7 @@ func TestPublisher_Stop(t *testing.T) {
 
 		for i := 0; i < n; i++ {
 			body, _ := json.Marshal([]byte("foobar"))
-			m := model.Message{
+			m := &model.Message{
 				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,

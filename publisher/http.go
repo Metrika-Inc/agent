@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -129,14 +131,14 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 	publishFunc := func(b buf.ItemBatch) error {
 		batch := make([]*model.Message, 0, len(b)+1)
 		for _, item := range b {
-			m, ok := item.Data.(model.Message)
+			m, ok := item.Data.(*model.Message)
 			if !ok {
 				t.log.Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
 			}
-			batch = append(batch, &m)
+			batch = append(batch, m)
 		}
 
 		errCh := make(chan error)
@@ -191,10 +193,9 @@ func (t *Transport) Connect() error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.conf.Timeout)
 	defer cancel()
 
-	// tlsConfig := &tls.Config{InsecureSkipVerify: false}
+	tlsConfig := &tls.Config{InsecureSkipVerify: false}
 	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
-		// grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
-		grpc.WithInsecure(), grpc.WithBlock())
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
 	if err != nil {
 		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
 		return err
@@ -249,7 +250,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 					return
 				}
 
-				m, ok := msg.(model.Message)
+				m, ok := msg.(*model.Message)
 				if !ok {
 					t.log.Error("type assertion failed")
 
@@ -320,7 +321,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) erro
 		return err
 	}
 
-	m := model.Message{
+	m := &model.Message{
 		Name:      ev.GetName(),
 		Type:      model.MessageType_event,
 		Timestamp: timesync.Now().UnixMilli(),

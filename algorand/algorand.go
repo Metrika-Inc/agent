@@ -1,12 +1,16 @@
 package algorand
 
 import (
+	"fmt"
+
 	"agent/api/v1/model"
 	"agent/internal/pkg/global"
+
+	"github.com/docker/docker/api/types"
+	"go.uber.org/zap"
 )
 
-type Algorand struct {
-}
+type Algorand struct{}
 
 const DefaultAlgorandPath = "./internal/pkg/global/algorand.yml"
 
@@ -16,39 +20,75 @@ func NewAlgorand() (*Algorand, error) {
 	return a, nil
 }
 
-func (a *Algorand) IsConfigured() bool {
-	// if any of a.config.X == "" return false
-	// else return true
-	panic("implement me!")
-}
+func (a *Algorand) DiscoverContainer() (*types.Container, error) {
+	log := zap.S().With("blockchain", "algorand")
 
-func (a *Algorand) Discover() error {
 	// check the config first
 	// heavy lifting: checking the docker, extracting PID etc. and populating a.config
 	// success is basically same as calling IsConfigured() again.
-	panic("implement me!")
+	log.Warn("not implemented") // TODO: Implement
+
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (a *Algorand) IsConfigured() bool {
+	log := zap.S().With("blockchain", "algorand")
+	// if any of a.config.X == "" return false
+	// else return true
+	log.Warn("not implemented") // TODO: Implement
+
+	return false
 }
 
 func (a *Algorand) ResetConfig() error {
-	panic("implement me!")
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return fmt.Errorf("not implemented")
 }
 
 func (d *Algorand) PEFEndpoints() []global.PEFEndpoint {
-	panic("implement me!")
-}
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
 
-func (a *Algorand) LogEventsList() map[string]model.FromContext {
 	return nil
-}
-
-func (a *Algorand) Hello() string {
-	return "Algorand"
 }
 
 func (a *Algorand) ContainerRegex() []string {
 	return []string{}
 }
 
+func (a *Algorand) LogEventsList() map[string]model.FromContext {
+	return nil
+}
+
 func (a *Algorand) NodeLogPath() string {
-	panic("implement me!")
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return ""
+}
+
+// NodeID returns the blockchain node id
+func (a *Algorand) NodeID() string {
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return ""
+}
+
+// NodeType returns the blockchain node type (i.e. consensus)
+func (a *Algorand) NodeType() string {
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return ""
+}
+
+// NodeVersion returns the blockchain node version
+func (a *Algorand) NodeVersion() string {
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return ""
 }

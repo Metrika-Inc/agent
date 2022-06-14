@@ -1,10 +1,11 @@
 package emit
 
 import (
-	"agent/api/v1/model"
 	"context"
 	"testing"
 	"time"
+
+	"agent/api/v1/model"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -31,7 +32,7 @@ func TestSimpleEmitter(t *testing.T) {
 		}
 	}()
 
-	exp := model.Message{
+	exp := &model.Message{
 		Name:      "test-message",
 		Type:      model.MessageType_event,
 		Timestamp: time.Now().UnixMilli(),
@@ -74,7 +75,7 @@ func TestEv(t *testing.T) {
 	evb, err := proto.Marshal(ev)
 	require.Nil(t, err)
 
-	exp := model.Message{
+	exp := &model.Message{
 		Name:      "test-event",
 		Type:      model.MessageType_event,
 		Timestamp: evTime.UnixMilli(),

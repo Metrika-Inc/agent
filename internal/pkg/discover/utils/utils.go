@@ -104,8 +104,8 @@ func (a *DockerProductionAdapter) DockerLogs(ctx context.Context, container stri
 }
 
 func (a *DockerProductionAdapter) DockerEvents(ctx context.Context, options types.EventsOptions) (
-	<-chan events.Message, <-chan error, error) {
-
+	<-chan events.Message, <-chan error, error,
+) {
 	cli, err := getDockerClient()
 	if err != nil {
 		return nil, nil, err
@@ -128,8 +128,8 @@ func DockerLogs(ctx context.Context, container string, options types.ContainerLo
 }
 
 func DockerEvents(ctx context.Context, options types.EventsOptions) (
-	<-chan events.Message, <-chan error, error) {
-
+	<-chan events.Message, <-chan error, error,
+) {
 	return DefaultDockerAdapter.DockerEvents(ctx, options)
 }
 
@@ -189,7 +189,13 @@ func GetLogLine(r io.Reader) ([]byte, error) {
 	return scan.Bytes(), nil
 }
 
+var dockerCLI *client.Client
+
 func getDockerClient() (*client.Client, error) {
+	if dockerCLI != nil {
+		return dockerCLI, nil
+	}
+
 	defaultOpts := []client.Opt{
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -206,10 +212,11 @@ func getDockerClient() (*client.Client, error) {
 			}))
 	}
 
-	cli, err := client.NewClientWithOpts(defaultOpts...)
+	var err error
+	dockerCLI, err = client.NewClientWithOpts(defaultOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return cli, nil
+	return dockerCLI, nil
 }

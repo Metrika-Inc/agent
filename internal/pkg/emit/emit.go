@@ -1,8 +1,9 @@
 package emit
 
 import (
-	"agent/api/v1/model"
 	"time"
+
+	"agent/api/v1/model"
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -47,9 +48,9 @@ func Ev(w Emitter, t time.Time, ev *model.Event) error {
 		Body:      evBytes,
 	}
 
-	zap.S().Debug("emitting event: ", ev.Name, ", ", ev.Values.AsMap())
+	zap.S().Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
 
-	w.Emit(message)
+	w.Emit(&message)
 
 	return nil
 }

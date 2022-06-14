@@ -1,13 +1,14 @@
 package watch
 
 import (
-	"agent/pkg/parse/openmetrics"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"testing"
 	"time"
+
+	"agent/pkg/parse/openmetrics"
 
 	"github.com/golang/protobuf/jsonpb"
 	dto "github.com/prometheus/client_model/go"
@@ -17,7 +18,7 @@ import (
 )
 
 func TestDtoToOpenMetrics(t *testing.T) {
-	res, err := ioutil.ReadFile("../../internal/pkg/testutils/testdata/metricfamily/collector_data.jsonl")
+	res, err := ioutil.ReadFile("../testutils/testdata/metricfamily/collector_data.jsonl")
 	require.NoError(t, err, "failed to read file")
 	res = bytes.Trim(res, "\n")
 	metricFams := []*dto.MetricFamily{}

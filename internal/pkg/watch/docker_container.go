@@ -1,18 +1,22 @@
 package watch
 
 import (
-	"agent/api/v1/model"
-	"agent/internal/pkg/discover/utils"
-	"agent/internal/pkg/emit"
-	"agent/pkg/timesync"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
+	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
+	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/emit"
+	"agent/internal/pkg/global"
+	"agent/pkg/timesync"
+
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"go.uber.org/zap"
 )
 
 type ContainerWatchConf struct {
@@ -24,11 +28,11 @@ type ContainerWatch struct {
 	ContainerWatchConf
 	Watch
 
-	watchCh      chan interface{}
-	stopListCh   chan interface{}
-	stopEventsch chan interface{}
-	mutex        *sync.RWMutex
-	container    dt.Container
+	watchCh       chan interface{}
+	stopListCh    chan interface{}
+	stopEventsch  chan interface{}
+	mutex         *sync.RWMutex
+	containerGone bool
 }
 
 func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
@@ -47,29 +51,17 @@ func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 	return w
 }
 
-func (w *ContainerWatch) updateContainer(container dt.Container) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	w.container = container
-}
-
 func (w *ContainerWatch) repairEventStream(ctx context.Context) (
-	<-chan events.Message, <-chan error, error) {
-
-	containers, err := utils.GetRunningContainers()
+	<-chan events.Message, <-chan error, error,
+) {
+	container, err := global.BlockchainNode.DiscoverContainer()
 	if err != nil {
-		return nil, nil, err
-	}
-
-	container, err := utils.MatchContainer(containers, w.Regex)
-	if err != nil {
-		ev, err := model.NewWithCtx(
+		ev, errev := model.NewWithCtx(
 			map[string]interface{}{"error": err.Error()},
 			model.AgentNodeDownName,
 			model.AgentNodeDownDesc)
-		if err != nil {
-			return nil, nil, err
+		if errev != nil {
+			return nil, nil, fmt.Errorf("errors: %v; %v", err, errev)
 		}
 
 		if err := emit.Ev(w, timesync.Now(), ev); err != nil {
@@ -78,13 +70,14 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 		return nil, nil, err
 	}
-	w.updateContainer(container)
 
 	ev, err := model.NewWithCtx(map[string]interface{}{
-		"image":  container.Image,
-		"state":  container.State,
-		"status": container.Status,
-		"names":  container.Names[0],
+		"image":        container.Image,
+		"state":        container.State,
+		"status":       container.Status,
+		"node_id":      discover.NodeID(),
+		"node_type":    discover.NodeType(),
+		"node_version": discover.NodeVersion(),
 	}, model.AgentNodeUpName, model.AgentNodeUpDesc)
 	if err != nil {
 		return nil, nil, err
@@ -100,7 +93,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("status", "stop")
 	filter.Add("status", "kill")
 	filter.Add("status", "die")
-	filter.Add("container", w.container.ID)
+	filter.Add("container", container.ID)
 	options := dt.EventsOptions{Filters: filter}
 
 	msgchan, errchan, err := utils.DockerEvents(ctx, options)
@@ -114,13 +107,21 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error) {
 	var ev *model.Event
 	var err error
-	ctx := map[string]interface{}{"id": m.ID, "status": m.Status, "action": m.Action}
+	ctx := map[string]interface{}{
+		"status":       m.Status,
+		"action":       m.Action,
+		"node_id":      discover.NodeID(),
+		"node_type":    discover.NodeType(),
+		"node_version": discover.NodeVersion(),
+	}
 
 	switch m.Status {
 	case "start":
 		ev, err = model.NewWithCtx(ctx, model.AgentNodeUpName, model.AgentNodeUpDesc)
+		w.containerGone = false
 	case "restart":
 		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, model.AgentNodeRestartDesc)
+		w.containerGone = false
 	case "die":
 		exitCode, ok := m.Actor.Attributes["exitCode"]
 		if ok {
@@ -128,6 +129,7 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 		}
 
 		ev, err = model.NewWithCtx(ctx, model.AgentNodeDownName, model.AgentNodeDownDesc)
+		w.containerGone = true
 	}
 
 	if err != nil {
@@ -154,30 +156,32 @@ func (w *ContainerWatch) StartUnsafe() {
 		err     error
 	)
 
-	sleepch := make(chan bool, 1)
+	var sleepd time.Duration
 	newEventStream := func() {
 		// Retry forever to re-establish the stream. Ensures
 		// periodic retries according to the specified interval and
 		// probes the stop channel for exit point.
 		for {
+			if sleepd == 0 {
+				sleepd = defaultRetryIntv
+			}
+			time.Sleep(sleepd)
+
 			select {
 			case <-w.StopKey:
 				return
-			case <-sleepch:
-				time.Sleep(w.RetryIntv)
 			default:
 			}
 
-			sleepch <- true
-
 			ctx, cancel = context.WithCancel(context.Background())
-
 			if msgchan, errchan, err = w.repairEventStream(ctx); err != nil {
-				w.Log.Error("error getting docker event stream:", err)
+				w.Log.Warnw("getting docker event stream failed", zap.Error(err))
+				w.containerGone = true
 
 				continue
 			}
 
+			w.containerGone = false
 			w.Log.Info("docker event stream ready")
 
 			return
@@ -190,6 +194,11 @@ func (w *ContainerWatch) StartUnsafe() {
 		defer w.wg.Done()
 
 		for {
+			if w.containerGone {
+				cancel()
+				newEventStream()
+			}
+
 			select {
 			case m := <-msgchan:
 				w.Log.Debugf("docker event message: ID:%s, status:%s, signal:%s",

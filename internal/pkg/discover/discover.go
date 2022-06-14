@@ -1,12 +1,12 @@
 package discover
 
 import (
-	"agent/api/v1/model"
-	"agent/internal/pkg/global"
 	"errors"
 	"io/fs"
-
 	"os"
+
+	"agent/api/v1/model"
+	"agent/internal/pkg/global"
 
 	"go.uber.org/zap"
 )
@@ -36,8 +36,8 @@ func AutoConfig(reset bool) global.Chain {
 		return chn
 	}
 
-	if err := chain.Discover(); err != nil {
-		log.Fatalw("failed to automatically discover protocol configuration", zap.Error(err))
+	if _, err := chain.DiscoverContainer(); err != nil {
+		log.Errorw("failed to automatically discover protocol configuration", zap.Error(err))
 	}
 
 	return chn
@@ -63,4 +63,16 @@ func ContainerRegex() []string {
 
 func NodeLogPath() string {
 	return chain.NodeLogPath()
+}
+
+func NodeID() string {
+	return chain.NodeID()
+}
+
+func NodeType() string {
+	return chain.NodeType()
+}
+
+func NodeVersion() string {
+	return chain.NodeVersion()
 }

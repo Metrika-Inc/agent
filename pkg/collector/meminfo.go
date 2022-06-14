@@ -29,8 +29,7 @@ const (
 	memInfoSubsystem = "memory"
 )
 
-type meminfoCollector struct {
-}
+type meminfoCollector struct{}
 
 // NewMeminfoCollector returns a new Collector exposing memory stats.
 func NewMeminfoCollector() (prometheus.Collector, error) {
@@ -48,7 +47,6 @@ func (c *meminfoCollector) Collect(ch chan<- prometheus.Metric) {
 
 		return
 	}
-	zap.S().Debugw("Set node_mem", "memInfo", memInfo)
 	for k, v := range memInfo {
 		if strings.HasSuffix(k, "_total") {
 			metricType = prometheus.CounterValue
@@ -74,7 +72,6 @@ func (c *meminfoCollector) Describe(ch chan<- *prometheus.Desc) {
 
 		return
 	}
-	zap.S().Debugw("Set node_mem", "memInfo", memInfo)
 	for k := range memInfo {
 		ch <- prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, memInfoSubsystem, k),
