@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 
 	"agent/api/v1/model"
-	"agent/pkg/fingerprint"
-	"agent/pkg/watch"
+	"agent/internal/pkg/fingerprint"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/docker/docker/api/types"
 )
 
 var (
-	WatcherRegistry    WatchersRegisterer
 	PrometheusRegistry prometheus.Registerer
 	PrometheusGatherer prometheus.Gatherer
 	BlockchainNode     Chain
@@ -27,18 +27,10 @@ var (
 	Blockchain = "development"
 )
 
-type WatchersRegisterer interface {
-	Register(w ...watch.Watcher) error
-	Start(ch ...chan<- interface{}) error
-	Stop()
-	Wait()
-}
-
 // Chain provides necessary configuration information
 // for the agent core. These methods represent currently
 // supported sampler configurations per blockchain protocol.
 type Chain interface {
-	Discover() error
 	IsConfigured() bool
 	ResetConfig() error
 
@@ -56,6 +48,18 @@ type Chain interface {
 	// Supports special keys like "docker" or "journald <service-name>"
 	// TODO: string -> []string perhaps
 	NodeLogPath() string
+
+	// NodeID returns the blockchain node id
+	NodeID() string
+
+	// NodeType returns the blockchain node type (i.e. consensus)
+	NodeType() string
+
+	// NodeVersion returns the blockchain node version
+	NodeVersion() string
+
+	// DiscoverContainer returns the container discovered or an error if any occurs
+	DiscoverContainer() (*types.Container, error)
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint
@@ -65,40 +69,7 @@ type PEFEndpoint struct {
 	Filters []string `json:"filters" yaml:"filters"`
 }
 
-type DefaultWatcherRegistrar struct {
-	watchers []watch.Watcher
-}
-
-func (r *DefaultWatcherRegistrar) Register(w ...watch.Watcher) error {
-	r.watchers = append(r.watchers, w...)
-
-	return nil
-}
-
-func (r *DefaultWatcherRegistrar) Start(ch ...chan<- interface{}) error {
-	for _, w := range r.watchers {
-		for _, c := range ch {
-			w.Subscribe(c)
-		}
-		watch.Start(w)
-	}
-
-	return nil
-}
-
-func (r *DefaultWatcherRegistrar) Stop() {
-	for _, w := range r.watchers {
-		w.Stop()
-	}
-}
-
-func (r *DefaultWatcherRegistrar) Wait() {
-	for _, w := range r.watchers {
-		w.Wait()
-	}
-}
-
-func NewFingerprintWriter(path string) io.WriteCloser {
+func NewFingerprintWriter(path string) *os.File {
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		zap.S().Fatalw("failed opening a fingerprint file for writing", zap.Error(err))
@@ -138,7 +109,7 @@ func FingerprintSetup() (string, error) {
 	fpr := NewFingerprintReader(fpp)
 	defer fpr.Close()
 
-	fp, err := fingerprint.NewWithValidation(fpw, fpr)
+	fp, err := fingerprint.NewWithValidation([]byte(AgentHostname), fpw, fpr)
 	if err != nil {
 		if _, ok := err.(*fingerprint.ValidationError); ok {
 			return "", fmt.Errorf("cached [%s]: %w", fpp, err)
@@ -156,10 +127,6 @@ func FingerprintSetup() (string, error) {
 }
 
 func init() {
-	defaultWatcherRegistrar := new(DefaultWatcherRegistrar)
-	defaultWatcherRegistrar.watchers = []watch.Watcher{}
-	WatcherRegistry = defaultWatcherRegistrar
-
 	PrometheusRegistry = prometheus.NewPedanticRegistry()
 	PrometheusGatherer = PrometheusRegistry.(prometheus.Gatherer)
 }

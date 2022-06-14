@@ -1,6 +1,8 @@
 package fingerprint
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -8,53 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockHostname struct{}
-
-func (m MockHostname) name() string {
-	return "mock_hostname"
-}
-
-func (m MockHostname) bytes() ([]byte, error) {
-	return []byte("foobar"), nil
-}
-
-type MockCPUInfo struct{}
-
-func (m MockCPUInfo) name() string {
-	return "mock_cpu_info"
-}
-
-func (m MockCPUInfo) bytes() ([]byte, error) {
-	b, err := ioutil.ReadFile("./fixtures/mock_cpu_info.json")
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-func overrideDefaultSources() func() {
-	defaultSourcesWas := defaultSources
-	defaultSources = []source{MockCPUInfo{}, MockHostname{}}
-	return func() {
-		defaultSources = defaultSourcesWas
-	}
-}
-
 func TestNew(t *testing.T) {
-	defer overrideDefaultSources()()
+	val := []byte("foobar")
+	expHash := fmt.Sprintf("%x", sha256.Sum256(val))
 
-	gotFp, err := New(ioutil.Discard)
+	gotFp, err := New(ioutil.Discard, val)
 	require.Nil(t, err)
 
 	gotHash := gotFp.Hash()
-	expHash := "9da4115ce0f86d58f8cd1d66688ac6e644f72172e8a6ef4a026dca10d26e6617"
 
 	require.Equal(t, expHash, gotHash)
 }
 
 func TestNew_Write(t *testing.T) {
-	defer overrideDefaultSources()()
+	val := []byte("foobar")
+	expHash := fmt.Sprintf("%x", sha256.Sum256(val))
 
 	tmpfile, err := ioutil.TempFile("", "host_fingerprint")
 	if err != nil {
@@ -62,14 +32,13 @@ func TestNew_Write(t *testing.T) {
 	}
 	defer os.Remove(tmpfile.Name())
 
-	gotFp, err := New(tmpfile)
+	gotFp, err := New(tmpfile, val)
 	require.Nil(t, err)
 
 	err = gotFp.Write()
 	require.Nil(t, err)
 
 	gotHash := gotFp.Hash()
-	expHash := "9da4115ce0f86d58f8cd1d66688ac6e644f72172e8a6ef4a026dca10d26e6617"
 	require.Equal(t, expHash, gotHash)
 
 	tmpfile.Seek(0, 0)
@@ -81,15 +50,14 @@ func TestNew_Write(t *testing.T) {
 }
 
 func TestNewWithValidation_Bootstrap(t *testing.T) {
-	defer overrideDefaultSources()()
-
+	val := []byte("foobar")
+	expHash := fmt.Sprintf("%x", sha256.Sum256(val))
 	fpfile, err := ioutil.TempFile("", "host_fingerprint")
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.Remove(fpfile.Name())
 
-	expHash := "9da4115ce0f86d58f8cd1d66688ac6e644f72172e8a6ef4a026dca10d26e6617"
 	_, err = fpfile.Write([]byte(expHash))
 	require.Nil(t, err)
 
@@ -97,7 +65,7 @@ func TestNewWithValidation_Bootstrap(t *testing.T) {
 	require.Nil(t, err)
 	defer fpr.Close()
 
-	fpv, err := NewWithValidation(ioutil.Discard, fpr)
+	fpv, err := NewWithValidation(val, ioutil.Discard, fpr)
 	require.Nil(t, err)
 
 	gotHash := fpv.Hash()
@@ -105,7 +73,8 @@ func TestNewWithValidation_Bootstrap(t *testing.T) {
 }
 
 func TestNewWithValidation_Restart(t *testing.T) {
-	defer overrideDefaultSources()()
+	val := []byte("foobar")
+	expHash := fmt.Sprintf("%x", sha256.Sum256(val))
 
 	fpfile, err := ioutil.TempFile("", "host_fingerprint")
 	if err != nil {
@@ -113,8 +82,7 @@ func TestNewWithValidation_Restart(t *testing.T) {
 	}
 	defer fpfile.Close()
 
-	expHash := "9da4115ce0f86d58f8cd1d66688ac6e644f72172e8a6ef4a026dca10d26e6617"
-	prevFpfile, err := os.OpenFile(fpfile.Name(), os.O_RDWR, 0644)
+	prevFpfile, err := os.OpenFile(fpfile.Name(), os.O_RDWR, 0o644)
 	require.Nil(t, err)
 	defer prevFpfile.Close()
 
@@ -131,15 +99,13 @@ func TestNewWithValidation_Restart(t *testing.T) {
 	require.Nil(t, err)
 	defer fpw.Close()
 
-	errfpv, err := NewWithValidation(fpw, fpr)
+	errfpv, err := NewWithValidation(val, fpw, fpr)
 	require.Nil(t, err)
 
 	require.Equal(t, expHash, errfpv.Hash())
 }
 
 func TestNewWithValidation_Regression(t *testing.T) {
-	defer overrideDefaultSources()()
-
 	oldfpf, err := ioutil.TempFile("", "host_fingerprint")
 	require.Nil(t, err)
 
@@ -154,7 +120,7 @@ func TestNewWithValidation_Regression(t *testing.T) {
 	require.Nil(t, err)
 	defer fpr.Close()
 
-	errfpv, err := NewWithValidation(ioutil.Discard, fpr)
+	errfpv, err := NewWithValidation([]byte(""), ioutil.Discard, fpr)
 	require.NotNil(t, err)
 
 	require.Equal(t, "", errfpv.Hash())

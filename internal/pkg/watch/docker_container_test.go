@@ -1,8 +1,6 @@
 package watch
 
 import (
-	"agent/api/v1/model"
-	"agent/internal/pkg/discover/utils"
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +12,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
+	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/global"
 
 	"github.com/docker/docker/api/types"
 	dt "github.com/docker/docker/api/types"
@@ -110,6 +113,8 @@ func TestContainerWatch_happy(t *testing.T) {
 	emitch := make(chan interface{}, 10)
 	w.Subscribe(emitch)
 
+	global.BlockchainNode = &MockBlockchain{}
+	discover.Init()
 	Start(w)
 
 	expEvents := []string{
@@ -124,13 +129,13 @@ func TestContainerWatch_happy(t *testing.T) {
 			// check agent.node.up event is emitted on discovery
 			select {
 			case got, ok := <-emitch:
-				msg, err := got.(model.Message)
+				msg, err := got.(*model.Message)
 				require.True(t, err)
 
 				t.Logf("%+v", msg.String())
 				require.True(t, ok)
 				require.NotNil(t, got)
-				require.IsType(t, model.Message{}, got)
+				require.IsType(t, &model.Message{}, got)
 
 				require.Equal(t, msg.Type, model.MessageType_event)
 			case <-time.After(5 * time.Second):
@@ -203,24 +208,73 @@ func TestContainerWatch_error(t *testing.T) {
 
 	expEvents := []string{
 		model.AgentNodeUpName,      // emitted on discovery
-		model.AgentNodeUpName,      // emitted while repairing the event stream
-		model.AgentNodeRestartName, // emitted manually by the mock adapther
+		model.AgentNodeRestartName, // emitted manually by the mock adapter
 	}
 
 	for _, ev := range expEvents {
 		t.Run(ev, func(t *testing.T) {
 			select {
 			case got, ok := <-emitch:
-				msg, err := got.(model.Message)
+				msg, err := got.(*model.Message)
 				require.True(t, err)
 
 				require.True(t, ok)
 				require.NotNil(t, got)
-				require.IsType(t, model.Message{}, got)
+				require.IsType(t, &model.Message{}, got)
 				require.Equal(t, msg.Type, model.MessageType_event)
 			case <-time.After(5 * time.Second):
 				t.Fatal("timeout waiting for event from watch")
 			}
 		})
 	}
+}
+
+type MockBlockchain struct{}
+
+func (m *MockBlockchain) IsConfigured() bool {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockBlockchain) ResetConfig() error {
+	panic("not implemented") // TODO: Implement
+}
+
+// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
+func (m *MockBlockchain) PEFEndpoints() []global.PEFEndpoint {
+	panic("not implemented") // TODO: Implement
+}
+
+// ContainerRegex returns a regex-compatible strings to identify the blockchain node
+// if it is running as a docker container.
+func (m *MockBlockchain) ContainerRegex() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
+func (m *MockBlockchain) LogEventsList() map[string]model.FromContext {
+	panic("not implemented") // TODO: Implement
+}
+
+// NodeLogPath returns the path to the log file to watch.
+// Supports special keys like "docker" or "journald <service-name>"
+// TODO: string -> []string perhaps
+func (m *MockBlockchain) NodeLogPath() string {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockBlockchain) NodeID() string {
+	return "mock-node-id"
+}
+
+func (m *MockBlockchain) NodeType() string {
+	return "mock-node-type"
+}
+
+func (m *MockBlockchain) NodeVersion() string {
+	return "mock-node-version"
+}
+
+// DiscoverContainer returns the container discovered or an error if any occurs
+func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
+	return &types.Container{}, nil
 }

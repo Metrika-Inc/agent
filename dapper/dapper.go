@@ -1,19 +1,22 @@
 package dapper
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 
-	dt "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
 )
 
@@ -29,12 +32,15 @@ const (
 type Dapper struct {
 	config       DapperConfig
 	renderNeeded bool // if any config value was empty but got updated
-	container    *dt.Container
+	container    *types.Container
 	env          map[string]string
+	nodeRole     string
+	nodeVersion  string
+	mutex        *sync.RWMutex
 }
 
 func NewDapper() (*Dapper, error) {
-	dapper := &Dapper{}
+	dapper := &Dapper{mutex: &sync.RWMutex{}}
 	config := NewDapperConfig(DefaultDapperPath)
 	var err error
 	dapper.config, err = config.Load()
@@ -52,6 +58,9 @@ func NewDapper() (*Dapper, error) {
 }
 
 func (d *Dapper) ResetConfig() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	var err error
 	config := NewDapperConfig(DefaultDapperPath)
 	d.config, err = config.Default()
@@ -59,6 +68,9 @@ func (d *Dapper) ResetConfig() error {
 }
 
 func (d *Dapper) IsConfigured() bool {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	if d.config.Client != "" && d.config.NodeID != "" && d.isPEFConfigured() {
 		zap.S().Debug("protocol is already configured, nothing to do here")
 		return true
@@ -74,7 +86,7 @@ func (d *Dapper) isPEFConfigured() bool {
 	return len(d.config.PEFEndpoints[0].URL) != 0
 }
 
-func (d *Dapper) Discover() error {
+func (d *Dapper) DiscoverContainer() (*types.Container, error) {
 	log := zap.S()
 	log.Info("dapper not fully configured, starting discovery")
 
@@ -87,6 +99,7 @@ func (d *Dapper) Discover() error {
 		d.env = env
 	}
 
+	errs := &utils.AutoConfigError{}
 	containers, err := utils.GetRunningContainers()
 	if err != nil {
 		log.Warnw("cannot access docker daemon, will attempt to auto-configure anyway", zap.Error(err))
@@ -94,22 +107,41 @@ func (d *Dapper) Discover() error {
 		container, err := utils.MatchContainer(containers, d.config.ContainerRegex)
 		if err != nil {
 			log.Warnw("unable to find running flow-go docker container, will attempt to auto-configure anyway")
+			errs.Append(err)
 		} else {
+			d.mutex.Lock()
 			d.container = &container
+			d.mutex.Unlock()
 		}
 	}
 
-	errs := &utils.AutoConfigError{}
-	if err := d.Client(); err != nil {
-		log.Error("could not find client name")
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if err := d.configureClient(); err != nil {
+		log.Warn("could not find client name")
+
 		errs.Append(err)
 	}
-	if err := d.NodeID(); err != nil {
-		log.Error("could not find node ID")
+	if _, err := d.configureNodeID(); err != nil {
+		log.Warn("could not find node ID")
 		errs.Append(err)
 	}
-	if err := d.DiscoverPEFEndpoints(); err != nil {
-		log.Error("could not find PEF metric endpoints")
+
+	if d.container != nil && len(d.container.Names) > 0 {
+		if _, err := d.updateNodeType(d.container.Names[0]); err != nil {
+			log.Warn("could not find node type")
+			errs.Append(err)
+		}
+	}
+
+	if _, err := d.updateNodeVersion(); err != nil {
+		log.Warn("could not find node version")
+		// errs.Append(err)
+	}
+
+	if err := d.configurePEFEndpoints(); err != nil {
+		log.Warn("could not find PEF metric endpoints")
 		errs.Append(err)
 	}
 
@@ -119,17 +151,25 @@ func (d *Dapper) Discover() error {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
+		d.renderNeeded = false
 		DapperConf = &d.config
 	}
 
-	return errs.ErrIfAny()
+	return d.container, errs.ErrIfAny()
 }
 
-func (d *Dapper) NodeID() error {
+func (d *Dapper) NodeID() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.config.NodeID
+}
+
+func (d *Dapper) configureNodeID() (string, error) {
 	log := zap.S()
 	if d.config.NodeID != "" {
 		log.Debugw("NodeID exists, skipping discovery", "node_id", d.config.NodeID)
-		return nil
+		return d.config.NodeID, nil
 	}
 	if d.container != nil {
 		args := strings.Split(d.container.Command, " ")
@@ -140,7 +180,7 @@ func (d *Dapper) NodeID() error {
 					nodeID = args[i][eqIndex+1:]
 				} else {
 					if i+1 >= len(args) {
-						return fmt.Errorf("potentially invalid docker run command: %s", d.container.Command)
+						return "", fmt.Errorf("potentially invalid docker run command: %s", d.container.Command)
 					}
 					nodeID = args[i+1]
 				}
@@ -148,7 +188,7 @@ func (d *Dapper) NodeID() error {
 					log.Infow("node id found", "node_id", nodeID)
 					d.config.NodeID = nodeID
 					d.renderNeeded = true
-					return nil
+					return d.config.NodeID, nil
 				}
 			}
 		}
@@ -160,13 +200,13 @@ func (d *Dapper) NodeID() error {
 			log.Infow("node id found", "node_id", nodeID)
 			d.config.NodeID = nodeID
 			d.renderNeeded = true
-			return nil
+			return d.config.NodeID, nil
 		}
 	}
-	return errors.New("node ID not found")
+	return "", errors.New("node ID not found")
 }
 
-func (d *Dapper) DiscoverPEFEndpoints() error {
+func (d *Dapper) configurePEFEndpoints() error {
 	if d.isPEFConfigured() {
 		zap.S().Debug("PEFEndpoints already exist, skipping discovery")
 		return nil
@@ -230,34 +270,112 @@ func (d *Dapper) ValidateClient() error {
 	return nil
 }
 
-func (d *Dapper) Client() error {
+func (d *Dapper) configureClient() error {
 	if d.config.Client == "" {
 		d.config.Client = "flow-go"
 	}
 	return nil
 }
 
-// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
 func (d *Dapper) PEFEndpoints() []global.PEFEndpoint {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	return d.config.PEFEndpoints
 }
 
-// ContainerRegex returns a regex-compatible string to identify the blockchain node
-// if it is running on a docker container
 func (d *Dapper) ContainerRegex() []string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	return d.config.ContainerRegex
 }
 
-// LogEventsList returns a map containing all the blockchain node related events meant to be sampled.
 func (d *Dapper) LogEventsList() map[string]model.FromContext {
 	return eventsFromContext
 }
 
-// NodeLogPath returns the path to the log file to watch.
 func (d *Dapper) NodeLogPath() string {
 	return ""
 }
 
-func (d *Dapper) Hello() string {
-	return "dapper"
+func (d *Dapper) NodeType() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.nodeRole
+}
+
+func (d *Dapper) updateNodeType(containerName string) (string, error) {
+	if d.nodeRole != "" {
+		// TODO: node type discovery is quite expensive
+		// and we are not handling role changes for now
+		// so ignore further calls.
+		return d.nodeRole, nil
+	}
+
+	reader, err := utils.DockerLogs(
+		context.Background(),
+		containerName,
+		types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Tail:       "0",
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	// cleanup header from log line
+	hdr := make([]byte, 8)
+	reader.Read(hdr)
+
+	got, err := utils.GetLogLine(reader)
+	if err != nil {
+		return "", err
+	}
+
+	if len(got) == 0 {
+		return "", fmt.Errorf("empty log line")
+	}
+
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(got, &m); err != nil {
+		return "", err
+	}
+
+	if role, ok := m["node_role"]; ok {
+		d.nodeRole, ok = role.(string)
+		if !ok {
+			return "", fmt.Errorf("type assertion failed for node role: %v", role)
+		}
+		return d.nodeRole, nil
+	}
+
+	return "", nil
+}
+
+func (d *Dapper) NodeVersion() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.nodeVersion
+}
+
+func (d *Dapper) updateNodeVersion() (string, error) {
+	if d.container == nil {
+		return "", errors.New("node version: container not configured")
+	}
+
+	imageParts := strings.Split(d.container.Image, ":")
+	if len(imageParts) < 2 {
+		return "", fmt.Errorf("could not find node version: %v", d.container.Image)
+	}
+
+	d.nodeVersion = imageParts[1]
+
+	return d.nodeVersion, nil
 }

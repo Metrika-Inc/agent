@@ -1,22 +1,24 @@
 package collector
 
 import (
-	"agent/internal/pkg/global"
+	"fmt"
 	"os"
 	"testing"
 
-	"go.uber.org/zap"
+	"agent/internal/pkg/global"
 )
 
 func TestMain(m *testing.M) {
-	defaultConfigPathWas := global.DefaultConfigPath
-	global.DefaultConfigPath = "../../internal/pkg/global/agent.yml"
+	defaultConfigPathWas := global.DefaultAgentConfigPath
+	global.DefaultAgentConfigPath = "../../configs/agent.yml"
 	defer func() {
-		global.DefaultConfigPath = defaultConfigPathWas
+		global.DefaultAgentConfigPath = defaultConfigPathWas
 	}()
 
 	if err := global.LoadDefaultConfig(); err != nil {
-		zap.L().Fatal("failed to load config", zap.Error(err))
+		fmt.Printf("failed to load config: %v\n", err)
+
+		os.Exit(1)
 	}
 
 	os.Exit(m.Run())

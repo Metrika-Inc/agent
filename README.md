@@ -43,3 +43,8 @@ Event encoding is defined in the same [agent.proto](api/v1/proto/agent.proto) fi
 
 Useful links:
 * [google.protobuf.Struct](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Struct)
+
+### Reading the agent stream
+When `runtime.read_stream` is enabled, the agent will push data to all `global.Stream` implementations included in this [list](https://github.com/Metrika-Inc/agent/blob/gcp-do-hostname-uuid/internal/pkg/contrib/stream.go#L5). The implementation should at least start a Go routine consuming the data. All other agent functionality remains unaffected when this setting is enabled.
+
+An example implementation can be found [here](https://github.com/Metrika-Inc/agent/blob/gcp-do-hostname-uuid/internal/pkg/contrib/example.go).

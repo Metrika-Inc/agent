@@ -1,6 +1,7 @@
 package global
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -10,50 +11,87 @@ import (
 	"strings"
 	"time"
 
-	"agent/pkg/watch"
+	"agent/internal/pkg/cloudproviders/do"
+	"agent/internal/pkg/cloudproviders/gce"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v3"
 )
 
 var (
-	// AgentRuntimeConfig the agent runtime configuration
-	AgentRuntimeConfig AgentConfig
+	// AgentConf the agent loaded configuration
+	AgentConf AgentConfig
 
 	// AppName name to use for directories
 	AppName = "metrikad"
 
-	// OptPath for agent binary
-	OptPath = filepath.Join("/opt", AppName)
+	// AppOptPath for agent binary
+	AppOptPath = filepath.Join("/opt", AppName)
 
-	// EtcPath for agent configuration files
-	EtcPath = filepath.Join("/etc", AppName)
+	// AppEtcPath for agent configuration files
+	AppEtcPath = filepath.Join("/etc", AppName)
 
-	// DefaultConfigPath file path to load agent config from
-	DefaultConfigPath = filepath.Join(EtcPath, "agent.yml")
+	// DefaultAgentConfigName config filename
+	DefaultAgentConfigName = "agent.yml"
+
+	// DefaultAgentConfigPath file path to load agent config from
+	DefaultAgentConfigPath = filepath.Join(AppEtcPath, "configs", DefaultAgentConfigName)
 
 	// DefaultFingerprintFilename filename to use for the agent's hostname
-	DefaultFingerprintFilename = "fingerprint"
+	DefaultFingerprintFilename = "ma_fingerprint"
 
 	// AgentCacheDir directory for writing agent runtime data (i.e. hostname)
 	AgentCacheDir string
 
-	AgentUUID string
+	// AgentHostname the hostname detected
+	AgentHostname string
+
+	// DefaultRuntimeSamplingInterval default sampling interval
+	DefaultRuntimeSamplingInterval = 5 * time.Second
 )
+
+func setAgentHostnameOrFatal() {
+	var err error
+	if gce.IsRunningOn() {
+		// GCE
+		AgentHostname, err = gce.Hostname()
+	} else if do.IsRunningOn() {
+		// Digital Ocean
+		AgentHostname, err = do.Hostname()
+	} else {
+		AgentHostname, err = os.Hostname()
+	}
+
+	if err != nil {
+		log.Fatalf("error getting hostname: %v", err)
+	}
+}
 
 func init() {
 	var err error
 
+	// Agent cache directory (i.e $HOME/.cache/metrikad)
 	AgentCacheDir, err = os.UserCacheDir()
 	if err != nil {
-		zap.S().Fatalw("user cache directory error: ", zap.Error(err))
+		log.Fatalf("user cache directory error: :%v", err)
 	}
-	AgentCacheDir = filepath.Join(AgentCacheDir, AppName)
 
-	AgentUUID, err = FingerprintSetup()
+	// AgentCacheDir = filepath.Join(AgentCacheDir, AppName)
+	if err := os.Mkdir(AgentCacheDir, 0o755); err != nil &&
+		!errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrExist) {
+
+		log.Fatalf("error creating cache directory: %s (%v)", AgentCacheDir, err)
+	}
+
+	// Agent UUID
+	setAgentHostnameOrFatal()
+
+	// Fingerprint validation and caching persisted in the cache directory
+	_, err = FingerprintSetup()
 	if err != nil {
-		log.Fatal("fingerprint initialization error: ", err)
+		if !AgentConf.Runtime.DisableFingerprintValidation {
+			log.Fatalf("fingerprint initialization error: %v", err)
+		}
 	}
 }
 
@@ -72,16 +110,17 @@ type BufferConfig struct {
 }
 
 type WatchConfig struct {
-	Type             watch.WatchType `yaml:"type"`
-	SamplingInterval time.Duration   `yaml:"sampling_interval"`
+	Type             string        `yaml:"type"`
+	SamplingInterval time.Duration `yaml:"sampling_interval"`
 }
 
 type RuntimeConfig struct {
-	MetricsAddr      string         `yaml:"metrics_addr"`
-	Log              LogConfig      `yaml:"logging"`
-	SamplingInterval time.Duration  `yaml:"sampling_interval"`
-	ReadStream       bool           `yaml:"read_stream"`
-	Watchers         []*WatchConfig `yaml:"watchers"`
+	MetricsAddr                  string         `yaml:"metrics_addr"`
+	Log                          LogConfig      `yaml:"logging"`
+	SamplingInterval             time.Duration  `yaml:"sampling_interval"`
+	ReadStream                   bool           `yaml:"read_stream"`
+	Watchers                     []*WatchConfig `yaml:"watchers"`
+	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
 }
 
 type AgentConfig struct {
@@ -117,30 +156,41 @@ func (l LogConfig) Level() zapcore.Level {
 	return zapLevelMapper[l.Lvl]
 }
 
+var configFilePriority = []string{
+	DefaultAgentConfigName,
+	DefaultAgentConfigPath,
+}
+
 func LoadDefaultConfig() error {
-	log := zap.S()
+	var (
+		content []byte
+		err     error
+	)
 
-	log.Error("trying config: %s", DefaultConfigPath)
-	content, err := ioutil.ReadFile(DefaultConfigPath)
-	if err != nil {
-		metaPath := filepath.Join(EtcPath, DefaultConfigPath)
-
-		log.Error("trying config: %s", metaPath)
-		content, err = ioutil.ReadFile(metaPath)
-		if err != nil {
-			return err
+	for _, fn := range configFilePriority {
+		content, err = ioutil.ReadFile(fn)
+		if err == nil {
+			break
 		}
+	}
+
+	if err != nil {
+		log.Printf("configuration file %s not found", DefaultAgentConfigName)
 
 		return err
 	}
 
-	if err := yaml.Unmarshal(content, &AgentRuntimeConfig); err != nil {
+	if err := yaml.Unmarshal(content, &AgentConf); err != nil {
 		return err
 	}
 
-	for _, watchConf := range AgentRuntimeConfig.Runtime.Watchers {
+	if AgentConf.Runtime.SamplingInterval == 0 {
+		AgentConf.Runtime.SamplingInterval = DefaultRuntimeSamplingInterval
+	}
+
+	for _, watchConf := range AgentConf.Runtime.Watchers {
 		if watchConf.SamplingInterval == 0*time.Second {
-			watchConf.SamplingInterval = AgentRuntimeConfig.Runtime.SamplingInterval
+			watchConf.SamplingInterval = AgentConf.Runtime.SamplingInterval
 		}
 	}
 
@@ -152,7 +202,7 @@ func LoadDefaultConfig() error {
 }
 
 func createLogFolders() error {
-	for _, logPath := range AgentRuntimeConfig.Runtime.Log.Outputs {
+	for _, logPath := range AgentConf.Runtime.Log.Outputs {
 		if strings.HasSuffix(logPath, "/") {
 			return fmt.Errorf("invalid log output path ending with '/': %s", logPath)
 		}

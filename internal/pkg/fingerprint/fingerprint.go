@@ -7,10 +7,7 @@ import (
 	"io/ioutil"
 )
 
-var (
-	defaultSources = []source{CPUInfo{}, Hostname{}, MACAddress{}}
-	zerofp         = Fingerprint{}
-)
+var zerofp = Fingerprint{}
 
 type ValidationError struct {
 	err error
@@ -53,8 +50,8 @@ func (f Fingerprint) Write() error {
 	return nil
 }
 
-func validate(newfp Fingerprint, oldfpr io.Reader) error {
-	prevHashBytes, err := ioutil.ReadAll(oldfpr)
+func validate(newfp Fingerprint, prev io.Reader) error {
+	prevHashBytes, err := ioutil.ReadAll(prev)
 	if err != nil {
 		return err
 	}
@@ -72,13 +69,13 @@ func validate(newfp Fingerprint, oldfpr io.Reader) error {
 
 // NewWithValidation creates a new fingerprint with writer next
 // and validates it against previous fingerprint located under p.
-func NewWithValidation(newfpw io.Writer, oldfpr io.Reader) (Fingerprint, error) {
-	newfp, err := New(newfpw)
+func NewWithValidation(val []byte, out io.Writer, prev io.Reader) (Fingerprint, error) {
+	newfp, err := New(out, val)
 	if err != nil {
 		return zerofp, err
 	}
 
-	if err := validate(newfp, oldfpr); err != nil {
+	if err := validate(newfp, prev); err != nil {
 		return zerofp, err
 	}
 
@@ -87,24 +84,17 @@ func NewWithValidation(newfpw io.Writer, oldfpr io.Reader) (Fingerprint, error) 
 
 // New returns a Fingerprint that is initialized by computing a
 // SHA256 hash from a list of default sources.
-func New(out io.Writer) (Fingerprint, error) {
+func New(out io.Writer, val []byte) (Fingerprint, error) {
 	h := sha256.New()
-	for _, src := range defaultSources {
-		srcBytes, err := src.bytes()
-		if err != nil {
-			return zerofp, err
-		}
 
-		n, err := h.Write(srcBytes)
-		if err != nil {
-			return zerofp, err
-		}
+	n, err := h.Write(val)
+	if err != nil {
+		return zerofp, err
+	}
 
-		if n != len(srcBytes) {
-			err := fmt.Errorf("unexpected number of bytes written: %d/%d",
-				n, len(srcBytes))
-			return zerofp, err
-		}
+	if n != len(val) {
+		err := fmt.Errorf("unexpected number of bytes written: %d/%d", n, len(val))
+		return zerofp, err
 	}
 
 	hstr := fmt.Sprintf("%x", h.Sum(nil))

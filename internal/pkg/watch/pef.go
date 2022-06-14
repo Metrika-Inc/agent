@@ -1,11 +1,12 @@
 package watch
 
 import (
+	"bytes"
+	"strings"
+
 	"agent/api/v1/model"
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
-	"bytes"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -64,12 +65,19 @@ func (p *PEFWatch) parseAndEmit() {
 			}
 
 			for _, family := range mf {
-				data, err := proto.Marshal(family)
+				openMetricFam, err := dtoToOpenMetrics(family)
+				if err != nil {
+					p.Log.Errorw("failed to convert to openmetrics", zap.Error(err))
+
+					continue
+				}
+
+				data, err := proto.Marshal(openMetricFam)
 				if err != nil {
 					p.Log.Errorw("failed to marshal MetricFamily", zap.Error(err))
 					continue
 				}
-				msg := model.Message{
+				msg := &model.Message{
 					Timestamp: timesync.Now().UnixMilli(),
 					Type:      model.MessageType_metric,
 					Name:      "pef." + strings.ToLower(*family.Name),

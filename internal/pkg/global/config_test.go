@@ -16,10 +16,10 @@ func TestCreateLogFolders(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		AgentRuntimeConfig.Runtime.Log.Outputs = tc.paths
+		AgentConf.Runtime.Log.Outputs = tc.paths
 		err := createLogFolders()
 		require.NoError(t, err)
-		for _, path := range AgentRuntimeConfig.Runtime.Log.Outputs {
+		for _, path := range AgentConf.Runtime.Log.Outputs {
 			_, err := os.Create(path)
 			require.NoError(t, err)
 			defer func() {

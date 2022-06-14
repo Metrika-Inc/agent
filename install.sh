@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-set -x
+# set -x
 
 # TODO: search for better logging practices
 function goodbye {
@@ -19,12 +19,10 @@ fi
 
 case $MA_BLOCKCHAIN in
     dapper)
-        echo -e "dapper"
         BLOCKCHAIN_CONFIG_TEMPLATE_NAME="dapper.template"
         BLOCKCHAIN_CONFIG_NAME="dapper.yml"
         ;;
     algorand)
-        echo -n "algorand"
         BLOCKCHAIN_CONFIG_TEMPLATE_NAME="algorand.template"
         BLOCKCHAIN_CONFIG_NAME="algorand.yml"
         ;;
@@ -43,11 +41,11 @@ BIN_NAME=metrikad-$BLOCKCHAIN
 MA_USER=metrikad
 MA_GROUP=$MA_USER
 APP_METADATA_DIR="/etc/$APP_NAME"
-INSTALL_DIR="/opt/$APP_NAME"
+APP_INSTALL_DIR="/opt/$APP_NAME"
 KNOWN_DISTRIBUTION="(Debian|Ubuntu)"
-CONFIG_NAME="agent.yml"
+AGENT_CONFIG_NAME="agent.yml"
 AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
-AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$CONFIG_NAME"
+AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
 
 ###lib start##
 
@@ -80,11 +78,49 @@ function download_binary {
     log_info "Downloading binary..."
 }
 
-function create_systemd_service {
-    $sudo_cmd systemctl --no-pager status -l $BIN_NAME.service || echo "Systemd service already exists, would you like to re-create it? (y/n)"
-    # read $ans
-    # check ans == 'y'
+function stop_service {
+    echo "Stopping the agent, this might take few seconds..."
 
+    $sudo_cmd systemctl stop -l "$BIN_NAME"|| true
+    $sudo_cmd systemctl disable -l "$BIN_NAME" || true
+}
+
+function purge {
+    stop_service
+
+    # remove metadata
+    $sudo_cmd rm -f $APP_METADATA_DIR/configs/*
+    $sudo_cmd rm -f $APP_METADATA_DIR/$AGENT_CONFIG_NAME
+    $sudo_cmd rmdir $APP_METADATA_DIR/configs || true
+    $sudo_cmd rmdir $APP_METADATA_DIR || true
+
+    # remove installation directory
+    $sudo_cmd rm -f $APP_INSTALL_DIR/"$BIN_NAME"
+    $sudo_cmd rmdir --ignore-fail-on-non-empty $APP_INSTALL_DIR || true
+
+    # remove user artifacts
+    $sudo_cmd userdel $MA_USER || true
+}
+
+function uninstall {
+    stop_service
+
+    $sudo_cmd rm -f "/lib/systemd/system/$BIN_NAME.service"
+    $sudo_cmd rm -f "$APP_INSTALL_DIR/$BIN_NAME"
+    $sudo_cmd userdel $MA_USER || true
+}
+
+function service_exists {
+    status=$("$sudo_cmd" systemctl --no-pager list-units --full -all | grep -F "$BIN_NAME".service)
+
+    if [[ -n "$status" || -f "$APP_INSTALL_DIR/$BIN_NAME" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+function create_systemd_service {
     log_info "Creating systemd service..."
     service=$(envsubst <<EOF
 [Unit]
@@ -96,19 +132,20 @@ StartLimitIntervalSec=0
 Restart=always
 RestartSec=5
 User=$MA_USER
-ExecStart=/usr/bin/env $INSTALL_DIR/$BIN_NAME
+ExecStart=/usr/bin/env $APP_INSTALL_DIR/$BIN_NAME
 
 [Install]
 WantedBy=multi-user.target
 EOF
 )
     log_info "\033[1;32m $service ${end}"
-    echo "$service" | $sudo_cmd tee /lib/systemd/system/$BIN_NAME.service
+    echo "$service" | $sudo_cmd tee "/lib/systemd/system/$BIN_NAME.service"
     cd /etc/systemd/system
-    $sudo_cmd ln -s /lib/systemd/system/$BIN_NAME.service $BIN_NAME.service || true
+    $sudo_cmd ln -s "/lib/systemd/system/$BIN_NAME.service" "$BIN_NAME.service" || true
     $sudo_cmd systemctl daemon-reload
-    $sudo_cmd systemctl --no-pager status -l $BIN_NAME.service
-    $sudo_cmd systemctl enable $BIN_NAME.service
+    $sudo_cmd systemctl enable "$BIN_NAME.service"
+    $sudo_cmd systemctl --no-pager start -l "$BIN_NAME.service"
+    $sudo_cmd systemctl --no-pager status -l "$BIN_NAME.service"
 }
 
 ###lib end##
@@ -126,11 +163,40 @@ test -n "$DISTRIBUTION" || >&2 echo "Could not detect host OS distribution."
 if [ "$DISTRIBUTION" != "Darwin" ]; then
     echo "Detected host OS distribution: $DISTRIBUTION"
 
+    if service_exists; then
+        printf "\nA previous installation of the agent was detected.\n"
+        printf "\n1. Re-install the agent (will automatically uninstall first)."
+        printf "\n2. Uninstall the agent (keep metadata) and exit."
+        printf "\n3. Uninstall the agent completely."
+        printf "\n4. Quit."
+        printf "\n\n"
+        echo -n "How would you like to proceed? [1-4q]+ "
+
+        read -r ans
+        if  [ "$ans" == "1" ]; then
+          echo "Removing previous installation"
+          uninstall
+        elif  [ "$ans" == "2" ]; then
+          echo "Removing previous installation"
+          uninstall
+          exit 0
+        elif  [ "$ans" == "3" ]; then
+          purge
+          exit 0
+        elif  [ "$ans" == "4" ] || [ "$ans" == "q" ]; then
+          exit 0
+        else
+          echo "Uknown option $ans, aborting installation, goodbye"
+          exit 1
+        fi
+    fi
+
     echo "Creating system group(user): $MA_GROUP($MA_USER)"
     getent passwd "$MA_USER" >/dev/null || \
-        $sudo_cmd adduser --system --group --home $INSTALL_DIR --shell /sbin/nologin "$MA_USER" && \
+        $sudo_cmd adduser --system --group --home $APP_INSTALL_DIR --shell /sbin/nologin "$MA_USER" && \
         { $sudo_cmd usermod -L "$MA_USER" || \
             log_warn "Cannot lock the 'metrika-agent' user account"; }
+    $sudo_cmd usermod -aG docker $MA_USER
 
     echo "Preparing agent metadata directory: $APP_METADATA_DIR"
     $sudo_cmd mkdir -p $APP_METADATA_DIR/configs
@@ -138,13 +204,14 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
 
     # TODO download_binary
     echo "Downloading agent binary"
-    $sudo_cmd mkdir -p $INSTALL_DIR
+    $sudo_cmd mkdir -p $APP_INSTALL_DIR
     # wget --quiet -O "$BIN_NAME" "$AGENT_DOWNLOAD_URL"
-    # wget --quiet -O "$CONFIG_NAME" "$AGENT_CONFIG_DOWNLOAD_URL"
+    # wget --quiet -O "$AGENT_CONFIG_NAME" "$AGENT_CONFIG_DOWNLOAD_URL"
 
     echo "Installing agent..."
-    $sudo_cmd cp -t $INSTALL_DIR "$BIN_NAME"
-    $sudo_cmd cp -t $APP_METADATA_DIR $CONFIG_NAME
+    $sudo_cmd chown -R $MA_GROUP:$MA_USER $APP_INSTALL_DIR
+    $sudo_cmd cp -t $APP_INSTALL_DIR "$BIN_NAME"
+    $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$AGENT_CONFIG_NAME
     $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$BLOCKCHAIN_CONFIG_TEMPLATE_NAME
 
     create_systemd_service

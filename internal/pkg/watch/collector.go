@@ -101,7 +101,7 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				}
 
 				// Create & emit the metric
-				metricInternal := model.Message{
+				metricInternal := &model.Message{
 					Name:      string(c.Type),
 					Timestamp: timesync.Default.Now().UTC().UnixMilli(),
 					Type:      model.MessageType_metric,

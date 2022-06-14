@@ -14,14 +14,14 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/contrib"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/emit"
-	"agent/internal/pkg/factory"
 	"agent/internal/pkg/global"
-	"agent/pkg/contrib"
+	"agent/internal/pkg/watch"
+	"agent/internal/pkg/watch/factory"
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
-	"agent/pkg/watch"
 	"agent/publisher"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,7 +54,7 @@ func init() {
 	flag.Parse()
 
 	if err := global.LoadDefaultConfig(); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "%v", err)
 
 		os.Exit(1)
 	}
@@ -63,7 +63,7 @@ func init() {
 
 	global.BlockchainNode = discover.AutoConfig(*reset)
 	if *configureOnly {
-		fmt.Fprintf(os.Stdout, "configure only mode on, exiting")
+		zap.S().Info("configure only mode on, exiting")
 
 		os.Exit(0)
 	}
@@ -81,35 +81,29 @@ func init() {
 	go func() {
 		promHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
 		http.Handle("/metrics", promHandler)
-		http.ListenAndServe(global.AgentRuntimeConfig.Runtime.MetricsAddr, nil)
+		http.ListenAndServe(global.AgentConf.Runtime.MetricsAddr, nil)
 	}()
-
-	// var err error
-	// agentUUID, err = global.FingerprintSetup()
-	// if err != nil {
-	// 	log.Fatal("fingerprint initialization error: ", err)
-	// }
 
 	wg = &sync.WaitGroup{}
 	ctx, cancel = context.WithCancel(context.Background())
-	if global.AgentRuntimeConfig.Runtime.ReadStream {
+	if global.AgentConf.Runtime.ReadStream {
 		subCh := newSubscriptionChan()
 		subscriptions = append(subscriptions, subCh)
 
-		newStream, err := contrib.NewFileStream()
+		streams, err := contrib.GetStreams()
 		if err != nil {
 			log.Fatalf("could not create file stream: %v", err)
 		}
 
-		contrib.DefaultStreamRegisterer.Register(newStream)
-		contrib.DefaultStreamRegisterer.Start(ctx, wg, subCh)
+		global.DefaultStreamRegisterer.Register(streams...)
+		global.DefaultStreamRegisterer.Start(ctx, wg, subCh)
 	}
 }
 
 func setupZapLogger() {
 	cfg := zap.NewProductionConfig()
-	cfg.Level = zap.NewAtomicLevelAt(global.AgentRuntimeConfig.Runtime.Log.Level())
-	cfg.OutputPaths = global.AgentRuntimeConfig.Runtime.Log.Outputs
+	cfg.Level = zap.NewAtomicLevelAt(global.AgentConf.Runtime.Log.Level())
+	cfg.OutputPaths = global.AgentConf.Runtime.Log.Outputs
 	if len(cfg.OutputPaths) == 0 {
 		cfg.OutputPaths = []string{"stdout"}
 	}
@@ -160,9 +154,9 @@ func defaultWatchers() []watch.Watcher {
 	eps := global.BlockchainNode.PEFEndpoints()
 	for _, ep := range eps {
 		httpConf := watch.HttpGetWatchConf{
-			Interval: global.AgentRuntimeConfig.Runtime.SamplingInterval,
+			Interval: global.AgentConf.Runtime.SamplingInterval,
 			Url:      ep.URL,
-			Timeout:  global.AgentRuntimeConfig.Platform.TransportTimeout,
+			Timeout:  global.AgentConf.Platform.TransportTimeout,
 			Headers:  nil,
 		}
 		httpWatch := watch.NewHttpGetWatch(httpConf)
@@ -174,14 +168,10 @@ func defaultWatchers() []watch.Watcher {
 	return dw
 }
 
-func registerReadStream() error {
-	return nil
-}
-
 func registerWatchers() error {
 	watchersEnabled := []watch.Watcher{}
 
-	for _, watcherConf := range global.AgentRuntimeConfig.Runtime.Watchers {
+	for _, watcherConf := range global.AgentConf.Runtime.Watchers {
 		w := factory.NewWatcherByType(*watcherConf)
 		if w == nil {
 			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
@@ -192,7 +182,7 @@ func registerWatchers() error {
 
 	watchersEnabled = append(watchersEnabled, defaultWatchers()...)
 
-	if err := global.WatcherRegistry.Register(watchersEnabled...); err != nil {
+	if err := factory.WatcherRegistry.Register(watchersEnabled...); err != nil {
 		return err
 	}
 
@@ -204,31 +194,32 @@ func main() {
 	defer log.Sync()
 
 	conf := publisher.TransportConf{
-		URL:            global.AgentRuntimeConfig.Platform.Addr,
-		UUID:           global.AgentUUID,
-		Timeout:        global.AgentRuntimeConfig.Platform.TransportTimeout,
-		MaxBatchLen:    global.AgentRuntimeConfig.Platform.BatchN,
-		MaxBufferBytes: global.AgentRuntimeConfig.Buffer.Size,
-		PublishIntv:    global.AgentRuntimeConfig.Platform.MaxPublishInterval,
-		BufferTTL:      global.AgentRuntimeConfig.Buffer.TTL,
-		RetryCount:     global.AgentRuntimeConfig.Platform.RetryCount,
+		UUID:           global.AgentHostname,
+		URL:            global.AgentConf.Platform.Addr,
+		Timeout:        global.AgentConf.Platform.TransportTimeout,
+		MaxBatchLen:    global.AgentConf.Platform.BatchN,
+		MaxBufferBytes: global.AgentConf.Buffer.Size,
+		PublishIntv:    global.AgentConf.Platform.MaxPublishInterval,
+		BufferTTL:      global.AgentConf.Buffer.TTL,
+		RetryCount:     global.AgentConf.Platform.RetryCount,
 	}
 
 	pub := publisher.NewTransport(ch, conf)
-
 	pub.Start(wg)
 
 	if err := registerWatchers(); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := global.WatcherRegistry.Start(subscriptions...); err != nil {
+	if err := factory.WatcherRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
 	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigs
+	log.Infof("received OS signal %v", sig)
+	log.Debug("agent is shutting down...")
 
 	go func() {
 		// force exit if we get more signals after the first one
@@ -236,15 +227,9 @@ func main() {
 		signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
 		sig := <-sigs
-		switch sig {
-		case os.Interrupt, syscall.SIGTERM:
-			log.Warnf("received OS signal %v (forced)", sig)
+		log.Warnf("received OS signal %v (forced)", sig)
 
-			os.Exit(1)
-		default:
-			// just exit
-			os.Exit(1)
-		}
+		os.Exit(1)
 	}()
 
 	ctx := map[string]interface{}{"signal_number": sig.String()}
@@ -253,30 +238,18 @@ func main() {
 		log.Error("error creating event: ", err)
 	}
 
-	log.Infof("received OS signal %v", sig)
-	switch sig {
-	case os.Interrupt, syscall.SIGTERM:
-		log.Debug("agent shut down")
-
-		if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
-			log.Error("error emitting event: ", err)
-		}
-
-		// stop watchers and wait for goroutine cleanup
-		global.WatcherRegistry.Stop()
-		global.WatcherRegistry.Wait()
-
-		// stop publisher and wait for buffers to drain
-		pub.Stop()
-		cancel()
-		wg.Wait()
-
-		log.Info("agent shutdown complete")
-	default:
-		log.Warn("agent killed with %v", sig)
-
-		os.Exit(1)
+	if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+		log.Error("error emitting event: ", err)
 	}
 
-	log.Info("goodbye")
+	// stop watchers and wait for goroutine cleanup
+	factory.WatcherRegistry.Stop()
+	factory.WatcherRegistry.Wait()
+
+	// stop publisher and wait for buffers to drain
+	pub.Stop()
+	cancel()
+	wg.Wait()
+
+	log.Info("shutdown complete, goodbye")
 }

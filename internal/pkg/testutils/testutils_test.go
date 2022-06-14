@@ -1,12 +1,13 @@
 package testutils
 
 import (
-	"agent/internal/pkg/factory"
-	"agent/internal/pkg/global"
-	"agent/pkg/watch"
 	"fmt"
 	"os"
 	"testing"
+
+	"agent/internal/pkg/global"
+	"agent/internal/pkg/watch"
+	"agent/internal/pkg/watch/factory"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,13 +46,13 @@ func TestGenerateCollectorSamples(t *testing.T) {
 
 	collectorConfigs := []*global.WatchConfig{}
 	for _, w := range collectorList {
-		collectorConfigs = append(collectorConfigs, &global.WatchConfig{Type: watch.WatchType(w)})
+		collectorConfigs = append(collectorConfigs, &global.WatchConfig{Type: w})
 	}
 
 	metricFamilies := GetMetricFamilySamples(t, collectorConfigs, outputPath)
 	m := jsonpb.Marshaler{}
 	file, err := os.OpenFile(outputPath,
-		os.O_CREATE|os.O_RDWR, 0644)
+		os.O_CREATE|os.O_RDWR, 0o644)
 	require.NoError(t, err)
 	defer file.Close()
 	for _, metricFamily := range metricFamilies {

@@ -1,9 +1,10 @@
 package watch
 
 import (
-	"agent/api/v1/model"
 	"testing"
 	"time"
+
+	"agent/api/v1/model"
 
 	"github.com/stretchr/testify/require"
 )
@@ -26,8 +27,10 @@ func (o *onVoting) New(v map[string]interface{}) (*model.Event, error) {
 	ev, err := model.NewWithFilteredCtx(v,
 		"OnVoting",
 		"OnVotingTestDesc",
-		[]string{"node_role", "node_id", "hotstuff", "chain", "path_id",
-			"view", "voted_block_view", "voted_block_id", "voter_id", "time"}...,
+		[]string{
+			"node_role", "node_id", "hotstuff", "chain", "path_id",
+			"view", "voted_block_view", "voted_block_id", "voter_id", "time",
+		}...,
 	)
 	if err != nil {
 		return nil, err
@@ -59,7 +62,7 @@ func TestDockerLogs_happy(t *testing.T) {
 
 	Start(w)
 
-	expMessages := []model.Message{
+	expMessages := []*model.Message{
 		{Name: "agent.node.log.found", Type: model.MessageType_event},
 		{Name: "OnVoting", Type: model.MessageType_event},
 		{Name: "OnVoting", Type: model.MessageType_event},
@@ -75,12 +78,13 @@ func TestDockerLogs_happy(t *testing.T) {
 		select {
 		case got := <-emitch:
 			require.NotNil(t, got)
-			require.IsType(t, model.Message{}, got)
+			require.IsType(t, &model.Message{}, got)
 
-			gotmsg, _ := got.(model.Message)
+			gotmsg, ok := got.(*model.Message)
+			require.True(t, ok)
 			require.Equal(t, expmsg.Type, gotmsg.Type)
 			require.Equal(t, expmsg.Name, gotmsg.Name)
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 			t.Fatalf("timeout waiting for message %s (%d)", expmsg.Name, i)
 		}
 	}

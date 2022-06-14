@@ -76,16 +76,18 @@ protogen:
 	cd $(PROTOC_TMP); git clone https://github.com/prometheus/client_model.git && mv client_model/io/ $(PWD)/tmp/go/
 	cd $(PROTOC_TMP); git clone https://github.com/OpenObservability/OpenMetrics.git && mv OpenMetrics/proto/openmetrics_data_model.proto $(PWD)/tmp/openmetrics/openmetrics.proto
 
+	echo '\noption go_package = "./;model";\n' >> $(PWD)/tmp/openmetrics/openmetrics.proto
+	mv $(PWD)/tmp/openmetrics/openmetrics.proto api/v1/proto/
 	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin/protoc
 	GOBIN=$(PWD)/tmp/bin go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	GOBIN=$(PWD)/tmp/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 
 	PATH=$(PWD)/tmp/bin:$$PATH protoc \
 	-I tmp/include -I tmp/go -I api/v1/proto -I tmp/openmetrics \
-	--go_opt=Mtmp/openmetrics/openmetrics.proto=agent/api/v1/model \
+	--go_opt=Mapi/v1/openmetrics.proto=agent/api/v1/model \
 	--go_out=api/v1/model \
 	--go-grpc_out=api/v1/model \
-	api/v1/proto/agent.proto tmp/openmetrics/openmetrics.proto
+	api/v1/proto/agent.proto api/v1/proto/openmetrics.proto
 
 .PHONY: build
 build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))
