@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"agent/internal/pkg/cloudproviders/do"
+	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/gce"
 
 	"go.uber.org/zap/zapcore"
@@ -58,6 +59,9 @@ func setAgentHostnameOrFatal() {
 	} else if do.IsRunningOn() {
 		// Digital Ocean
 		AgentHostname, err = do.Hostname()
+	} else if ec2.IsRunningOn() {
+		// AWS EC2
+		AgentHostname, err = ec2.Hostname()
 	} else {
 		AgentHostname, err = os.Hostname()
 	}

@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	cloud.google.com/go/compute v1.6.1
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.7
 	github.com/beevik/ntp v0.3.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/digitalocean/go-metadata v0.0.0-20220602160802-6f1b22e9ba8c
@@ -26,6 +27,8 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.4.17 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.16.6 // indirect
+	github.com/aws/smithy-go v1.12.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/containerd v1.5.9 // indirect
