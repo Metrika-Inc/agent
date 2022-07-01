@@ -1,6 +1,9 @@
 ---
 platform:
 
+  # api_key: authentication key for the Metrika platform
+  api_key: <api_key>
+
   # batch_n: integer, the maximum number of metrics/events to be emitted at
   # each publish operation to the platform.
   batch_n: 1000

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -46,6 +47,9 @@ type TransportConf struct {
 
 	// UUID the agent's unique identifier
 	UUID string
+
+	// APIKey authentication key for the Metrika platform
+	APIKey string
 
 	// Timeout default timeout for requests to the platform
 	Timeout time.Duration
@@ -93,11 +97,11 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	}
 }
 
-func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int64, error) {
+	ctx, cancel := context.WithTimeout(reqCtx, 30*time.Second)
 	defer cancel()
 
-	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
+	uuid, err := stringFromContext(reqCtx, AgentUUIDContextKey)
 	if err != nil {
 		return 0, err
 	}
@@ -112,8 +116,12 @@ func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, 
 		}
 	}
 
+	// Anything linked to this variable will transmit request headers.
+	md := metadata.New(map[string]string{"x-agent-uuid": "req-123", "x-api-key": "12345"})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
 	// Transmit to platform. Failure here signifies transient error.
-	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
+	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
 		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
 		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)

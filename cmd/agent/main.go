@@ -195,6 +195,7 @@ func main() {
 
 	conf := publisher.TransportConf{
 		UUID:           global.AgentHostname,
+		APIKey:         global.AgentConf.Platform.APIKey,
 		URL:            global.AgentConf.Platform.Addr,
 		Timeout:        global.AgentConf.Platform.TransportTimeout,
 		MaxBatchLen:    global.AgentConf.Platform.BatchN,
