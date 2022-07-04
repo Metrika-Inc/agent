@@ -69,7 +69,7 @@ build-%: generate-%
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
 	rm -rf $(PWD)/tmp/include/google $(PWD)/tmp/go/io
-	mkdir -p tmp/include tmp/go tmp/bin tmp/openmetrics
+	mkdir -p tmp/include tmp/go tmp/bin tmp/openmetrics api/v1/proto/openmetrics
 	
 	cd $(PROTOC_TMP); curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_VERSION)-$(PROTOC_OS)-$(PROTOC_ARCH).zip -o protoc.zip
 	cd $(PROTOC_TMP); unzip protoc.zip && mv include/google $(PWD)/tmp/include/
@@ -77,17 +77,17 @@ protogen:
 	cd $(PROTOC_TMP); git clone https://github.com/OpenObservability/OpenMetrics.git && mv OpenMetrics/proto/openmetrics_data_model.proto $(PWD)/tmp/openmetrics/openmetrics.proto
 
 	echo '\noption go_package = "./;model";\n' >> $(PWD)/tmp/openmetrics/openmetrics.proto
-	mv $(PWD)/tmp/openmetrics/openmetrics.proto api/v1/proto/
+	mv $(PWD)/tmp/openmetrics/openmetrics.proto api/v1/proto/openmetrics/
 	mv $(PROTOC_TMP)/bin/protoc $(PWD)/tmp/bin/protoc
 	GOBIN=$(PWD)/tmp/bin go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	GOBIN=$(PWD)/tmp/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 
 	PATH=$(PWD)/tmp/bin:$$PATH protoc \
 	-I tmp/include -I tmp/go -I api/v1/proto -I tmp/openmetrics \
-	--go_opt=Mapi/v1/openmetrics.proto=agent/api/v1/model \
+	--go_opt=Mapi/v1/openmetrics/openmetrics.proto=agent/api/v1/model \
 	--go_out=api/v1/model \
 	--go-grpc_out=api/v1/model \
-	api/v1/proto/agent.proto api/v1/proto/openmetrics.proto
+	api/v1/proto/agent.proto api/v1/proto/openmetrics/openmetrics.proto
 
 .PHONY: build
 build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))

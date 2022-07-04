@@ -1,7 +1,6 @@
 package buf
 
 import (
-	"encoding/json"
 	"math/rand"
 	"testing"
 	"time"
@@ -14,22 +13,22 @@ import (
 
 var (
 	defaultMaxBufferBytes = uint(1024 * 1024) // 1MB
-	testItemSz            = 160               // 152Bytes
+	testItemSz            = 168               // 152Bytes
 )
 
-func newTestItem(priority uint, m model.Message) Item {
-	return Item{Priority: Priority(priority),
+func newTestItem(priority uint, m *model.Message) Item {
+	return Item{
+		Priority:  Priority(priority),
 		Timestamp: m.Timestamp,
 		Bytes:     uint(unsafe.Sizeof(Item{})) + m.Bytes(),
 	}
 }
 
 func newTestMetric(timestamp int64) model.Message {
-	b, _ := json.Marshal("foobar")
 	return model.Message{
-		Name: "heap-test",
-		Type: model.MessageType_metric,
-		Body: b,
+		Name:  "heap-test",
+		Type:  model.MessageType_metric,
+		Value: &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 	}
 }
 
@@ -37,7 +36,7 @@ func newTestItemBatch(n int) ItemBatch {
 	got := make(ItemBatch, 0, n)
 	for i := 0; i < n; i++ {
 		metric := model.Message{Name: "heap-test", Timestamp: int64(i)}
-		got = append(got, newTestItem(0, metric))
+		got = append(got, newTestItem(0, &metric))
 	}
 
 	return got
@@ -193,7 +192,7 @@ func TestItemBatchAdd(t *testing.T) {
 	b := new(ItemBatch)
 
 	metric := newTestMetric(0)
-	item := newTestItem(0, metric)
+	item := newTestItem(0, &metric)
 	b.Add(item)
 
 	require.Equal(t, 1, len(*b))
@@ -203,7 +202,7 @@ func TestItemBatchClear(t *testing.T) {
 	b := new(ItemBatch)
 
 	metric := newTestMetric(0)
-	item := newTestItem(0, metric)
+	item := newTestItem(0, &metric)
 	b.Add(item)
 
 	require.Equal(t, 1, len(*b))
@@ -218,7 +217,7 @@ func TestItemBatchBytes(t *testing.T) {
 	require.Equal(t, uint(0), b.Bytes())
 
 	metric := newTestMetric(0)
-	item := newTestItem(0, metric)
+	item := newTestItem(0, &metric)
 	b.Add(item)
 
 	require.Equal(t, 1, len(*b))

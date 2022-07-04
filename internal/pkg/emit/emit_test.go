@@ -8,7 +8,6 @@ import (
 	"agent/api/v1/model"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestSimpleEmitter(t *testing.T) {
@@ -72,19 +71,17 @@ func TestEv(t *testing.T) {
 
 	evTime := time.Now()
 	ev := &model.Event{Name: "test-event"}
-	evb, err := proto.Marshal(ev)
-	require.Nil(t, err)
 
 	exp := &model.Message{
 		Name:      "test-event",
 		Type:      model.MessageType_event,
 		Timestamp: evTime.UnixMilli(),
-		Body:      evb,
+		Value:     &model.Message_Event{Event: ev},
 	}
 
 	se := &simpleEmitter{emitch}
 
-	err = Ev(se, evTime, ev)
+	err := Ev(se, evTime, ev)
 	require.Nil(t, err)
 
 	select {

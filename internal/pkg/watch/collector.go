@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 const namespace = "node"
@@ -94,18 +93,13 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				if err != nil {
 					c.Log.Errorw("failed to convert metric to openmetrics", err)
 				}
-				out, err := proto.Marshal(openMetricFam)
-				if err != nil {
-					c.Log.Errorw("failed to marshal a metric", zap.Error(err))
-					continue
-				}
 
 				// Create & emit the metric
 				metricInternal := &model.Message{
 					Name:      string(c.Type),
 					Timestamp: timesync.Default.Now().UTC().UnixMilli(),
 					Type:      model.MessageType_metric,
-					Body:      out,
+					Value:     &model.Message_MetricFamily{MetricFamily: openMetricFam},
 				}
 
 				c.Emit(metricInternal)

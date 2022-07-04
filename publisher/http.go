@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/proto"
 )
 
 type platformState int32
@@ -332,16 +331,11 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) erro
 
 	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
-	evBytes, err := proto.Marshal(ev)
-	if err != nil {
-		return err
-	}
-
 	m := &model.Message{
 		Name:      ev.GetName(),
 		Type:      model.MessageType_event,
 		Timestamp: timesync.Now().UnixMilli(),
-		Body:      evBytes,
+		Value:     &model.Message_Event{Event: ev},
 	}
 
 	item := buf.Item{
