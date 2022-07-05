@@ -56,10 +56,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	if err != nil {
 		ev, errev := model.NewWithCtx(
 			map[string]interface{}{
-				model.ContainerIDKeyName: w.lastContainerID,
-				model.NodeIDKeyName:      discover.NodeID(),
-				model.NodeTypeKeyName:    discover.NodeType(),
-				model.NodeVersionKeyName: discover.NodeVersion(),
+				model.ContainerIDKey: w.lastContainerID,
+				model.NodeIDKey:      discover.NodeID(),
+				model.NodeTypeKey:    discover.NodeType(),
+				model.NodeVersionKey: discover.NodeVersion(),
 			},
 			model.AgentNodeDownName, timesync.Now())
 		if errev != nil {
@@ -73,10 +73,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		return nil, nil, err
 	}
 	ev, err := model.NewWithCtx(map[string]interface{}{
-		model.ContainerIDKeyName: container.ID,
-		model.NodeIDKeyName:      discover.NodeID(),
-		model.NodeTypeKeyName:    discover.NodeType(),
-		model.NodeVersionKeyName: discover.NodeVersion(),
+		model.ContainerIDKey: container.ID,
+		model.NodeIDKey:      discover.NodeID(),
+		model.NodeTypeKey:    discover.NodeType(),
+		model.NodeVersionKey: discover.NodeVersion(),
 	}, model.AgentNodeUpName, timesync.Now())
 	if err != nil {
 		return nil, nil, err
@@ -109,10 +109,10 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	var ev *model.Event
 	var err error
 	ctx := map[string]interface{}{
-		model.ContainerIDKeyName: m.Actor.ID,
-		model.NodeIDKeyName:      discover.NodeID(),
-		model.NodeTypeKeyName:    discover.NodeType(),
-		model.NodeVersionKeyName: discover.NodeVersion(),
+		model.ContainerIDKey: m.Actor.ID,
+		model.NodeIDKey:      discover.NodeID(),
+		model.NodeTypeKey:    discover.NodeType(),
+		model.NodeVersionKey: discover.NodeVersion(),
 	}
 
 	switch m.Status {

@@ -92,7 +92,7 @@ func (t *TimeSync) Start(emitch chan<- interface{}) {
 			case <-t.ticker.C:
 				err := t.QueryNTP()
 				if err != nil {
-					ctx := map[string]interface{}{model.ErrorKeyName: err.Error()}
+					ctx := map[string]interface{}{model.ErrorKey: err.Error()}
 					EmitEventWithCtx(t, ctx, model.AgentClockNoSyncName)
 
 					zap.S().Errorw("failed to sync time with NTP server", zap.Error(err))
@@ -218,8 +218,8 @@ func EmitEvent(t *TimeSync, name string) error {
 func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name string) error {
 	t.RLock()
 	defaultCtx := map[string]interface{}{
-		model.NTPServerKeyName:    t.host,
-		model.OffsetMillisKeyName: time.Nanosecond * t.delta / time.Millisecond,
+		model.NTPServerKey:    t.host,
+		model.OffsetMillisKey: time.Nanosecond * t.delta / time.Millisecond,
 	}
 	t.RUnlock()
 

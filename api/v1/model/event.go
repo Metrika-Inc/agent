@@ -24,15 +24,15 @@ const (
 	| ntp_server     | string | The NTP server used by the agent's clock                          |
 	+----------------+--------+-------------------------------------------------------------------+ */
 
-	UptimeKeyName       = "uptime"
-	EndpointKeyName     = "endpoint"
-	ErrorKeyName        = "error"
-	ContainerIDKeyName  = "container_id"
-	NodeIDKeyName       = "node_id"
-	NodeTypeKeyName     = "node_type"
-	NodeVersionKeyName  = "node_version"
-	OffsetMillisKeyName = "offset_millis"
-	NTPServerKeyName    = "ntp_server"
+	AgentUptimeKey  = "uptime"
+	EndpointKey     = "endpoint"
+	ErrorKey        = "error"
+	ContainerIDKey  = "container_id"
+	NodeIDKey       = "node_id"
+	NodeTypeKey     = "node_type"
+	NodeVersionKey  = "node_version"
+	OffsetMillisKey = "offset_millis"
+	NTPServerKey    = "ntp_server"
 
 	/* core specific events */
 

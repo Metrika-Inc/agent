@@ -72,7 +72,7 @@ func init() {
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
 
-		ctx := map[string]interface{}{model.ErrorKeyName: err.Error()}
+		ctx := map[string]interface{}{model.ErrorKey: err.Error()}
 		timesync.EmitEventWithCtx(timesync.Default, ctx, model.AgentClockNoSyncName)
 	} else {
 		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName)
