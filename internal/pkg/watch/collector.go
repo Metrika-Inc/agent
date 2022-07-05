@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const namespace = "node"
@@ -71,6 +70,11 @@ func (c *CollectorWatch) StartUnsafe() {
 
 					continue
 				}
+
+				// set timestamps before pushing to handler
+				// goroutine to avoid further delays
+				setDTOMetriFamilyTimestamp(timesync.Now(), metricFamilies...)
+
 				c.handlerch <- metricFamilies
 			case <-c.stopCollectorCh:
 				return
@@ -93,15 +97,6 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 				openMetricFam, err := dtoToOpenMetrics(metricFam)
 				if err != nil {
 					c.Log.Errorw("failed to convert metric to openmetrics", err)
-				}
-
-				t := timesync.Default.Now()
-				for _, m := range openMetricFam.GetMetrics() {
-					for _, mp := range m.GetMetricPoints() {
-						if mp != nil {
-							mp.Timestamp = timestamppb.New(t)
-						}
-					}
 				}
 
 				// Create & emit the metric

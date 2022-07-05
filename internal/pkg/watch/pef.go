@@ -9,7 +9,6 @@ import (
 	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type PEFWatch struct {
@@ -63,6 +62,7 @@ func (p *PEFWatch) parseAndEmit() {
 				p.Log.Errorw("failed to parse PEF metrics", zap.Error(err))
 				continue
 			}
+			setDTOMetriFamilyTimestamp(timesync.Now(), mf...)
 
 			for _, family := range mf {
 				openMetricFam, err := dtoToOpenMetrics(family)
@@ -70,15 +70,6 @@ func (p *PEFWatch) parseAndEmit() {
 					p.Log.Errorw("failed to convert to openmetrics", zap.Error(err))
 
 					continue
-				}
-
-				t := timesync.Default.Now()
-				for _, m := range openMetricFam.GetMetrics() {
-					for _, mp := range m.GetMetricPoints() {
-						if mp != nil {
-							mp.Timestamp = timestamppb.New(t)
-						}
-					}
 				}
 
 				msg := &model.Message{
