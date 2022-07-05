@@ -136,8 +136,7 @@ func TestContainerWatch_happy(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, got)
 				require.IsType(t, &model.Message{}, got)
-
-				require.Equal(t, msg.Type, model.MessageType_event)
+				require.IsType(t, &model.Message_Event{}, msg.Value)
 			case <-time.After(5 * time.Second):
 				t.Fatal("timeout waiting for event from watch")
 			}
@@ -221,7 +220,7 @@ func TestContainerWatch_error(t *testing.T) {
 				require.True(t, ok)
 				require.NotNil(t, got)
 				require.IsType(t, &model.Message{}, got)
-				require.Equal(t, msg.Type, model.MessageType_event)
+				require.IsType(t, &model.Message_Event{}, msg.Value)
 			case <-time.After(5 * time.Second):
 				t.Fatal("timeout waiting for event from watch")
 			}

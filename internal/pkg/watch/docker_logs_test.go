@@ -19,14 +19,14 @@ func isOnVoting(v map[string]interface{}) bool {
 
 type onVoting struct{}
 
-func (o *onVoting) New(v map[string]interface{}) (*model.Event, error) {
+func (o *onVoting) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnVoting(v) {
 		return nil, nil
 	}
 
 	ev, err := model.NewWithFilteredCtx(v,
 		"OnVoting",
-		"OnVotingTestDesc",
+		t,
 		[]string{
 			"node_role", "node_id", "hotstuff", "chain", "path_id",
 			"view", "voted_block_view", "voted_block_id", "voter_id", "time",
@@ -63,15 +63,15 @@ func TestDockerLogs_happy(t *testing.T) {
 	Start(w)
 
 	expMessages := []*model.Message{
-		{Name: "agent.node.log.found", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
-		{Name: "agent.node.log.missing", Type: model.MessageType_event},
-		{Name: "agent.node.log.found", Type: model.MessageType_event},
-		{Name: "OnVoting", Type: model.MessageType_event},
+		{Name: "agent.node.log.found"},
+		{Name: "OnVoting"},
+		{Name: "OnVoting"},
+		{Name: "OnVoting"},
+		{Name: "OnVoting"},
+		{Name: "OnVoting"},
+		{Name: "agent.node.log.missing"},
+		{Name: "agent.node.log.found"},
+		{Name: "OnVoting"},
 	}
 
 	for i, expmsg := range expMessages {
@@ -82,8 +82,8 @@ func TestDockerLogs_happy(t *testing.T) {
 
 			gotmsg, ok := got.(*model.Message)
 			require.True(t, ok)
-			require.Equal(t, expmsg.Type, gotmsg.Type)
 			require.Equal(t, expmsg.Name, gotmsg.Name)
+			require.IsType(t, &model.Message_Event{}, gotmsg.Value)
 		case <-time.After(10 * time.Second):
 			t.Fatalf("timeout waiting for message %s (%d)", expmsg.Name, i)
 		}

@@ -131,7 +131,7 @@ func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int6
 	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
 		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
-		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
+		emitEventWithError(t, err, model.AgentNetErrorName)
 
 		// mark service for repair
 		t.agentService = nil
@@ -212,7 +212,7 @@ func (t *Transport) Connect() error {
 	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
 	if err != nil {
-		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
+		emitEventWithError(t, err, model.AgentNetErrorName)
 		return err
 	}
 
@@ -274,7 +274,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 
 				item := buf.Item{
 					Priority:  0,
-					Timestamp: m.Timestamp,
+					Timestamp: timesync.Now().UnixMilli(),
 					Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
 					Data:      m,
 				}
@@ -307,7 +307,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				prevErr = nil
 			case <-agentUpTimer.C:
 				agentUpCtx["uptime"] = time.Since(agentUppedTime).String()
-				emitEvent(t, agentUpCtx, model.AgentUpName, model.AgentUpDesc)
+				emitEvent(t, agentUpCtx, model.AgentUpName)
 			case <-t.closeCh:
 				t.log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
@@ -318,13 +318,13 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-func emitEventWithError(t *Transport, err error, name, desc string) error {
+func emitEventWithError(t *Transport, err error, name string) error {
 	ctx := map[string]interface{}{"error": err.Error()}
-	return emitEvent(t, ctx, name, desc)
+	return emitEvent(t, ctx, name)
 }
 
-func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) error {
-	ev, err := model.NewWithCtx(ctx, name, desc)
+func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
+	ev, err := model.NewWithCtx(ctx, name, timesync.Now())
 	if err != nil {
 		return err
 	}
@@ -332,17 +332,14 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) erro
 	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
 	m := &model.Message{
-		Name:      ev.GetName(),
-		Type:      model.MessageType_event,
-		Timestamp: timesync.Now().UnixMilli(),
-		Value:     &model.Message_Event{Event: ev},
+		Name:  ev.GetName(),
+		Value: &model.Message_Event{Event: ev},
 	}
 
 	item := buf.Item{
-		Priority:  0,
-		Timestamp: m.Timestamp,
-		Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
-		Data:      m,
+		Priority: 0,
+		Bytes:    uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
+		Data:     m,
 	}
 
 	_, err = t.buffer.Insert(item)

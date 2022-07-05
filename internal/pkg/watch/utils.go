@@ -1,9 +1,10 @@
 package watch
 
 import (
-	"agent/api/v1/model"
 	"errors"
 	"time"
+
+	"agent/api/v1/model"
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/types/known/timestamppb"

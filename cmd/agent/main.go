@@ -234,12 +234,12 @@ func main() {
 	}()
 
 	ctx := map[string]interface{}{"signal_number": sig.String()}
-	ev, err := model.NewWithCtx(ctx, model.AgentDownName, model.AgentDownDesc)
+	ev, err := model.NewWithCtx(ctx, model.AgentDownName, timesync.Now())
 	if err != nil {
 		log.Error("error creating event: ", err)
 	}
 
-	if err := emit.Ev(simpleEmitter, timesync.Now(), ev); err != nil {
+	if err := emit.Ev(simpleEmitter, ev); err != nil {
 		log.Error("error emitting event: ", err)
 	}
 

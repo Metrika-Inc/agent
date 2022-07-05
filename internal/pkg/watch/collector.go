@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const namespace = "node"
@@ -94,12 +95,19 @@ func (c *CollectorWatch) handlePrometheusMetric() {
 					c.Log.Errorw("failed to convert metric to openmetrics", err)
 				}
 
+				t := timesync.Default.Now()
+				for _, m := range openMetricFam.GetMetrics() {
+					for _, mp := range m.GetMetricPoints() {
+						if mp != nil {
+							mp.Timestamp = timestamppb.New(t)
+						}
+					}
+				}
+
 				// Create & emit the metric
 				metricInternal := &model.Message{
-					Name:      string(c.Type),
-					Timestamp: timesync.Default.Now().UTC().UnixMilli(),
-					Type:      model.MessageType_metric,
-					Value:     &model.Message_MetricFamily{MetricFamily: openMetricFam},
+					Name:  string(c.Type),
+					Value: &model.Message_MetricFamily{MetricFamily: openMetricFam},
 				}
 
 				c.Emit(metricInternal)

@@ -1,21 +1,26 @@
 package dapper
 
 import (
+	"time"
+
 	"agent/api/v1/model"
 )
 
 const (
-	onFinalizedBlockName       = "OnFinalizedBlock"
-	onProposingBlockName       = "OnProposingBlock"
-	onReceiveProposalName      = "OnReceiveProposal"
-	onVotingName               = "OnVoting"
-	onBlockVoteReceivedFwdName = "block vote received, forwarding block vote to hotstuff vote aggregator"
+	// onFinalizedBlockName Block is finalized
+	onFinalizedBlockName = "OnFinalizedBlock"
 
-	onFinalizedBlockDesc       = "Block is finalized."
-	onProposingBlockDesc       = "Validator of interest is proposing block."
-	onReceiveProposalDesc      = "Validator of interest is receiving proposal from other validators."
-	onVotingDesc               = "Validator of interest is voting on block."
-	onBlockVoteReceivedFwdDesc = "Block vote received, forwarding block vote to hotstuff vote aggregator."
+	// onProposingBlockName Validator of interest is proposing block
+	onProposingBlockName = "OnProposingBlock"
+
+	// onReceiveProposalName Validator of interest is receiving proposal from other validators
+	onReceiveProposalName = "OnReceiveProposal"
+
+	// onVotingName Validator of interest is voting on block
+	onVotingName = "OnVoting"
+
+	// onBlockVoteReceivedFwdName Block vote received, forwarding block vote to hotstuff vote aggregator.
+	onBlockVoteReceivedFwdName = "block vote received, forwarding block vote to hotstuff vote aggregator"
 )
 
 var (
@@ -83,12 +88,12 @@ func isOnFinalizedBlock(v map[string]interface{}) bool {
 
 type OnFinalizedBlock struct{}
 
-func (o *OnFinalizedBlock) New(v map[string]interface{}) (*model.Event, error) {
+func (o *OnFinalizedBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnFinalizedBlock(v) {
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onFinalizedBlockName, onFinalizedBlockDesc, onFinalizedBlockKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onFinalizedBlockName, t, onFinalizedBlockKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,12 +131,12 @@ func isOnProposingBlock(v map[string]interface{}) bool {
 
 type OnProposingBlock struct{}
 
-func (o *OnProposingBlock) New(v map[string]interface{}) (*model.Event, error) {
+func (o *OnProposingBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnProposingBlock(v) {
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onProposingBlockName, onProposingBlockDesc, onProposingBlockKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onProposingBlockName, t, onProposingBlockKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -169,12 +174,12 @@ func isOnReceiveProposal(v map[string]interface{}) bool {
 
 type OnReceiveProposal struct{}
 
-func (o *OnReceiveProposal) New(v map[string]interface{}) (*model.Event, error) {
+func (o *OnReceiveProposal) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnReceiveProposal(v) {
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onReceiveProposalName, onReceiveProposalDesc, onReceiveProposalKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onReceiveProposalName, t, onReceiveProposalKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,12 +214,12 @@ func isOnVoting(v map[string]interface{}) bool {
 
 type OnVoting struct{}
 
-func (o *OnVoting) New(v map[string]interface{}) (*model.Event, error) {
+func (o *OnVoting) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnVoting(v) {
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onVotingName, onVotingDesc, onVotingKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onVotingName, t, onVotingKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -239,12 +244,12 @@ func (o *OnVoting) New(v map[string]interface{}) (*model.Event, error) {
 
 type OnBlockVoteReceivedFwd struct{}
 
-func (o *OnBlockVoteReceivedFwd) New(v map[string]interface{}) (*model.Event, error) {
+func (o *OnBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnVoting(v) {
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onBlockVoteReceivedFwdName, onBlockVoteReceivedFwdDesc, onVotingKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onBlockVoteReceivedFwdName, t, onVotingKeys...)
 	if err != nil {
 		return nil, err
 	}

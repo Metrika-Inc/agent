@@ -3,7 +3,6 @@ package watch
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"agent/api/v1/model"
@@ -28,11 +27,11 @@ type ContainerWatch struct {
 	ContainerWatchConf
 	Watch
 
-	watchCh       chan interface{}
-	stopListCh    chan interface{}
-	stopEventsch  chan interface{}
-	mutex         *sync.RWMutex
-	containerGone bool
+	watchCh         chan interface{}
+	stopListCh      chan interface{}
+	stopEventsch    chan interface{}
+	containerGone   bool
+	lastContainerID string
 }
 
 func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
@@ -42,7 +41,6 @@ func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 	w.watchCh = make(chan interface{}, 1)
 	w.stopListCh = make(chan interface{}, 1)
 	w.stopEventsch = make(chan interface{}, 1)
-	w.mutex = new(sync.RWMutex)
 
 	if w.RetryIntv == 0 {
 		w.RetryIntv = defaultRetryIntv
@@ -57,20 +55,18 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	container, err := global.BlockchainNode.DiscoverContainer()
 	if err != nil {
 		ev, errev := model.NewWithCtx(
-			map[string]interface{}{"error": err.Error()},
-			model.AgentNodeDownName,
-			model.AgentNodeDownDesc)
+			map[string]interface{}{"old_container_id": w.lastContainerID},
+			model.AgentNodeDownName, timesync.Now())
 		if errev != nil {
 			return nil, nil, fmt.Errorf("errors: %v; %v", err, errev)
 		}
 
-		if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+		if err := emit.Ev(w, ev); err != nil {
 			return nil, nil, fmt.Errorf("error emitting event about error: %v", err)
 		}
 
 		return nil, nil, err
 	}
-
 	ev, err := model.NewWithCtx(map[string]interface{}{
 		"image":        container.Image,
 		"state":        container.State,
@@ -78,12 +74,12 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		"node_id":      discover.NodeID(),
 		"node_type":    discover.NodeType(),
 		"node_version": discover.NodeVersion(),
-	}, model.AgentNodeUpName, model.AgentNodeUpDesc)
+	}, model.AgentNodeUpName, timesync.Now())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+	if err := emit.Ev(w, ev); err != nil {
 		return nil, nil, fmt.Errorf("error emitting event about error: %v", err)
 	}
 
@@ -101,6 +97,8 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		return nil, nil, err
 	}
 
+	w.lastContainerID = container.ID
+
 	return msgchan, errchan, nil
 }
 
@@ -110,6 +108,7 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	ctx := map[string]interface{}{
 		"status":       m.Status,
 		"action":       m.Action,
+		"container_id": m.Actor.ID,
 		"node_id":      discover.NodeID(),
 		"node_type":    discover.NodeType(),
 		"node_version": discover.NodeVersion(),
@@ -117,18 +116,18 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 
 	switch m.Status {
 	case "start":
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeUpName, model.AgentNodeUpDesc)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeUpName, timesync.Now())
 		w.containerGone = false
 	case "restart":
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, model.AgentNodeRestartDesc)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, timesync.Now())
 		w.containerGone = false
 	case "die":
-		exitCode, ok := m.Actor.Attributes["exitCode"]
+		exitCode, ok := m.Actor.Attributes["exit_code"]
 		if ok {
-			ctx["exitCode"] = exitCode
+			ctx["exit_code"] = exitCode
 		}
 
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeDownName, model.AgentNodeDownDesc)
+		ev, err = model.NewWithCtx(ctx, model.AgentNodeDownName, timesync.Now())
 		w.containerGone = true
 	}
 
@@ -162,10 +161,11 @@ func (w *ContainerWatch) StartUnsafe() {
 		// periodic retries according to the specified interval and
 		// probes the stop channel for exit point.
 		for {
-			if sleepd == 0 {
+			if sleepd != 0 {
+				time.Sleep(sleepd)
+			} else {
 				sleepd = defaultRetryIntv
 			}
-			time.Sleep(sleepd)
 
 			select {
 			case <-w.StopKey:
@@ -216,7 +216,7 @@ func (w *ContainerWatch) StartUnsafe() {
 					}
 				}
 
-				if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+				if err := emit.Ev(w, ev); err != nil {
 					w.Log.Error("error emitting docker event", err)
 				}
 			case err := <-errchan:

@@ -63,8 +63,8 @@ func TestPriorityQueueDrainExpiredSortInvariant(t *testing.T) {
 	ttl := 30 * time.Minute
 
 	q := newPriorityQueue(ttl)
-	tsExpired := time.Now().UTC().Add(-1 * time.Hour).UnixMilli()
-	tsRecent := time.Now().UTC().Add(-10 * time.Minute).UnixMilli()
+	tsExpired := time.Now().Add(-1 * time.Hour).UnixMilli()
+	tsRecent := time.Now().Add(-10 * time.Minute).UnixMilli()
 	mExpired := Item{0, tsExpired, 1, model.Message{}}
 	mRecent := Item{0, tsRecent, 1, model.Message{}}
 	q.Push(mExpired)

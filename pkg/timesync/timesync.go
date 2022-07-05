@@ -1,10 +1,11 @@
 package timesync
 
 import (
-	"agent/api/v1/model"
 	"context"
 	"sync"
 	"time"
+
+	"agent/api/v1/model"
 
 	"agent/internal/pkg/emit"
 
@@ -228,12 +229,12 @@ func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name, desc string
 			defaultCtx[key] = val
 		}
 	}
-	ev, err := model.NewWithCtx(ctx, name, desc)
+	ev, err := model.NewWithCtx(ctx, name, t.Now())
 	if err != nil {
 		return err
 	}
 
-	if err := emit.Ev(t, Now(), ev); err != nil {
+	if err := emit.Ev(t, ev); err != nil {
 		return err
 	}
 

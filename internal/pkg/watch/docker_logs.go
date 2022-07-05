@@ -79,7 +79,7 @@ func (w *DockerLogWatch) parseJSON(body []byte) (map[string]interface{}, error) 
 func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 	// search for & emit events
 	for _, ev := range w.Events {
-		newev, err := ev.New(body)
+		newev, err := ev.New(body, timesync.Now())
 		if err != nil {
 			zap.S().Warnf("event construction error %v", err)
 
@@ -91,7 +91,7 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 			continue
 		}
 
-		if err := emit.Ev(w, timesync.Now(), newev); err != nil {
+		if err := emit.Ev(w, newev); err != nil {
 			zap.S().Error(err)
 
 			continue
@@ -178,11 +178,11 @@ func (w *DockerLogWatch) StartUnsafe() {
 						"node_version": discover.NodeVersion(),
 					}
 
-					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
 					if err != nil {
 						w.Log.Errorw("error creating event: ", zap.Error(err))
 					} else {
-						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+						if err := emit.Ev(w, ev); err != nil {
 							w.Log.Errorw("error emitting event: ", zap.Error(err))
 						}
 					}
@@ -230,11 +230,11 @@ func (w *DockerLogWatch) StartUnsafe() {
 						"node_version": discover.NodeVersion(),
 					}
 
-					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, model.AgentNodeLogMissingDesc)
+					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
 					if err != nil {
 						w.Log.Errorw("error creating event: ", zap.Error(err))
 					} else {
-						if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+						if err := emit.Ev(w, ev); err != nil {
 							w.Log.Errorw("error emitting event: ", zap.Error(err))
 						}
 					}
@@ -266,12 +266,12 @@ func (w *DockerLogWatch) StartUnsafe() {
 					"node_type":    discover.NodeType(),
 					"node_version": discover.NodeVersion(),
 				}
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, model.AgentNodeLogFoundDesc)
+				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, timesync.Now())
 
 				if err != nil {
 					w.Log.Errorw("error creating event: ", zap.Error(err))
 				} else {
-					if err := emit.Ev(w, timesync.Now(), ev); err != nil {
+					if err := emit.Ev(w, ev); err != nil {
 						w.Log.Errorw("error emitting event: ", zap.Error(err))
 					}
 				}

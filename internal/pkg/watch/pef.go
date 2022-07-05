@@ -9,6 +9,7 @@ import (
 	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type PEFWatch struct {
@@ -71,11 +72,18 @@ func (p *PEFWatch) parseAndEmit() {
 					continue
 				}
 
+				t := timesync.Default.Now()
+				for _, m := range openMetricFam.GetMetrics() {
+					for _, mp := range m.GetMetricPoints() {
+						if mp != nil {
+							mp.Timestamp = timestamppb.New(t)
+						}
+					}
+				}
+
 				msg := &model.Message{
-					Timestamp: timesync.Now().UnixMilli(),
-					Type:      model.MessageType_metric,
-					Name:      "pef." + strings.ToLower(*family.Name),
-					Value:     &model.Message_MetricFamily{MetricFamily: openMetricFam},
+					Name:  "pef." + strings.ToLower(*family.Name),
+					Value: &model.Message_MetricFamily{MetricFamily: openMetricFam},
 				}
 				p.Emit(msg)
 			}

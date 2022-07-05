@@ -1,8 +1,6 @@
 package emit
 
 import (
-	"time"
-
 	"agent/api/v1/model"
 
 	"go.uber.org/zap"
@@ -34,12 +32,10 @@ func NewSimpleEmitter(emitch chan<- interface{}) *simpleEmitter {
 
 // Ev builds a new event message compatible for publishing and pushes
 // it to the publisher by executing the watcher's Emit() function.
-func Ev(w Emitter, t time.Time, ev *model.Event) error {
+func Ev(w Emitter, ev *model.Event) error {
 	message := model.Message{
-		Name:      ev.GetName(),
-		Type:      model.MessageType_event,
-		Timestamp: t.UnixMilli(),
-		Value:     &model.Message_Event{Event: ev},
+		Name:  ev.GetName(),
+		Value: &model.Message_Event{Event: ev},
 	}
 
 	zap.S().Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
