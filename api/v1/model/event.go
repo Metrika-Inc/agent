@@ -7,63 +7,78 @@ import (
 )
 
 const (
+
+	/* Additional event context is tracked by the following keys, depending on the event being generated:
+
+	+----------------+--------+-------------------------------------------------------------------+
+	| Event key name |  Type  |                            Description                            |
+	+----------------+--------+-------------------------------------------------------------------+
+	| uptime         | string | String formatted duration denoting how long the agent has been up |
+	| endpoint       | string | A network address                                                 |
+	| error          | string | An error string                                                   |
+	| container_id   | string | The last discovered container ID                                  |
+	| node_id        | string | The last discovered blockchain node ID                            |
+	| node_type      | string | The last discovered blockchain node type                          |
+	| node_version   | string | The last discovered blockchain node version                       |
+	| offset_millis  | int64  | The agent's clock offset against NTP                              |
+	| ntp_server     | string | The NTP server used by the agent's clock                          |
+	+----------------+--------+-------------------------------------------------------------------+ */
+
+	UptimeKeyName       = "uptime"
+	EndpointKeyName     = "endpoint"
+	ErrorKeyName        = "error"
+	ContainerIDKeyName  = "container_id"
+	NodeIDKeyName       = "node_id"
+	NodeTypeKeyName     = "node_type"
+	NodeVersionKeyName  = "node_version"
+	OffsetMillisKeyName = "offset_millis"
+	NTPServerKeyName    = "ntp_server"
+
 	/* core specific events */
 
-	// AgentUpName The agent is up and running
-	// Ctx: uptime, string formatted duration denoting how long the agent has been up
+	// AgentUpName The agent is up and running. Ctx: uptime
 	AgentUpName = "agent.up"
 
 	// AgentDownName The agent is dying
-	// Ctx: signal_number
 	AgentDownName = "agent.down"
 
-	// AgentNetErrorName The agent failed to send data to the backend
-	// Ctx: endpoint, error
+	// AgentNetErrorName The agent failed to send data to the backend. Ctx: error
 	AgentNetErrorName = "agent.net.error"
 
-	// TODO: not currently implemented
 	// AgentHealthName The agent self-test results
-	// Ctx: state: enum(HEALTHY, UNHEALTHY), errors
+	// TODO: not implemented
 	AgentHealthName = "agent.health"
 
 	/* chain specific events */
 
-	// AgentNodeDownName The blockchain node is down
-	// Ctx: old_pid
+	// AgentNodeDownName The blockchain node is down. Ctx: containerid, node_id, node_type, node_version
 	AgentNodeDownName = "agent.node.down"
 
-	// AgentNodeUpName The blockchain node is up
-	// Ctx: pid
+	// AgentNodeUpName The blockchain node is up. Ctx: containerid, node_id, node_type, node_version
 	AgentNodeUpName = "agent.node.up"
-	AgentNodeUpDesc = "The node is up"
-	// pid
 
+	// AgentNodeRestartName The blockchain node restarted. Ctx: containerid, node_id, node_type, node_version
 	AgentNodeRestartName = "agent.node.restart"
-	AgentNodeRestartDesc = "The node restarted"
-	// old_pid, new_pid
 
+	// AgentNodeLogMissingName The node log file has gone missing. Ctx: node_id, node_type, node_version
 	AgentNodeLogMissingName = "agent.node.log.missing"
-	AgentNodeLogMissingDesc = "The node log file has gone missing"
-	// docker regex || path
 
+	// AgentNodeConfigMissingName The node configuration file has gone missing
+	// TODO: not implemented
 	AgentNodeConfigMissingName = "agent.node.config.missing"
-	AgentNodeConfigMissingDesc = "The node configuration file has gone missing"
-	// path
 
+	// AgentNodeLogFoundName The node log file has been found. Ctx: node_id, node_type,  node_version
 	AgentNodeLogFoundName = "agent.node.log.found"
-	AgentNodeLogFoundDesc = "The node log file has been found"
 
+	// AgentConfigMissingName The agent configuration has gone missing
+	// TODO: not implemented
 	AgentConfigMissingName = "agent.config.missing"
-	AgentConfigMissingDesc = "The agent configuration has gone missing"
-	// path
 
+	// AgentClockSyncName The agent synchronized its clock to NTP. Ctx: offset_millis, ntp_server
 	AgentClockSyncName = "agent.clock.sync"
-	AgentClockSyncDesc = "The agent synchronized its clock to NTP"
-	// offset_millis, ntp_server
 
+	// AgentClockNoSyncName The agent failed to synchronize its clock to NTP. Ctx: offset_millis, ntp_server, error
 	AgentClockNoSyncName = "agent.clock.nosync"
-	AgentClockNoSyncDesc = "The agent failed to synchronize its clock to NTP"
-	// ntp_server, error
 )
 
 // FromContext MUST be implemented by chain specific events

@@ -72,10 +72,10 @@ func init() {
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
 
-		ctx := map[string]interface{}{"error": err.Error()}
-		timesync.EmitEventWithCtx(timesync.Default, ctx, model.AgentClockNoSyncName, model.AgentClockNoSyncDesc)
+		ctx := map[string]interface{}{model.ErrorKeyName: err.Error()}
+		timesync.EmitEventWithCtx(timesync.Default, ctx, model.AgentClockNoSyncName)
 	} else {
-		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName, model.AgentClockSyncDesc)
+		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName)
 	}
 
 	go func() {
@@ -233,8 +233,7 @@ func main() {
 		os.Exit(1)
 	}()
 
-	ctx := map[string]interface{}{"signal_number": sig.String()}
-	ev, err := model.NewWithCtx(ctx, model.AgentDownName, timesync.Now())
+	ev, err := model.New(model.AgentDownName, timesync.Now())
 	if err != nil {
 		log.Error("error creating event: ", err)
 	}

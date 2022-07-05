@@ -348,12 +348,10 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 		}

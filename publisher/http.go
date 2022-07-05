@@ -306,7 +306,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				}
 				prevErr = nil
 			case <-agentUpTimer.C:
-				agentUpCtx["uptime"] = time.Since(agentUppedTime).String()
+				agentUpCtx[model.UptimeKeyName] = time.Since(agentUppedTime).String()
 				emitEvent(t, agentUpCtx, model.AgentUpName)
 			case <-t.closeCh:
 				t.log.Debug("stopping buf controller, ingestion goroutine exiting")
@@ -319,7 +319,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 }
 
 func emitEventWithError(t *Transport, err error, name string) error {
-	ctx := map[string]interface{}{"error": err.Error()}
+	ctx := map[string]interface{}{model.ErrorKeyName: err.Error()}
 	return emitEvent(t, ctx, name)
 }
 

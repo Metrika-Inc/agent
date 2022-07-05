@@ -55,7 +55,12 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	container, err := global.BlockchainNode.DiscoverContainer()
 	if err != nil {
 		ev, errev := model.NewWithCtx(
-			map[string]interface{}{"old_container_id": w.lastContainerID},
+			map[string]interface{}{
+				model.ContainerIDKeyName: w.lastContainerID,
+				model.NodeIDKeyName:      discover.NodeID(),
+				model.NodeTypeKeyName:    discover.NodeType(),
+				model.NodeVersionKeyName: discover.NodeVersion(),
+			},
 			model.AgentNodeDownName, timesync.Now())
 		if errev != nil {
 			return nil, nil, fmt.Errorf("errors: %v; %v", err, errev)
@@ -68,12 +73,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		return nil, nil, err
 	}
 	ev, err := model.NewWithCtx(map[string]interface{}{
-		"image":        container.Image,
-		"state":        container.State,
-		"status":       container.Status,
-		"node_id":      discover.NodeID(),
-		"node_type":    discover.NodeType(),
-		"node_version": discover.NodeVersion(),
+		model.ContainerIDKeyName: container.ID,
+		model.NodeIDKeyName:      discover.NodeID(),
+		model.NodeTypeKeyName:    discover.NodeType(),
+		model.NodeVersionKeyName: discover.NodeVersion(),
 	}, model.AgentNodeUpName, timesync.Now())
 	if err != nil {
 		return nil, nil, err
@@ -106,12 +109,10 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	var ev *model.Event
 	var err error
 	ctx := map[string]interface{}{
-		"status":       m.Status,
-		"action":       m.Action,
-		"container_id": m.Actor.ID,
-		"node_id":      discover.NodeID(),
-		"node_type":    discover.NodeType(),
-		"node_version": discover.NodeVersion(),
+		model.ContainerIDKeyName: m.Actor.ID,
+		model.NodeIDKeyName:      discover.NodeID(),
+		model.NodeTypeKeyName:    discover.NodeType(),
+		model.NodeVersionKeyName: discover.NodeVersion(),
 	}
 
 	switch m.Status {
