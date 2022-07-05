@@ -25,8 +25,13 @@ import (
 type platformState int32
 
 var (
-	state                *AgentState
-	InitialRetryInterval = 3 * time.Second
+	state *AgentState
+
+	// AgentUUIDHeaderName GRPC metadata key name for agent hostname
+	AgentUUIDHeaderName = "x-agent-uuid"
+
+	// AgentAPIKeyHeaderName GRPC metadata key name for platform API key
+	AgentAPIKeyHeaderName = "x-api-key"
 )
 
 func init() {
@@ -81,11 +86,15 @@ type Transport struct {
 	grpcConn     *grpc.ClientConn
 	agentService model.AgentClient
 	log          *zap.SugaredLogger
+	metadata     metadata.MD
 }
 
 func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
+
+	// Anything put here will be transmitted as request headers.
+	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
 
 	return &Transport{
 		client:    http.DefaultClient,
@@ -94,6 +103,7 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
 		log:       zap.S().With("publisher", "transport"),
+		metadata:  md,
 	}
 }
 
@@ -116,9 +126,7 @@ func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int6
 		}
 	}
 
-	// Anything linked to this variable will transmit request headers.
-	md := metadata.New(map[string]string{"x-agent-uuid": "req-123", "x-api-key": "12345"})
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	ctx = metadata.NewOutgoingContext(ctx, t.metadata)
 
 	// Transmit to platform. Failure here signifies transient error.
 	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)

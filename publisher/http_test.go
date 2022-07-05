@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestMain(m *testing.M) {
@@ -36,6 +38,21 @@ func (m *MockAgentClient) Transmit(ctx context.Context, in *model.PlatformMessag
 
 func newMockAgentClient(execFunc func() (*model.PlatformResponse, error)) *MockAgentClient {
 	return &MockAgentClient{execute: execFunc}
+}
+
+type MockAgentClientWithCtx struct {
+	model.UnimplementedAgentServer
+	execute func(context.Context) (*model.PlatformResponse, error)
+
+	ctx context.Context
+}
+
+func (m *MockAgentClientWithCtx) Transmit(ctx context.Context, in *model.PlatformMessage, opts ...grpc.CallOption) (*model.PlatformResponse, error) {
+	return m.execute(ctx)
+}
+
+func newMockAgentClientWithCtx(execFunc func(ctx context.Context) (*model.PlatformResponse, error)) *MockAgentClientWithCtx {
+	return &MockAgentClientWithCtx{execute: execFunc}
 }
 
 // TestPublisher_EagerDrain checks:
@@ -298,4 +315,82 @@ func TestPublisher_Stop(t *testing.T) {
 	}
 
 	require.Equal(t, 0, pub.buffer.Len())
+}
+
+// TestPublisher_GRPCMetadata checks:
+// - PlatformMessage is accompanied by GRPC metadata
+func TestPublisher_GRPCMetadata(t *testing.T) {
+	n := 10
+	platformCh := make(chan interface{}, n)
+
+	conf := TransportConf{
+		UUID:           "test-agent-uuid",
+		APIKey:         "test-api-key",
+		Timeout:        10 * time.Second,
+		MaxBatchLen:    n / 2,
+		MaxBufferBytes: uint(50 * 1024 * 1024),
+		PublishIntv:    5 * time.Second,
+		BufferTTL:      time.Duration(0),
+	}
+
+	pubCh := make(chan interface{}, n)
+	pub := NewTransport(pubCh, conf)
+
+	pub.agentService = newMockAgentClientWithCtx(
+		func(ctx context.Context) (*model.PlatformResponse, error) {
+			fmt.Println(ctx)
+			md, ok := metadata.FromOutgoingContext(ctx)
+			require.True(t, ok)
+
+			platformCh <- md
+
+			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+		},
+	)
+
+	pubWg := new(sync.WaitGroup)
+	timesync.Listen()
+	pub.Start(pubWg)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < n; i++ {
+			body, _ := json.Marshal([]byte("foobar"))
+			m := &model.Message{
+				Timestamp: time.Now().UnixMilli(),
+				Name:      "test-metric",
+				NodeState: model.NodeState_up,
+				Body:      body,
+			}
+			pubCh <- m
+		}
+	}()
+	wg.Wait()
+
+	<-time.After(200 * time.Millisecond)
+	require.Equal(t, 0, pub.buffer.Len())
+
+	select {
+	case got := <-platformCh:
+		require.IsType(t, metadata.MD{}, got)
+		md := got.(metadata.MD)
+
+		require.Equal(t, conf.UUID, md.Get(AgentUUIDHeaderName)[0])
+		require.Equal(t, conf.APIKey, md.Get(AgentAPIKeyHeaderName)[0])
+	case <-time.After(1 * time.Second):
+		t.Error("timeout waiting for platform message")
+	}
+
+	select {
+	case got := <-platformCh:
+		require.IsType(t, metadata.MD{}, got)
+		md := got.(metadata.MD)
+
+		require.Equal(t, conf.UUID, md.Get(AgentUUIDHeaderName)[0])
+		require.Equal(t, conf.APIKey, md.Get(AgentAPIKeyHeaderName)[0])
+	case <-time.After(1 * time.Second):
+		t.Error("timeout waiting for platform message")
+	}
 }
