@@ -51,13 +51,13 @@ const (
 
 	/* chain specific events */
 
-	// AgentNodeDownName The blockchain node is down. Ctx: containerid, node_id, node_type, node_version
+	// AgentNodeDownName The blockchain node is down. Ctx: container_id, node_id, node_type, node_version
 	AgentNodeDownName = "agent.node.down"
 
-	// AgentNodeUpName The blockchain node is up. Ctx: containerid, node_id, node_type, node_version
+	// AgentNodeUpName The blockchain node is up. Ctx: container_id, node_id, node_type, node_version
 	AgentNodeUpName = "agent.node.up"
 
-	// AgentNodeRestartName The blockchain node restarted. Ctx: containerid, node_id, node_type, node_version
+	// AgentNodeRestartName The blockchain node restarted. Ctx: container_id, node_id, node_type, node_version
 	AgentNodeRestartName = "agent.node.restart"
 
 	// AgentNodeLogMissingName The node log file has gone missing. Ctx: node_id, node_type, node_version
