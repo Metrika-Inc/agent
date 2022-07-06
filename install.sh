@@ -12,9 +12,7 @@ function goodbye {
 supported_blockchains=("dapper algorand")
 if [[ -z "${MA_BLOCKCHAIN}" ]]
 then
-    echo -e "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
-
-    exit 1
+    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
 fi
 
 case $MA_BLOCKCHAIN in
@@ -33,8 +31,14 @@ case $MA_BLOCKCHAIN in
         ;;
 esac
 
+if [[ -z "${MA_API_KEY}" ]]
+then
+    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting."
+fi
+
 echo -e "Metrika agent installation started for: ${MA_BLOCKCHAIN}"
 
+PLATFORM_API_KEY=$MA_API_KEY
 BLOCKCHAIN=$MA_BLOCKCHAIN
 APP_NAME=metrikad
 BIN_NAME=metrikad-$BLOCKCHAIN
@@ -212,6 +216,7 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
     $sudo_cmd chown -R $MA_GROUP:$MA_USER $APP_INSTALL_DIR
     $sudo_cmd cp -t $APP_INSTALL_DIR "$BIN_NAME"
     $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$AGENT_CONFIG_NAME
+    $sudo_cmd sed -i "s/<api_key>/$PLATFORM_API_KEY/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
     $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$BLOCKCHAIN_CONFIG_TEMPLATE_NAME
 
     create_systemd_service

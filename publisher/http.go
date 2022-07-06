@@ -18,14 +18,20 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
 type platformState int32
 
 var (
-	state                *AgentState
-	InitialRetryInterval = 3 * time.Second
+	state *AgentState
+
+	// AgentUUIDHeaderName GRPC metadata key name for agent hostname
+	AgentUUIDHeaderName = "x-agent-uuid"
+
+	// AgentAPIKeyHeaderName GRPC metadata key name for platform API key
+	AgentAPIKeyHeaderName = "x-api-key"
 )
 
 func init() {
@@ -46,6 +52,9 @@ type TransportConf struct {
 
 	// UUID the agent's unique identifier
 	UUID string
+
+	// APIKey authentication key for the Metrika platform
+	APIKey string
 
 	// Timeout default timeout for requests to the platform
 	Timeout time.Duration
@@ -77,11 +86,15 @@ type Transport struct {
 	grpcConn     *grpc.ClientConn
 	agentService model.AgentClient
 	log          *zap.SugaredLogger
+	metadata     metadata.MD
 }
 
 func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
+
+	// Anything put here will be transmitted as request headers.
+	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
 
 	return &Transport{
 		client:    http.DefaultClient,
@@ -90,14 +103,15 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
 		log:       zap.S().With("publisher", "transport"),
+		metadata:  md,
 	}
 }
 
-func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int64, error) {
+	ctx, cancel := context.WithTimeout(reqCtx, 30*time.Second)
 	defer cancel()
 
-	uuid, err := stringFromContext(ctx, AgentUUIDContextKey)
+	uuid, err := stringFromContext(reqCtx, AgentUUIDContextKey)
 	if err != nil {
 		return 0, err
 	}
@@ -112,8 +126,10 @@ func (t *Transport) publish(ctx context.Context, data []*model.Message) (int64, 
 		}
 	}
 
+	ctx = metadata.NewOutgoingContext(ctx, t.metadata)
+
 	// Transmit to platform. Failure here signifies transient error.
-	resp, err := t.agentService.Transmit(reqCtx, &metrikaMsg)
+	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
 		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
 		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)

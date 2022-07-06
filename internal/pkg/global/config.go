@@ -80,7 +80,6 @@ func init() {
 		log.Fatalf("user cache directory error: :%v", err)
 	}
 
-	// AgentCacheDir = filepath.Join(AgentCacheDir, AppName)
 	if err := os.Mkdir(AgentCacheDir, 0o755); err != nil &&
 		!errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrExist) {
 
@@ -100,6 +99,7 @@ func init() {
 }
 
 type PlatformConfig struct {
+	APIKey             string        `yaml:"api_key"`
 	BatchN             int           `yaml:"batch_n"`
 	TransportTimeout   time.Duration `yaml:"transport_timeout"`
 	MaxPublishInterval time.Duration `yaml:"max_publish_interval"`
@@ -196,6 +196,10 @@ func LoadDefaultConfig() error {
 		if watchConf.SamplingInterval == 0*time.Second {
 			watchConf.SamplingInterval = AgentConf.Runtime.SamplingInterval
 		}
+	}
+
+	if len(AgentConf.Platform.APIKey) == 0 {
+		return fmt.Errorf("API key is empty. Export env var MA_API_KEY=<yourkey> or use platform.api_key config")
 	}
 
 	if err := createLogFolders(); err != nil {
