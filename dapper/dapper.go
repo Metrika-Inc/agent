@@ -25,6 +25,7 @@ const (
 	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
 	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
 	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
+	protocolName          = "flow"
 )
 
 // Dapper is responsible for discovery and validation
@@ -378,4 +379,8 @@ func (d *Dapper) updateNodeVersion() (string, error) {
 	d.nodeVersion = imageParts[1]
 
 	return d.nodeVersion, nil
+}
+
+func (d *Dapper) Protocol() string {
+	return protocolName
 }

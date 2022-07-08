@@ -60,6 +60,9 @@ type Chain interface {
 
 	// DiscoverContainer returns the container discovered or an error if any occurs
 	DiscoverContainer() (*types.Container, error)
+
+	// Protocol protocol name to use for the platform
+	Protocol() string
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint

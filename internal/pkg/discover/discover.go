@@ -13,6 +13,7 @@ import (
 
 var (
 	chain      global.Chain
+	protocol   string
 	configPath string
 )
 
@@ -75,4 +76,8 @@ func NodeType() string {
 
 func NodeVersion() string {
 	return chain.NodeVersion()
+}
+
+func Protocol() string {
+	return chain.Protocol()
 }

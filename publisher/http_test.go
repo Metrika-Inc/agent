@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	global.BlockchainNode = &discover.MockBlockchain{}
 	timesync.Default.Start(nil)
 	// l, _ := zap.NewProduction()
 	// zap.ReplaceGlobals(l)

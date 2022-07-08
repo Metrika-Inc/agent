@@ -51,6 +51,9 @@ AGENT_CONFIG_NAME="agent.yml"
 AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
 AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
 
+# TODO: switch to prod
+PLATFORM_ADDR="app.dev.metrika.co:443"
+
 ###lib start##
 
 if [ "$UID" = "0" ]; then
@@ -217,6 +220,7 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
     $sudo_cmd cp -t $APP_INSTALL_DIR "$BIN_NAME"
     $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$AGENT_CONFIG_NAME
     $sudo_cmd sed -i "s/<api_key>/$PLATFORM_API_KEY/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
+    $sudo_cmd sed -i "s/<platform_addr>/$PLATFORM_ADDR/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
     $sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$BLOCKCHAIN_CONFIG_TEMPLATE_NAME
 
     create_systemd_service

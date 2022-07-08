@@ -13,6 +13,7 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
@@ -31,6 +32,9 @@ var (
 
 	// AgentAPIKeyHeaderName GRPC metadata key name for platform API key
 	AgentAPIKeyHeaderName = "x-api-key"
+
+	// log Transport wide logger initialized by its constructor
+	log *zap.SugaredLogger
 )
 
 func init() {
@@ -39,10 +43,11 @@ func init() {
 }
 
 const (
-	platformStateUknown platformState = iota
-	platformStateUp                   = iota
-	platformStateDown                 = iota
-	agentUpTimerFreq                  = 30 * time.Second
+	platformStateUknown   platformState = iota
+	platformStateUp                     = iota
+	platformStateDown                   = iota
+	agentUpTimerFreq                    = 30 * time.Second
+	defaultPublishTimeout               = 5 * time.Second
 )
 
 type TransportConf struct {
@@ -67,6 +72,9 @@ type TransportConf struct {
 	// PublishIntv is the (periodic) publishing interval
 	PublishIntv time.Duration
 
+	// PublishTimeout platform publishing timeout
+	PublishTimeout time.Duration
+
 	// BufferTTL max duration a metric can stay in the buffer
 	BufferTTL time.Duration
 
@@ -84,7 +92,6 @@ type Transport struct {
 
 	grpcConn     *grpc.ClientConn
 	agentService model.AgentClient
-	log          *zap.SugaredLogger
 	metadata     metadata.MD
 }
 
@@ -92,8 +99,14 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
 
+	log = zap.S().With("publisher", "transport")
+
 	// Anything put here will be transmitted as request headers.
 	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
+
+	if conf.PublishTimeout == 0 {
+		conf.PublishTimeout = defaultPublishTimeout
+	}
 
 	return &Transport{
 		client:    http.DefaultClient,
@@ -101,7 +114,6 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 		receiveCh: ch,
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
-		log:       zap.S().With("publisher", "transport"),
 		metadata:  md,
 	}
 }
@@ -130,8 +142,10 @@ func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int6
 	// Transmit to platform. Failure here signifies transient error.
 	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
-		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
-		emitEventWithError(t, err, model.AgentNetErrorName)
+		log.Errorw("failed to transmit to the platform", zap.Error(err), "addr", t.conf.URL)
+		if err := emitEventWithError(t, err, model.AgentNetErrorName); err != nil {
+			log.Warnw("error emitting event", "event", model.AgentNetErrorName, zap.Error(err))
+		}
 
 		// mark service for repair
 		t.agentService = nil
@@ -148,7 +162,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 		for _, item := range b {
 			m, ok := item.Data.(*model.Message)
 			if !ok {
-				t.log.Warnf("unrecognised type %T", item.Data)
+				log.Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
@@ -178,7 +192,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 		select {
 		case err := <-errCh:
 			return err // might be nil
-		case <-time.After(30 * time.Second):
+		case <-time.After(t.conf.PublishTimeout):
 			return fmt.Errorf("publish goroutine timeout (30s)")
 		}
 	}
@@ -222,6 +236,12 @@ func (t *Transport) Connect() error {
 }
 
 func (t *Transport) Start(wg *sync.WaitGroup) {
+	agentUpCtx := make(map[string]interface{}, 1)
+	agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
+	if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
+		log.Warnw("error emitting startup event", "event", model.AgentUpName, zap.Error(err))
+	}
+
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, t.conf.UUID)
 	ctx = context.WithValue(ctx, PlatformAddrContextKey, t.conf.URL)
@@ -248,26 +268,25 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 
 	rand.Seed(time.Now().UnixNano())
 	agentUpTimer := time.NewTicker(agentUpTimerFreq)
-	agentUpCtx := make(map[string]interface{}, 1)
 	agentUppedTime := timesync.Now()
 	go func() {
 		defer wg.Done()
 
-		t.log.Debug("starting metric ingestion")
+		log.Debug("starting metric ingestion")
 
 		var prevErr error
 		for {
 			select {
 			case msg, ok := <-t.receiveCh:
 				if !ok {
-					t.log.Error("receive channel closed")
+					log.Error("receive channel closed")
 
 					return
 				}
 
 				m, ok := msg.(*model.Message)
 				if !ok {
-					t.log.Error("type assertion failed")
+					log.Error("type assertion failed")
 
 					continue
 				}
@@ -283,7 +302,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				if err != nil {
 					MetricsDropCnt.Inc()
 					if prevErr == nil {
-						t.log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
+						log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 						prevErr = err
 					}
 					continue
@@ -292,24 +311,27 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				publishState := state.PublishState()
 				if publishState == platformStateUp {
 					if t.buffer.Len() >= t.conf.MaxBatchLen {
-						t.log.Debug("maxBatchLen exceeded, eager drain kick in")
+						log.Debug("maxBatchLen exceeded, eager drain kick in")
 
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
-							t.log.Warn("eager drain failed", zap.Error(drainErr))
+							log.Warn("eager drain failed", zap.Error(drainErr))
 							prevErr = drainErr
 
 							continue
 						}
-						t.log.Debug("eager drain ok")
+						log.Debug("eager drain ok")
 					}
 				}
 				prevErr = nil
 			case <-agentUpTimer.C:
 				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
-				emitEvent(t, agentUpCtx, model.AgentUpName)
+				agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
+				if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
+					log.Warnw("error emitting event", "event", model.AgentUpName, zap.Error(err))
+				}
 			case <-t.closeCh:
-				t.log.Debug("stopping buf controller, ingestion goroutine exiting")
+				log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
 
 				return
@@ -329,7 +351,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
 		return err
 	}
 
-	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
+	log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
 	m := &model.Message{
 		Name:  ev.GetName(),
@@ -346,7 +368,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
 
 	if err != nil {
 		MetricsDropCnt.Inc()
-		t.log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
+		log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 		return err
 	}
 
