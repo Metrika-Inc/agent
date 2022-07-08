@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,12 +87,10 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 			if i == n/2 {
@@ -162,12 +159,10 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 		}
@@ -232,12 +227,10 @@ func TestPublisher_Error(t *testing.T) {
 	pub.Start(wg)
 	go func() {
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 		}
@@ -290,12 +283,10 @@ func TestPublisher_Stop(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 		}
@@ -357,12 +348,10 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < n; i++ {
-			body, _ := json.Marshal([]byte("foobar"))
 			m := &model.Message{
-				Timestamp: time.Now().UnixMilli(),
 				Name:      "test-metric",
 				NodeState: model.NodeState_up,
-				Body:      body,
+				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
 			pubCh <- m
 		}

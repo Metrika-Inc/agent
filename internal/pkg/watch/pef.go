@@ -8,7 +8,6 @@ import (
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 )
 
@@ -63,6 +62,7 @@ func (p *PEFWatch) parseAndEmit() {
 				p.Log.Errorw("failed to parse PEF metrics", zap.Error(err))
 				continue
 			}
+			setDTOMetriFamilyTimestamp(timesync.Now(), mf...)
 
 			for _, family := range mf {
 				openMetricFam, err := dtoToOpenMetrics(family)
@@ -72,16 +72,9 @@ func (p *PEFWatch) parseAndEmit() {
 					continue
 				}
 
-				data, err := proto.Marshal(openMetricFam)
-				if err != nil {
-					p.Log.Errorw("failed to marshal MetricFamily", zap.Error(err))
-					continue
-				}
 				msg := &model.Message{
-					Timestamp: timesync.Now().UnixMilli(),
-					Type:      model.MessageType_metric,
-					Name:      "pef." + strings.ToLower(*family.Name),
-					Body:      data,
+					Name:  "pef." + strings.ToLower(*family.Name),
+					Value: &model.Message_MetricFamily{MetricFamily: openMetricFam},
 				}
 				p.Emit(msg)
 			}

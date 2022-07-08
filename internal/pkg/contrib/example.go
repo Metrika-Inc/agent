@@ -12,7 +12,6 @@ import (
 	"agent/internal/pkg/global"
 
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // This is an example implementation of the global.Stream interface
@@ -39,19 +38,12 @@ func (m *jsonProcessor) Process(msgi interface{}) ([]byte, error) {
 	var err error
 	line := &logLine{Hostname: global.AgentHostname}
 
-	switch msg.Type {
-	case model.MessageType_metric:
-		line.Mf = &model.MetricFamily{}
-		if err := proto.Unmarshal(msg.Body, line.Mf); err != nil {
-			return nil, err
-		}
-	case model.MessageType_event:
-		line.Ev = &model.Event{}
-		if err := proto.Unmarshal(msg.Body, line.Ev); err != nil {
-			return nil, err
-		}
-	default:
-		zap.S().Errorf("unknown msg type: %v", msg.Type)
+	if msg.GetMetricFamily() != nil {
+		line.Mf = msg.GetMetricFamily()
+	} else if msg.GetEvent() != nil {
+		line.Ev = msg.GetEvent()
+	} else {
+		zap.S().Errorf("dropping message without a value")
 
 		return nil, err
 	}

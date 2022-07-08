@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/proto"
 )
 
 type platformState int32
@@ -132,7 +131,7 @@ func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int6
 	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
 		t.log.Errorw("failed to transmit to the platform", zap.Error(err))
-		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
+		emitEventWithError(t, err, model.AgentNetErrorName)
 
 		// mark service for repair
 		t.agentService = nil
@@ -213,7 +212,7 @@ func (t *Transport) Connect() error {
 	t.grpcConn, err = grpc.DialContext(ctx, t.conf.URL,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
 	if err != nil {
-		emitEventWithError(t, err, model.AgentNetErrorName, model.AgentNetErrorDesc)
+		emitEventWithError(t, err, model.AgentNetErrorName)
 		return err
 	}
 
@@ -275,7 +274,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 
 				item := buf.Item{
 					Priority:  0,
-					Timestamp: m.Timestamp,
+					Timestamp: timesync.Now().UnixMilli(),
 					Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
 					Data:      m,
 				}
@@ -307,8 +306,8 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				}
 				prevErr = nil
 			case <-agentUpTimer.C:
-				agentUpCtx["uptime"] = time.Since(agentUppedTime).String()
-				emitEvent(t, agentUpCtx, model.AgentUpName, model.AgentUpDesc)
+				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
+				emitEvent(t, agentUpCtx, model.AgentUpName)
 			case <-t.closeCh:
 				t.log.Debug("stopping buf controller, ingestion goroutine exiting")
 				bufCtrl.Stop()
@@ -319,36 +318,28 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-func emitEventWithError(t *Transport, err error, name, desc string) error {
-	ctx := map[string]interface{}{"error": err.Error()}
-	return emitEvent(t, ctx, name, desc)
+func emitEventWithError(t *Transport, err error, name string) error {
+	ctx := map[string]interface{}{model.ErrorKey: err.Error()}
+	return emitEvent(t, ctx, name)
 }
 
-func emitEvent(t *Transport, ctx map[string]interface{}, name, desc string) error {
-	ev, err := model.NewWithCtx(ctx, name, desc)
+func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
+	ev, err := model.NewWithCtx(ctx, name, timesync.Now())
 	if err != nil {
 		return err
 	}
 
 	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
-	evBytes, err := proto.Marshal(ev)
-	if err != nil {
-		return err
-	}
-
 	m := &model.Message{
-		Name:      ev.GetName(),
-		Type:      model.MessageType_event,
-		Timestamp: timesync.Now().UnixMilli(),
-		Body:      evBytes,
+		Name:  ev.GetName(),
+		Value: &model.Message_Event{Event: ev},
 	}
 
 	item := buf.Item{
-		Priority:  0,
-		Timestamp: m.Timestamp,
-		Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
-		Data:      m,
+		Priority: 0,
+		Bytes:    uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
+		Data:     m,
 	}
 
 	_, err = t.buffer.Insert(item)

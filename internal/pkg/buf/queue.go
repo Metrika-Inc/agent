@@ -74,8 +74,8 @@ func (pq *priorityQueue) DrainExpired() uint {
 			return 0
 		}
 
-		now := time.Now().UTC()
-		if pq.ttl > 0 && now.Sub(time.UnixMilli(item.Timestamp).UTC()) > pq.ttl { // drop
+		now := time.Now()
+		if pq.ttl > 0 && now.Sub(time.UnixMilli(item.Timestamp)) > pq.ttl { // drop
 			v := heap.Pop(pq)
 			item, ok := v.(Item)
 			if !ok {
@@ -170,7 +170,8 @@ func (m multiQueue) Pop() (interface{}, uint) {
 func newPriorityQueue(ttl time.Duration) *priorityQueue {
 	return &priorityQueue{
 		items: []Item{},
-		ttl:   ttl}
+		ttl:   ttl,
+	}
 }
 
 func newPriorityQueueN(ttl time.Duration, n int) []*priorityQueue {

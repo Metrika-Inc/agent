@@ -3,6 +3,7 @@ package metrika;
 
 option go_package = "./;model";
 import "google/protobuf/struct.proto";
+import "openmetrics/openmetrics.proto";
 
 enum NodeState {
     down = 0;
@@ -14,24 +15,20 @@ enum AgentState {
     unhealthy = 1;
 }
 
-enum MessageType {
-    metric = 0;
-    event = 1;
-}
-
 message Message {
-    int64 timestamp = 1;
-    MessageType type = 2;
-    NodeState nodeState = 3;
-    AgentState agentState = 4;
-    string name = 5;
-    bytes body = 6;
+    NodeState nodeState = 1;
+    AgentState agentState = 2;
+    string name = 3;
+    oneof value {
+        openmetrics.MetricFamily metricFamily = 6;
+        Event event = 7;
+    }
 }
 
 message Event {
-    string name = 1;
-    string desc = 2;
-    google.protobuf.Struct values = 3;
+    int64 timestamp = 1;
+    string name = 2;
+    google.protobuf.Struct values = 5;
 }
 
 message PlatformMessage {
