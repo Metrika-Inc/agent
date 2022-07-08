@@ -32,9 +32,6 @@ var (
 
 	// AgentAPIKeyHeaderName GRPC metadata key name for platform API key
 	AgentAPIKeyHeaderName = "x-api-key"
-
-	// log Transport wide logger initialized by its constructor
-	log *zap.SugaredLogger
 )
 
 func init() {
@@ -93,13 +90,12 @@ type Transport struct {
 	grpcConn     *grpc.ClientConn
 	agentService model.AgentClient
 	metadata     metadata.MD
+	log          *zap.SugaredLogger
 }
 
 func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 	state := new(AgentState)
 	state.Reset()
-
-	log = zap.S().With("publisher", "transport")
 
 	// Anything put here will be transmitted as request headers.
 	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
@@ -115,6 +111,7 @@ func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
 		buffer:    buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL),
 		closeCh:   make(chan interface{}),
 		metadata:  md,
+		log:       zap.S().With("publisher", "transport"),
 	}
 }
 
@@ -142,9 +139,9 @@ func (t *Transport) publish(reqCtx context.Context, data []*model.Message) (int6
 	// Transmit to platform. Failure here signifies transient error.
 	resp, err := t.agentService.Transmit(ctx, &metrikaMsg)
 	if err != nil {
-		log.Errorw("failed to transmit to the platform", zap.Error(err), "addr", t.conf.URL)
+		t.log.Errorw("failed to transmit to the platform", zap.Error(err), "addr", t.conf.URL)
 		if err := emitEventWithError(t, err, model.AgentNetErrorName); err != nil {
-			log.Warnw("error emitting event", "event", model.AgentNetErrorName, zap.Error(err))
+			t.log.Warnw("error emitting event", "event", model.AgentNetErrorName, zap.Error(err))
 		}
 
 		// mark service for repair
@@ -162,7 +159,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 		for _, item := range b {
 			m, ok := item.Data.(*model.Message)
 			if !ok {
-				log.Warnf("unrecognised type %T", item.Data)
+				t.log.Warnf("unrecognised type %T", item.Data)
 
 				// ignore
 				continue
@@ -236,6 +233,8 @@ func (t *Transport) Connect() error {
 }
 
 func (t *Transport) Start(wg *sync.WaitGroup) {
+	log := zap.S()
+
 	agentUpCtx := make(map[string]interface{}, 1)
 	agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
 	if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
@@ -351,7 +350,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
 		return err
 	}
 
-	log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
+	t.log.Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
 
 	m := &model.Message{
 		Name:  ev.GetName(),
@@ -368,7 +367,7 @@ func emitEvent(t *Transport, ctx map[string]interface{}, name string) error {
 
 	if err != nil {
 		MetricsDropCnt.Inc()
-		log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
+		t.log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
 		return err
 	}
 

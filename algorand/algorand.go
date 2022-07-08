@@ -12,7 +12,10 @@ import (
 
 type Algorand struct{}
 
-const DefaultAlgorandPath = "./internal/pkg/global/algorand.yml"
+const (
+	DefaultAlgorandPath = "./internal/pkg/global/algorand.yml"
+	protocolName        = "algorand"
+)
 
 func NewAlgorand() (*Algorand, error) {
 	// load a config or create a default one
@@ -91,4 +94,8 @@ func (a *Algorand) NodeVersion() string {
 	log.Warn("not implemented") // TODO: Implement
 
 	return ""
+}
+
+func (a *Algorand) Protocol() string {
+	return protocolName
 }
