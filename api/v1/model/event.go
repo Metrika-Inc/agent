@@ -34,6 +34,7 @@ const (
 	NodeVersionKey   = "node_version"
 	OffsetMillisKey  = "offset_millis"
 	NTPServerKey     = "ntp_server"
+	NetworkKey       = "network"
 
 	/* core specific events */
 

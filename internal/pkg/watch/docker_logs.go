@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/discover"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/emit"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"github.com/docker/docker/api/types"
@@ -173,9 +173,9 @@ func (w *DockerLogWatch) StartUnsafe() {
 					w.Log.Error("EOF reached (hdr), resetting stream")
 					time.Sleep(5 * time.Second)
 					ctx := map[string]interface{}{
-						model.NodeIDKey:      discover.NodeID(),
-						model.NodeTypeKey:    discover.NodeType(),
-						model.NodeVersionKey: discover.NodeVersion(),
+						model.NodeIDKey:      global.BlockchainNode.NodeID(),
+						model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+						model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 					}
 
 					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
@@ -225,9 +225,9 @@ func (w *DockerLogWatch) StartUnsafe() {
 				if err == io.EOF {
 					w.Log.Error("EOF reached (data), resetting stream")
 					ctx := map[string]interface{}{
-						model.NodeIDKey:      discover.NodeID(),
-						model.NodeTypeKey:    discover.NodeType(),
-						model.NodeVersionKey: discover.NodeVersion(),
+						model.NodeIDKey:      global.BlockchainNode.NodeID(),
+						model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+						model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 					}
 
 					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
@@ -262,9 +262,9 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 			if lastErr != nil {
 				ctx := map[string]interface{}{
-					model.NodeIDKey:      discover.NodeID(),
-					model.NodeTypeKey:    discover.NodeType(),
-					model.NodeVersionKey: discover.NodeVersion(),
+					model.NodeIDKey:      global.BlockchainNode.NodeID(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 				}
 				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, timesync.Now())
 

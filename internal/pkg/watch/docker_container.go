@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/discover"
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
@@ -57,9 +56,8 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		ev, errev := model.NewWithCtx(
 			map[string]interface{}{
 				model.ContainerIDKey: w.lastContainerID,
-				model.NodeIDKey:      discover.NodeID(),
-				model.NodeTypeKey:    discover.NodeType(),
-				model.NodeVersionKey: discover.NodeVersion(),
+				model.NodeIDKey:      global.BlockchainNode.NodeID(),
+				model.NodeTypeKey:    global.BlockchainNode.NodeType(),
 			},
 			model.AgentNodeDownName, timesync.Now())
 		if errev != nil {
@@ -74,9 +72,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	}
 	ev, err := model.NewWithCtx(map[string]interface{}{
 		model.ContainerIDKey: container.ID,
-		model.NodeIDKey:      discover.NodeID(),
-		model.NodeTypeKey:    discover.NodeType(),
-		model.NodeVersionKey: discover.NodeVersion(),
+		model.NodeIDKey:      global.BlockchainNode.NodeID(),
+		model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+		model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
+		model.NetworkKey:     global.BlockchainNode.Network(),
 	}, model.AgentNodeUpName, timesync.Now())
 	if err != nil {
 		return nil, nil, err
@@ -110,9 +109,9 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	var err error
 	ctx := map[string]interface{}{
 		model.ContainerIDKey: m.Actor.ID,
-		model.NodeIDKey:      discover.NodeID(),
-		model.NodeTypeKey:    discover.NodeType(),
-		model.NodeVersionKey: discover.NodeVersion(),
+		model.NodeIDKey:      global.BlockchainNode.NodeID(),
+		model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+		model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 	}
 
 	switch m.Status {

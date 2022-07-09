@@ -63,6 +63,9 @@ type Chain interface {
 
 	// Protocol protocol name to use for the platform
 	Protocol() string
+
+	// Network network name the blockchain node is running on
+	Network() string
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint

@@ -99,3 +99,10 @@ func (a *Algorand) NodeVersion() string {
 func (a *Algorand) Protocol() string {
 	return protocolName
 }
+
+func (a *Algorand) Network() string {
+	log := zap.S().With("blockchain", "algorand")
+	log.Warn("not implemented") // TODO: Implement
+
+	return ""
+}

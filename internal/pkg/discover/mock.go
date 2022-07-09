@@ -60,3 +60,7 @@ func (m *MockBlockchain) NodeVersion() string {
 func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
 	return &types.Container{}, nil
 }
+
+func (m *MockBlockchain) Network() string {
+	return "mock-node-network"
+}
