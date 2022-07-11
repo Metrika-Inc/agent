@@ -6,33 +6,12 @@ set -e
 # TODO: search for better logging practices
 function goodbye {
   echo -e "${1}"
-  exit 1
+  retcode=1
+  if [ -n "${2}" ]; then
+    retcode=${2}
+  fi
+  exit $retcode
 }
-
-supported_blockchains=("flow")
-if [[ -z "${MA_BLOCKCHAIN}" ]]
-then
-    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
-fi
-
-case $MA_BLOCKCHAIN in
-    flow)
-        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="flow.template"
-        BLOCKCHAIN_CONFIG_NAME="flow.yml"
-        ;;
-    *)
-        echo -e "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
-        echo -e "Node type not supported: $MA_BLOCKCHAIN. Exiting."
-        exit 1
-        ;;
-esac
-
-if [[ -z "${MA_API_KEY}" ]]
-then
-    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting."
-fi
-
-echo -e "Metrika agent installation started for: ${MA_BLOCKCHAIN}"
 
 PLATFORM_API_KEY=$MA_API_KEY
 BLOCKCHAIN=$MA_BLOCKCHAIN
@@ -46,6 +25,54 @@ KNOWN_DISTRIBUTION="(Debian|Ubuntu)"
 AGENT_CONFIG_NAME="agent.yml"
 AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
 AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
+
+
+
+logo_gz="
+H4sIAAAAAAAAA+1Xy2okMQy85ysW8gOWLVk2+pTMNcf5/+tWd7KBSDJ0ZjpsBsJADxSNrUepSn15
+fSnXy+tLG1atbL/rn8ujY5VsWHcgyTCZxv36/PnlOm106xEfOy4OX59j0/TELLQbQqvN31PIVEzU
+401tIO0R3u+mipAdPskaW/XH3BLx04/o+r0YecL0ab0Zh4Iy2SzWfUHPwqlreu/RXISMJmjqh6LJ
+zo/Am7PSaZijGfmHKlYwmb6YzWNxihKs4yEYv0xXJOrKPr9J/WrV/H00eeAWrw80aLtaqsO17H3w
+4aTZQPbM84fAK1FjDnwoCz6MPJ8lf0qqw8TNhI19PrUkIv8YrOpb+F7tp6EAQe1p8DZBEnBF8miS
+HyvAmWkQamh8psVCYdBHzxFwlYe1oDFFUg8ipMxI3HMEo0CMC9zxqEUjEOggo6ZY6+c43G1catCF
+kAPK0zCJYauApQ/jsG0o6AL2h8qBL/CJMOWVMHWUqAIKpBhgf75s0oyBP5A7Sk81aXk3VhQ6c7Ea
+XYwUhEauXodogrw1BlgbaqbRtqhyfu8wjdqVNELRBY2+RLPtcYT1biVbpaTrGCQbkVefDieR3E+0
+bVXEfyDDN28qK3zhfCvjDIuXSkqRb1+83mfE68vhxUvSWfpfXVhYwf1sy+yLSoOMw8KCDLwt0aHW
+20qT+Roan8nG+9dKmMobxuljFME8gY74TFBOQcRBGBZ71RJfnLO49mjUmacsPuX+1TLgy9qP9MNj
+7+2Mvc148BgL2C/2c7G/VYeXd5ISAAA=
+"
+
+logo=`echo "${logo_gz}" | base64 -d 2>/dev/null  | gzip -d 2>/dev/null`
+
+
+if [ -z "$PS1" ]; then
+  echo -e "\n\n${logo}\n"
+fi
+
+echo -e "METRIKA agent installation started for blockchain protocol node: '${MA_BLOCKCHAIN}'"
+
+
+supported_blockchains=("flow algorand")
+if [[ -z "${MA_BLOCKCHAIN}" ]]
+then
+    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
+fi
+
+case $MA_BLOCKCHAIN in
+    flow)
+        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="flow.template"
+        BLOCKCHAIN_CONFIG_NAME="flow.yml"
+        ;;
+    *)
+        goodbye "Node type not supported: $MA_BLOCKCHAIN. The MA_BLOCKCHAIN envvar must be set to one of: '${supported_blockchains[*]}'. Exiting." 2
+        ;;
+esac
+
+if [[ -z "${MA_API_KEY}" ]]
+then
+    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting." 3
+fi
+
 
 # TODO: switch to prod
 PLATFORM_ADDR="agent.sandboxes.aws.metrika.co:443"
@@ -188,8 +215,7 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
         elif  [ "$ans" == "4" ] || [ "$ans" == "q" ]; then
           exit 0
         else
-          echo "Uknown option $ans, aborting installation, goodbye"
-          exit 1
+          goodbye "Uknown option $ans, aborting installation, goodbye" 10
         fi
     fi
 
@@ -225,5 +251,5 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
     # finally start the service
 else
     # macOS
-    goodbye "Distribution not supported: $DISTRIBUTION"
+    goodbye "Distribution not supported: $DISTRIBUTION" 4
 fi
