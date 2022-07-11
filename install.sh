@@ -3,16 +3,6 @@
 set -e
 # set -x
 
-# TODO: search for better logging practices
-function goodbye {
-  echo -e "${1}"
-  retcode=1
-  if [ -n "${2}" ]; then
-    retcode=${2}
-  fi
-  exit $retcode
-}
-
 PLATFORM_API_KEY=$MA_API_KEY
 BLOCKCHAIN=$MA_BLOCKCHAIN
 APP_NAME=metrikad
@@ -25,25 +15,35 @@ KNOWN_DISTRIBUTION="(Debian|Ubuntu)"
 AGENT_CONFIG_NAME="agent.yml"
 AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
 AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
+INSTALLER_VERSION="0.1"
+SUPPORTED_BLOCKCHAINS=("dapper algorand")
+DNT=0
 
-
+function goodbye {
+  log_error "${1}"
+  retcode=1
+  if [ -n "${2}" ]; then
+    retcode=${2}
+  fi
+  exit "$retcode"
+}
 
 logo_gz="
-H4sIAAAAAAAAA+1Xy2okMQy85ysW8gOWLVk2+pTMNcf5/+tWd7KBSDJ0ZjpsBsJADxSNrUepSn15
-fSnXy+tLG1atbL/rn8ujY5VsWHcgyTCZxv36/PnlOm106xEfOy4OX59j0/TELLQbQqvN31PIVEzU
-401tIO0R3u+mipAdPskaW/XH3BLx04/o+r0YecL0ab0Zh4Iy2SzWfUHPwqlreu/RXISMJmjqh6LJ
-zo/Am7PSaZijGfmHKlYwmb6YzWNxihKs4yEYv0xXJOrKPr9J/WrV/H00eeAWrw80aLtaqsO17H3w
-4aTZQPbM84fAK1FjDnwoCz6MPJ8lf0qqw8TNhI19PrUkIv8YrOpb+F7tp6EAQe1p8DZBEnBF8miS
-HyvAmWkQamh8psVCYdBHzxFwlYe1oDFFUg8ipMxI3HMEo0CMC9zxqEUjEOggo6ZY6+c43G1catCF
-kAPK0zCJYauApQ/jsG0o6AL2h8qBL/CJMOWVMHWUqAIKpBhgf75s0oyBP5A7Sk81aXk3VhQ6c7Ea
-XYwUhEauXodogrw1BlgbaqbRtqhyfu8wjdqVNELRBY2+RLPtcYT1biVbpaTrGCQbkVefDieR3E+0
-bVXEfyDDN28qK3zhfCvjDIuXSkqRb1+83mfE68vhxUvSWfpfXVhYwf1sy+yLSoOMw8KCDLwt0aHW
-20qT+Roan8nG+9dKmMobxuljFME8gY74TFBOQcRBGBZ71RJfnLO49mjUmacsPuX+1TLgy9qP9MNj
-7+2Mvc148BgL2C/2c7G/VYeXd5ISAAA=
+H4sIAAAAAAAAA+1XXUoEMQx+9wr7IniBJk2alhzFM+z9X/1mVLBpFmfZVVYQQSEMbfr9JZ5ey/n0
+Wruzl+3n/Hz6SxUm796mEml3HS7t/PL1Qx7em7dY7XtVp+qlE3y43aFna45muM6nF3JTV5ur1bzj
+gT1829wMLU7VQV7FeT7gyg6fHobYoxWauW/DW3UJeAn5KN7GnavULLntSOdKTgM6C2TrTrbdu/kK
+6Y8oIiDFECId7/2RxUFLpeGXwiqr3zX6fXfZAhCzZd+Ct47TZ/dSp+1C5alqZYe4fAMxIYBcQ4YR
+osBFAr0lpbdn3V+QQklSkKS6iguHlFmi9SHl0bZe54AdjndypEg2zWuoGt4I9GcboLgmNAEkl3vM
+LDgf5MyEQ2zSvQbvF02CnvA4wRNnwqFhEhw8HYs3V4IWDkhjqNd24/i4VhQVvg0NA4MK14R5jMHY
+XcKUNnAP1QZwQD5iOTiRCR6hxbVAwWC0+VzdUhGm/AYI4Eq8sNhcDDiuY4LjmCCDHvGuElqC+ji2
+xBXIWJwMxJLd1t1imiwwGzC2GP406n53OxIkpSTrCuISnfLcvCy336CYbXfCXz7S4g9V08GST6Sw
+nJgmjP/YcvIhbrna0HDbaoDfxTgN4Btks84IKhUJijkRrPq+PwYotzVgHR3gcrX1xxYewLvOAp/G
+gYAULp/7Bl6KDoN10/3jQjU9Ib3sSJdrhqf/iHyiZYeQ7clevTM2ImMrsw+5pPxXfr3y9AZLEakK
+2xAAAA==
 "
 
-logo=`echo "${logo_gz}" | base64 -d 2>/dev/null  | gzip -d 2>/dev/null`
 
+<<<<<<< HEAD
 
 if [ -z "$PS1" ]; then
   echo -e "\n\n${logo}\n"
@@ -72,12 +72,37 @@ if [[ -z "${MA_API_KEY}" ]]
 then
     goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting." 3
 fi
+=======
+function usage {
+  cat << EOF
+usage: install.sh [options]
+options:
+  --reinstall             Reinstall/refresh the Metrika Agent installation.
+  --uninstall             Stop and remove the Metrika Agent.
+  --purge                 Stop, remove the Metrika Agent, including any agent configuration/data.
+  --dnt                   Disable installer telemetry (telemetry helps Metrika improve the installer by sending anonymized errors!)
+EOF
+}
+>>>>>>> b078aec (fixup: add usage, refactor install options.)
 
 
 # TODO: switch to prod
 PLATFORM_ADDR="agent.sandboxes.aws.metrika.co:443"
 
 ###lib start##
+
+logo=$(echo "${logo_gz}" | base64 -d 2>/dev/null  | gzip -d 2>/dev/null)
+function print_header {
+  if [ -z "$PS1" ]; then
+    echo -e "\n\n${logo}\n"
+    cat << EOF
+------------------------------
+Metrika Agent Installer ${INSTALLER_VERSION}
+------------------------------
+EOF
+  fi
+}
+
 
 if [ "$UID" = "0" ]; then
     sudo_cmd=''
@@ -100,7 +125,7 @@ function log_ok {
 }
 
 function log_error {
-  >&2 echo -e "\033[31;40m${1}${end}"
+  >&2 echo -e "\033[1;31;40m${1}${end}"
 }
 
 function download_binary {
@@ -109,27 +134,35 @@ function download_binary {
 }
 
 function stop_service {
-    echo "Stopping the agent, this might take few seconds..."
+    log_info "Stopping the agent, this might take few seconds..."
 
     $sudo_cmd systemctl stop -l "$BIN_NAME"|| true
     $sudo_cmd systemctl disable -l "$BIN_NAME" || true
 }
 
+function send_telemetry_event {
+  # TODO(cosmix): implement me!
+  true
+}
+
 function purge {
     stop_service
 
-    # remove metadata
-    $sudo_cmd rm -f $APP_METADATA_DIR/configs/*
-    $sudo_cmd rm -f $APP_METADATA_DIR/$AGENT_CONFIG_NAME
-    $sudo_cmd rmdir $APP_METADATA_DIR/configs || true
-    $sudo_cmd rmdir $APP_METADATA_DIR || true
+    if [[ -z $APP_METADATA_DIR ]];
+    then
+      # remove metadata
+      $sudo_cmd rm -f $APP_METADATA_DIR/configs/*
+      $sudo_cmd rm -f $APP_METADATA_DIR/$AGENT_CONFIG_NAME
+      $sudo_cmd rmdir $APP_METADATA_DIR/configs || true
+      $sudo_cmd rmdir $APP_METADATA_DIR || true
 
-    # remove installation directory
-    $sudo_cmd rm -f $APP_INSTALL_DIR/"$BIN_NAME"
-    $sudo_cmd rmdir --ignore-fail-on-non-empty $APP_INSTALL_DIR || true
+      # remove installation directory
+      $sudo_cmd rm -f $APP_INSTALL_DIR/"$BIN_NAME"
+      $sudo_cmd rmdir --ignore-fail-on-non-empty $APP_INSTALL_DIR || true
 
-    # remove user artifacts
-    $sudo_cmd userdel $MA_USER || true
+      # remove user artifacts
+      $sudo_cmd userdel $MA_USER || true
+    fi
 }
 
 function uninstall {
@@ -179,6 +212,63 @@ EOF
 
 ###lib end##
 
+# ----------------------------------
+# -- Mainline program starts here --
+# ----------------------------------
+
+
+print_header
+
+for arg in "$@"; do
+  case "$arg" in
+    "--reinstall")
+      uninstall
+      ;;
+    "--uninstall")
+      uninstall
+      exit 0
+      ;;
+    "--purge")
+      purge
+      exit 0
+      ;;
+    "--help")
+      usage
+      exit 0
+      ;;
+    "--dnt")
+      DNT=1
+  esac
+done
+
+
+if [[ -z "${MA_BLOCKCHAIN}" ]]
+then
+    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'. Exiting."
+fi
+
+case $MA_BLOCKCHAIN in
+    dapper)
+        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="dapper.template"
+        BLOCKCHAIN_CONFIG_NAME="dapper.yml"
+        ;;
+    algorand)
+        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="algorand.template"
+        BLOCKCHAIN_CONFIG_NAME="algorand.yml"
+        ;;
+    *)
+        goodbye "Node type not currently supported: $MA_BLOCKCHAIN. The MA_BLOCKCHAIN envvar must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'.\nPlease find us on Discord or email us at support@metrika.co if you want to see $MA_BLOCKCHAIN supported. Exiting." 2
+        ;;
+esac
+
+
+if [[ -z "${MA_API_KEY}" ]]
+then
+    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting." 3
+fi
+
+ log_info "METRIKA agent installation started for blockchain protocol node: '${MA_BLOCKCHAIN}'"
+
 # Start installation
 DISTRIBUTION=$(lsb_release -d 2>/dev/null | \
     grep -Eo "$KNOWN_DISTRIBUTION"  || \
@@ -186,11 +276,11 @@ DISTRIBUTION=$(lsb_release -d 2>/dev/null | \
     grep -Eo "$KNOWN_DISTRIBUTION" /etc/Eos-release 2>/dev/null || \
     grep -m1 -Eo "$KNOWN_DISTRIBUTION" /etc/os-release 2>/dev/null || \
     uname -s)
-test -n "$DISTRIBUTION" || >&2 echo "Could not detect host OS distribution."
+test -n "$DISTRIBUTION" || >&2 log_warn "Could not detect host OS distribution."
 
 # Linux installation
 if [ "$DISTRIBUTION" != "Darwin" ]; then
-    echo "Detected host OS distribution: $DISTRIBUTION"
+    log_info "Detected host OS distribution: $DISTRIBUTION"
 
     if service_exists; then
         printf "\nA previous installation of the agent was detected.\n"
@@ -251,5 +341,5 @@ if [ "$DISTRIBUTION" != "Darwin" ]; then
     # finally start the service
 else
     # macOS
-    goodbye "Distribution not supported: $DISTRIBUTION" 4
+    goodbye "Operating System currently not supported: $DISTRIBUTION" 4
 fi
