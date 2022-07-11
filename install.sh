@@ -20,7 +20,9 @@ SUPPORTED_BLOCKCHAINS=("dapper algorand")
 DNT=0
 
 function goodbye {
+  echo -e ""
   log_error "${1}"
+  echo -e ""
   retcode=1
   if [ -n "${2}" ]; then
     retcode=${2}
@@ -113,19 +115,19 @@ fi
 end="\033[0m"
 
 function log_warn {
-  echo -e "\033[1;33m${1}${end}"
+  echo -e "\033[1;33m ⚠️  ${1}${end}"
 }
 
 function log_info {
-  echo -e "\033[34m${1}${end}"
+  echo -e "\033[34m 🛈  ${1}${end}"
 }
 
 function log_ok {
-  echo -e "\033[1;32m${1}${end}"
+  echo -e "\033[1;32m 🟢  ${1}${end}"
 }
 
 function log_error {
-  >&2 echo -e "\033[1;31;40m${1}${end}"
+  >&2 echo -e "\033[1;31;40m ⛔  ${1}${end}"
 }
 
 function download_binary {
