@@ -52,7 +52,7 @@ AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
 AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
 
 # TODO: switch to prod
-PLATFORM_ADDR="app.dev.metrika.co:443"
+PLATFORM_ADDR="agent.sandboxes.aws.metrika.co:443"
 
 ###lib start##
 
