@@ -250,7 +250,17 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 		DrainOp:          t.NewPublishFuncWithContext(ctx),
 		DrainFreq:        t.conf.PublishIntv,
 	}
+
 	bufCtrl := buf.NewController(conf, t.buffer)
+
+	// do a manual drain first to send all startup events
+	// immediately instead of waiting for first publish
+	// interval to pass.
+	var lastErr error
+	if err := bufCtrl.Drain(); err != nil {
+		log.Errorw("initial drain error", zap.Error(err))
+		lastErr = err
+	}
 
 	//
 	// start buffer controller
@@ -273,7 +283,6 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 
 		log.Debug("starting metric ingestion")
 
-		var prevErr error
 		for {
 			select {
 			case msg, ok := <-t.receiveCh:
@@ -300,9 +309,9 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 				_, err := t.buffer.Insert(item)
 				if err != nil {
 					MetricsDropCnt.Inc()
-					if prevErr == nil {
+					if lastErr == nil {
 						log.Errorw("metric dropped, buffer unavailable", zap.Error(err))
-						prevErr = err
+						lastErr = err
 					}
 					continue
 				}
@@ -315,14 +324,14 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 						drainErr := bufCtrl.Drain()
 						if drainErr != nil {
 							log.Warn("eager drain failed", zap.Error(drainErr))
-							prevErr = drainErr
+							lastErr = drainErr
 
 							continue
 						}
 						log.Debug("eager drain ok")
 					}
 				}
-				prevErr = nil
+				lastErr = nil
 			case <-agentUpTimer.C:
 				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
 				agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
