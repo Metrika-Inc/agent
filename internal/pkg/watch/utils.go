@@ -19,8 +19,7 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 	for i, metric := range in.Metric {
 		labels := metric.GetLabel()
 		out.Metrics[i] = &model.Metric{
-			MetricPoints: make([]*model.MetricPoint, 1),
-			Labels:       make([]*model.Label, len(labels)),
+			Labels: make([]*model.Label, len(labels)),
 		}
 		for j, metric := range labels {
 			out.Metrics[i].Labels[j] = &model.Label{
@@ -28,6 +27,10 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 				Value: metric.GetValue(),
 			}
 		}
+
+		out.Metrics[i].MetricPoints = []*model.MetricPoint{{
+			Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs()).UTC()),
+		}}
 
 		switch in.GetType() {
 		case dto.MetricType_GAUGE:
@@ -43,10 +46,7 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 					},
 				},
 			}
-			out.Metrics[i].MetricPoints[0] = &model.MetricPoint{
-				Value:     value,
-				Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs())),
-			}
+			out.Metrics[i].MetricPoints[0].Value = value
 		case dto.MetricType_COUNTER:
 			out.Type = model.MetricType_COUNTER
 			counter := metric.GetCounter()
@@ -72,10 +72,7 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 					value.CounterValue.Exemplar.Label[j].Value = label.GetValue()
 				}
 			}
-			out.Metrics[i].MetricPoints[0] = &model.MetricPoint{
-				Value:     value,
-				Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs())),
-			}
+			out.Metrics[i].MetricPoints[0].Value = value
 		case dto.MetricType_HISTOGRAM:
 			out.Type = model.MetricType_HISTOGRAM
 			histogram := metric.GetHistogram()
@@ -112,10 +109,7 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 				}
 			}
 
-			out.Metrics[i].MetricPoints[0] = &model.MetricPoint{
-				Value:     value,
-				Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs())),
-			}
+			out.Metrics[i].MetricPoints[0].Value = value
 		case dto.MetricType_SUMMARY:
 			out.Type = model.MetricType_SUMMARY
 			summary := metric.GetSummary()
@@ -139,11 +133,7 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 					Value:    quantile.GetValue(),
 				}
 			}
-
-			out.Metrics[i].MetricPoints[0] = &model.MetricPoint{
-				Value:     value,
-				Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs())),
-			}
+			out.Metrics[i].MetricPoints[0].Value = value
 		}
 	}
 

@@ -17,7 +17,7 @@ platform:
   transport_timeout: 10s
 
   # addr: string, network address of the platform for publishing
-  addr: 0.0.0.0:9600
+  addr: <platform_addr>
 
   # uri: string, platform publishing endpoint
   uri: /

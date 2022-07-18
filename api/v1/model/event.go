@@ -24,15 +24,17 @@ const (
 	| ntp_server     | string | The NTP server used by the agent's clock                          |
 	+----------------+--------+-------------------------------------------------------------------+ */
 
-	AgentUptimeKey  = "uptime"
-	EndpointKey     = "endpoint"
-	ErrorKey        = "error"
-	ContainerIDKey  = "container_id"
-	NodeIDKey       = "node_id"
-	NodeTypeKey     = "node_type"
-	NodeVersionKey  = "node_version"
-	OffsetMillisKey = "offset_millis"
-	NTPServerKey    = "ntp_server"
+	AgentUptimeKey   = "uptime"
+	AgentProtocolKey = "protocol"
+	EndpointKey      = "endpoint"
+	ErrorKey         = "error"
+	ContainerIDKey   = "container_id"
+	NodeIDKey        = "node_id"
+	NodeTypeKey      = "node_type"
+	NodeVersionKey   = "node_version"
+	OffsetMillisKey  = "offset_millis"
+	NTPServerKey     = "ntp_server"
+	NetworkKey       = "network"
 
 	/* core specific events */
 
@@ -110,7 +112,7 @@ func NewWithFilteredCtx(ctx map[string]interface{}, name string, t time.Time, ke
 		return nil, err
 	}
 
-	return &Event{Name: name, Values: values}, nil
+	return &Event{Name: name, Timestamp: t.UnixMilli(), Values: values}, nil
 }
 
 // NewWithCtx returns an event whose context is equal to the given context.

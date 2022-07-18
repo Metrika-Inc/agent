@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	global.BlockchainNode = &discover.MockBlockchain{}
 	timesync.Default.Start(nil)
 	// l, _ := zap.NewProduction()
 	// zap.ReplaceGlobals(l)
@@ -170,7 +173,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n, pub.buffer.Len())
+	require.Equal(t, n, pub.buffer.Len()) // +1 for the very first agent.up event
 
 	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.buffer.Len())
@@ -237,7 +240,7 @@ func TestPublisher_Error(t *testing.T) {
 	}()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n, pub.buffer.Len()) // + 1 compensate for agent.net.error event
+	require.Equal(t, n+2, pub.buffer.Len()) // + 1 compensate for agent.net.error event
 
 	select {
 	case <-platformCh:
@@ -246,7 +249,7 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	<-time.After(conf.PublishIntv)
-	require.Equal(t, 0, pub.buffer.Len())
+	require.Equal(t, 1, pub.buffer.Len())
 }
 
 // TestPublisher_Stop checks:

@@ -25,6 +25,7 @@ const (
 	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
 	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
 	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
+	protocolName          = "flow"
 )
 
 // Dapper is responsible for discovery and validation
@@ -35,6 +36,7 @@ type Dapper struct {
 	container    *types.Container
 	env          map[string]string
 	nodeRole     string
+	network      string
 	nodeVersion  string
 	mutex        *sync.RWMutex
 }
@@ -129,8 +131,8 @@ func (d *Dapper) DiscoverContainer() (*types.Container, error) {
 	}
 
 	if d.container != nil && len(d.container.Names) > 0 {
-		if _, err := d.updateNodeType(d.container.Names[0]); err != nil {
-			log.Warn("could not find node type")
+		if err := d.updateFromLogs(d.container.Names[0]); err != nil {
+			log.Warnw("error while getting node metadata from logs", zap.Error(err))
 			errs.Append(err)
 		}
 	}
@@ -306,12 +308,19 @@ func (d *Dapper) NodeType() string {
 	return d.nodeRole
 }
 
-func (d *Dapper) updateNodeType(containerName string) (string, error) {
-	if d.nodeRole != "" {
+func (d *Dapper) Network() string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return d.network
+}
+
+func (d *Dapper) updateFromLogs(containerName string) error {
+	if d.nodeRole != "" && d.network != "" {
 		// TODO: node type discovery is quite expensive
 		// and we are not handling role changes for now
 		// so ignore further calls.
-		return d.nodeRole, nil
+		return nil
 	}
 
 	reader, err := utils.DockerLogs(
@@ -325,37 +334,57 @@ func (d *Dapper) updateNodeType(containerName string) (string, error) {
 		},
 	)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer reader.Close()
 
-	// cleanup header from log line
-	hdr := make([]byte, 8)
-	reader.Read(hdr)
+	// We can't assume a single log line will have all the keys we need. Watch the log
+	// at most for 5 seconds until all metadata has been extracted,
+	started := time.Now()
+	for time.Since(started) < 5*time.Second {
+		// cleanup header from log line
+		hdr := make([]byte, 8)
+		reader.Read(hdr)
 
-	got, err := utils.GetLogLine(reader)
-	if err != nil {
-		return "", err
-	}
-
-	if len(got) == 0 {
-		return "", fmt.Errorf("empty log line")
-	}
-
-	m := map[string]interface{}{}
-	if err := json.Unmarshal(got, &m); err != nil {
-		return "", err
-	}
-
-	if role, ok := m["node_role"]; ok {
-		d.nodeRole, ok = role.(string)
-		if !ok {
-			return "", fmt.Errorf("type assertion failed for node role: %v", role)
+		got, err := utils.GetLogLine(reader)
+		if err != nil {
+			return err
 		}
-		return d.nodeRole, nil
+
+		if len(got) == 0 {
+			return fmt.Errorf("empty log line")
+		}
+
+		m := map[string]interface{}{}
+		if err := json.Unmarshal(got, &m); err != nil {
+			return err
+		}
+
+		if role, ok := m["node_role"]; ok && d.nodeRole == "" {
+			d.nodeRole, ok = role.(string)
+			if !ok {
+				return fmt.Errorf("type assertion failed for node role: %v", role)
+			}
+		}
+
+		if chain, ok := m["chain"]; ok && d.network == "" {
+			d.network, ok = chain.(string)
+			if !ok {
+				return fmt.Errorf("type assertion failed for chain: %v", chain)
+			}
+		}
+
+		if d.network != "" && d.nodeRole != "" {
+			break
+		}
+
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	return "", nil
+	log := zap.S()
+	log.Debugf("node metadata discovery took %v", time.Since(started))
+
+	return nil
 }
 
 func (d *Dapper) NodeVersion() string {
@@ -378,4 +407,8 @@ func (d *Dapper) updateNodeVersion() (string, error) {
 	d.nodeVersion = imageParts[1]
 
 	return d.nodeVersion, nil
+}
+
+func (d *Dapper) Protocol() string {
+	return protocolName
 }
