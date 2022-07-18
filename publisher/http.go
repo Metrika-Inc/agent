@@ -190,7 +190,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 		case err := <-errCh:
 			return err // might be nil
 		case <-time.After(t.conf.PublishTimeout):
-			return fmt.Errorf("publish goroutine timeout (30s)")
+			return fmt.Errorf("publish goroutine timeout (%v)", t.conf.PublishTimeout.Seconds())
 		}
 	}
 
