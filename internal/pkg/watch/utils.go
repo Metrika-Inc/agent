@@ -28,13 +28,9 @@ func dtoToOpenMetrics(in *dto.MetricFamily) (*model.MetricFamily, error) {
 			}
 		}
 
-		if out.Metrics[i].GetMetricPoints() == nil {
-			out.Metrics[i].MetricPoints = []*model.MetricPoint{}
-		}
-
-		out.Metrics[i].MetricPoints = append(out.Metrics[i].MetricPoints, &model.MetricPoint{
+		out.Metrics[i].MetricPoints = []*model.MetricPoint{{
 			Timestamp: timestamppb.New(time.UnixMilli(metric.GetTimestampMs()).UTC()),
-		})
+		}}
 
 		switch in.GetType() {
 		case dto.MetricType_GAUGE:
