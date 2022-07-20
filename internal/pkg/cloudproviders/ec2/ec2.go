@@ -26,7 +26,7 @@ func Hostname() (string, error) {
 	// Using 'internal-hostname' as the 'public-hostname' may not exist!
 	ih, err := client.GetMetadata(context.TODO(),
 		&imds.GetMetadataInput{
-			Path: "internal-hostname"})
+			Path: "instance-id"})
 
 	if err != nil {
 		return "", err
