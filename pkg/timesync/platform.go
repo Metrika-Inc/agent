@@ -41,7 +41,7 @@ type PlatformSync struct {
 func (p *PlatformSync) Register(ns int64) {
 	p.Lock()
 	defer p.Unlock()
-	ts := time.Unix(0, ns)
+	ts := time.UnixMilli(ns)
 	d := abs(Now().Sub(ts))
 	// first measurement, only store
 	if p.firstTimestamp.IsZero() {
