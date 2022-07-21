@@ -237,6 +237,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 
 	agentUpCtx := make(map[string]interface{}, 1)
 	agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
+	agentUpCtx[model.AgentVersionKey] = global.Version
 	if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
 		log.Warnw("error emitting startup event", "event", model.AgentUpName, zap.Error(err))
 	}
@@ -335,6 +336,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 			case <-agentUpTimer.C:
 				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
 				agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
+				agentUpCtx[model.AgentVersionKey] = global.Version
 				if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
 					log.Warnw("error emitting event", "event", model.AgentUpName, zap.Error(err))
 				}

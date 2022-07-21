@@ -26,6 +26,7 @@ const (
 
 	AgentUptimeKey   = "uptime"
 	AgentProtocolKey = "protocol"
+	AgentVersionKey  = "agent_version"
 	EndpointKey      = "endpoint"
 	ErrorKey         = "error"
 	ContainerIDKey   = "container_id"
@@ -38,7 +39,7 @@ const (
 
 	/* core specific events */
 
-	// AgentUpName The agent is up and running. Ctx: uptime
+	// AgentUpName The agent is up and running. Ctx: uptime, agent_version
 	AgentUpName = "agent.up"
 
 	// AgentDownName The agent is dying
