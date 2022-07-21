@@ -17,6 +17,7 @@ AGENT_DOWNLOAD_URL="http://0.0.0.0:8000/$BIN_NAME"
 AGENT_CONFIG_DOWNLOAD_URL="http://0.0.0.0:8000/internal/pkg/global/$AGENT_CONFIG_NAME"
 INSTALLER_VERSION="0.1"
 SUPPORTED_BLOCKCHAINS=("dapper algorand")
+SUPPORTED_ARCHS=("arm64 x86_64")
 DNT=0
 
 function goodbye {
@@ -31,17 +32,8 @@ function goodbye {
 }
 
 logo_gz="
-H4sIAAAAAAAAA+1XXUoEMQx+9wr7IniBJk2alhzFM+z9X/1mVLBpFmfZVVYQQSEMbfr9JZ5ey/n0
-Wruzl+3n/Hz6SxUm796mEml3HS7t/PL1Qx7em7dY7XtVp+qlE3y43aFna45muM6nF3JTV5ur1bzj
-gT1829wMLU7VQV7FeT7gyg6fHobYoxWauW/DW3UJeAn5KN7GnavULLntSOdKTgM6C2TrTrbdu/kK
-6Y8oIiDFECId7/2RxUFLpeGXwiqr3zX6fXfZAhCzZd+Ct47TZ/dSp+1C5alqZYe4fAMxIYBcQ4YR
-osBFAr0lpbdn3V+QQklSkKS6iguHlFmi9SHl0bZe54AdjndypEg2zWuoGt4I9GcboLgmNAEkl3vM
-LDgf5MyEQ2zSvQbvF02CnvA4wRNnwqFhEhw8HYs3V4IWDkhjqNd24/i4VhQVvg0NA4MK14R5jMHY
-XcKUNnAP1QZwQD5iOTiRCR6hxbVAwWC0+VzdUhGm/AYI4Eq8sNhcDDiuY4LjmCCDHvGuElqC+ji2
-xBXIWJwMxJLd1t1imiwwGzC2GP406n53OxIkpSTrCuISnfLcvCy336CYbXfCXz7S4g9V08GST6Sw
-nJgmjP/YcvIhbrna0HDbaoDfxTgN4Btks84IKhUJijkRrPq+PwYotzVgHR3gcrX1xxYewLvOAp/G
-gYAULp/7Bl6KDoN10/3jQjU9Ib3sSJdrhqf/iHyiZYeQ7clevTM2ImMrsw+5pPxXfr3y9AZLEakK
-2xAAAA==
+H4sIAAAAAAAAA1NQgIN8IIDRIAYXqhRYDMbgQpPKR1LDhWYeiKEAZXNhMQuhD9MsJPtgQvjciQG4
+AMjuZGfgAAAA
 "
 
 
@@ -79,10 +71,10 @@ function usage {
   cat << EOF
 usage: install.sh [options]
 options:
+  --upgrade               Upgrade the Metrika agent to the latest version.
   --reinstall             Reinstall/refresh the Metrika Agent installation.
   --uninstall             Stop and remove the Metrika Agent.
   --purge                 Stop, remove the Metrika Agent, including any agent configuration/data.
-  --dnt                   Disable installer telemetry (telemetry helps Metrika improve the installer by sending anonymized errors!)
 EOF
 }
 >>>>>>> b078aec (fixup: add usage, refactor install options.)
@@ -145,6 +137,45 @@ function stop_service {
 function send_telemetry_event {
   # TODO(cosmix): implement me!
   true
+}
+
+function sanity_check {
+
+  # CURL 
+  test -x "$(which curl)" || goodbye "curl is missing from your system. Please install it and try again."
+  arch=$(uname -i)
+
+  # SYSTEM ARCHITECTURE
+  case $arch in
+    "x86_64")
+      true
+      ;;
+    "arm64")
+      true
+      ;;
+    "*")
+      goodbye "Unsupported architecture. Metrika Agent currently supports: '${SUPPORTED_ARCHS[*]}'"
+  esac
+
+  # MA_BLOCKCHAIN envvar
+  if [[ -z "${MA_BLOCKCHAIN}" ]]
+  then
+    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'. Exiting."
+  fi
+
+  # MA_API_KEY envvar
+  if [[ -z "${MA_API_KEY}" ]]
+  then
+    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting." 3
+  fi
+
+  if [ "$DISTRIBUTION" == "Darwin" ]; then
+    goodbye "Metrika Agent does not support macOS just yet."
+  fi
+
+  if [[ "$DISTRIBUTION" =~ .*BSD ]]; then
+    goodbye "Metrika Agent does not support BSD just yet."
+  fi
 }
 
 function purge {
@@ -238,16 +269,12 @@ for arg in "$@"; do
       usage
       exit 0
       ;;
-    "--dnt")
-      DNT=1
   esac
 done
 
+sanity_check
 
-if [[ -z "${MA_BLOCKCHAIN}" ]]
-then
-    goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'. Exiting."
-fi
+
 
 case $MA_BLOCKCHAIN in
     dapper)
@@ -264,11 +291,6 @@ case $MA_BLOCKCHAIN in
 esac
 
 
-if [[ -z "${MA_API_KEY}" ]]
-then
-    goodbye "MA_API_KEY environment variable must be set before running the installation script. Exiting." 3
-fi
-
  log_info "METRIKA agent installation started for blockchain protocol node: '${MA_BLOCKCHAIN}'"
 
 # Start installation
@@ -280,36 +302,9 @@ DISTRIBUTION=$(lsb_release -d 2>/dev/null | \
     uname -s)
 test -n "$DISTRIBUTION" || >&2 log_warn "Could not detect host OS distribution."
 
+
+
 # Linux installation
-if [ "$DISTRIBUTION" != "Darwin" ]; then
-    log_info "Detected host OS distribution: $DISTRIBUTION"
-
-    if service_exists; then
-        printf "\nA previous installation of the agent was detected.\n"
-        printf "\n1. Re-install the agent (will automatically uninstall first)."
-        printf "\n2. Uninstall the agent (keep metadata) and exit."
-        printf "\n3. Uninstall the agent completely."
-        printf "\n4. Quit."
-        printf "\n\n"
-        echo -n "How would you like to proceed? [1-4q]+ "
-
-        read -r ans
-        if  [ "$ans" == "1" ]; then
-          echo "Removing previous installation"
-          uninstall
-        elif  [ "$ans" == "2" ]; then
-          echo "Removing previous installation"
-          uninstall
-          exit 0
-        elif  [ "$ans" == "3" ]; then
-          purge
-          exit 0
-        elif  [ "$ans" == "4" ] || [ "$ans" == "q" ]; then
-          exit 0
-        else
-          goodbye "Uknown option $ans, aborting installation, goodbye" 10
-        fi
-    fi
 
     echo "Creating system group(user): $MA_GROUP($MA_USER)"
     getent passwd "$MA_USER" >/dev/null || \
