@@ -241,6 +241,7 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 	if err := emitEvent(t, agentUpCtx, model.AgentUpName); err != nil {
 		log.Warnw("error emitting startup event", "event", model.AgentUpName, zap.Error(err))
 	}
+	log.Infow("started publishing with agent up", "event_name", model.AgentUpName, "ctx", agentUpCtx)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, AgentUUIDContextKey, t.conf.UUID)
