@@ -247,8 +247,16 @@ func (o *OnVoting) New(v map[string]interface{}, t time.Time) (*model.Event, err
 
 type OnBlockVoteReceivedFwd struct{}
 
+func isOnBlockVoteReceived(v map[string]interface{}) bool {
+	if val, ok := v["message"]; ok && val == onBlockVoteReceivedFwdName {
+		return true
+	}
+
+	return false
+}
+
 func (o *OnBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
-	if !isOnVoting(v) {
+	if !isOnBlockVoteReceived(v) {
 		return nil, nil
 	}
 
