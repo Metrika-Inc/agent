@@ -21,6 +21,9 @@ const (
 
 	// onBlockVoteReceivedFwdName Block vote received, forwarding block vote to hotstuff vote aggregator.
 	onBlockVoteReceivedFwdName = "block vote received, forwarding block vote to hotstuff vote aggregator"
+
+	// onBlockVoteReceivedName is a pretty version of a name for the otherwise filter
+	onBlockVoteReceivedName = "BlockVoteReceived"
 )
 
 var (
@@ -249,7 +252,7 @@ func (o *OnBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*mo
 		return nil, nil
 	}
 
-	ev, err := model.NewWithFilteredCtx(v, onBlockVoteReceivedFwdName, t, onVotingKeys...)
+	ev, err := model.NewWithFilteredCtx(v, onBlockVoteReceivedName, t, onBlockVoteReceivedFwdKeys...)
 	if err != nil {
 		return nil, err
 	}
