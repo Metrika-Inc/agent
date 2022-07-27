@@ -8,7 +8,7 @@ A single Agent binary supports only one protocol/node at a time. This is achieve
 
 ### Implementing support for new Protocol
 
-* Create a new package in the project root (existing examples: [dapper](dapper/), [algorand](algorand/))
+* Create a new package in the project root (existing examples: [flow](flow/), [algorand](algorand/))
 * Create a struct to implement `global.Chain` interface
 * Add the package name to the supported protocol list in [Makefile](Makefile)
 * Compile with `make build-[package-name]`

@@ -48,7 +48,7 @@ func TestDockerLogs_happy(t *testing.T) {
 	defer deferme()
 
 	w := NewDockerLogWatch(DockerLogWatchConf{
-		Regex: []string{"dapper-private-network_consensus_3_1"},
+		Regex: []string{"flow-private-network_consensus_3_1"},
 		Events: map[string]model.FromContext{
 			"OnVoting": new(onVoting),
 		},

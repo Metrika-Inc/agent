@@ -1,4 +1,4 @@
-package dapper
+package flow
 
 import (
 	"context"
@@ -28,10 +28,10 @@ const (
 	protocolName          = "flow"
 )
 
-// Dapper is responsible for discovery and validation
-// of the agent's dapper-related configuration.
-type Dapper struct {
-	config       DapperConfig
+// Flow is responsible for discovery and validation
+// of the agent's flow-related configuration.
+type Flow struct {
+	config       FlowConfig
 	renderNeeded bool // if any config value was empty but got updated
 	container    *types.Container
 	env          map[string]string
@@ -41,14 +41,14 @@ type Dapper struct {
 	mutex        *sync.RWMutex
 }
 
-func NewDapper() (*Dapper, error) {
-	dapper := &Dapper{mutex: &sync.RWMutex{}}
-	config := NewDapperConfig(DefaultDapperPath)
+func NewFlow() (*Flow, error) {
+	flow := &Flow{mutex: &sync.RWMutex{}}
+	config := NewFlowConfig(DefaultFlowPath)
 	var err error
-	dapper.config, err = config.Load()
+	flow.config, err = config.Load()
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		// configuration does not exist, create it
-		dapper.config, err = config.Default()
+		flow.config, err = config.Default()
 		if err != nil {
 			return nil, err
 		}
@@ -56,20 +56,20 @@ func NewDapper() (*Dapper, error) {
 		return nil, err
 	}
 
-	return dapper, nil
+	return flow, nil
 }
 
-func (d *Dapper) ResetConfig() error {
+func (d *Flow) ResetConfig() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	var err error
-	config := NewDapperConfig(DefaultDapperPath)
+	config := NewFlowConfig(DefaultFlowPath)
 	d.config, err = config.Default()
 	return err
 }
 
-func (d *Dapper) IsConfigured() bool {
+func (d *Flow) IsConfigured() bool {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -80,7 +80,7 @@ func (d *Dapper) IsConfigured() bool {
 	return false
 }
 
-func (d *Dapper) isPEFConfigured() bool {
+func (d *Flow) isPEFConfigured() bool {
 	if len(d.config.PEFEndpoints) == 0 {
 		zap.S().Fatal("pefEndpoints field should always have an entry; running agent with reset flag should populate it")
 	}
@@ -88,9 +88,9 @@ func (d *Dapper) isPEFConfigured() bool {
 	return len(d.config.PEFEndpoints[0].URL) != 0
 }
 
-func (d *Dapper) DiscoverContainer() (*types.Container, error) {
+func (d *Flow) DiscoverContainer() (*types.Container, error) {
 	log := zap.S()
-	log.Info("dapper not fully configured, starting discovery")
+	log.Info("flow not fully configured, starting discovery")
 
 	env, err := utils.GetEnvFromFile(d.config.EnvFilePath)
 	if err != nil {
@@ -149,25 +149,25 @@ func (d *Dapper) DiscoverContainer() (*types.Container, error) {
 
 	if d.renderNeeded {
 		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath,
-			DefaultDapperPath, d.config); err != nil {
+			DefaultFlowPath, d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
 		d.renderNeeded = false
-		DapperConf = &d.config
+		FlowConf = &d.config
 	}
 
 	return d.container, errs.ErrIfAny()
 }
 
-func (d *Dapper) NodeID() string {
+func (d *Flow) NodeID() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.config.NodeID
 }
 
-func (d *Dapper) configureNodeID() (string, error) {
+func (d *Flow) configureNodeID() (string, error) {
 	log := zap.S()
 	if d.config.NodeID != "" {
 		log.Debugw("NodeID exists, skipping discovery", "node_id", d.config.NodeID)
@@ -208,7 +208,7 @@ func (d *Dapper) configureNodeID() (string, error) {
 	return "", errors.New("node ID not found")
 }
 
-func (d *Dapper) configurePEFEndpoints() error {
+func (d *Flow) configurePEFEndpoints() error {
 	if d.isPEFConfigured() {
 		zap.S().Debug("PEFEndpoints already exist, skipping discovery")
 		return nil
@@ -264,58 +264,58 @@ func (d *Dapper) configurePEFEndpoints() error {
 	return nil
 }
 
-func (d *Dapper) ValidateClient() error {
-	// flow-go is the only dapper client
+func (d *Flow) ValidateClient() error {
+	// flow-go is the only flow client
 	if d.config.Client != "flow-go" {
 		return errors.New("invalid client specified")
 	}
 	return nil
 }
 
-func (d *Dapper) configureClient() error {
+func (d *Flow) configureClient() error {
 	if d.config.Client == "" {
 		d.config.Client = "flow-go"
 	}
 	return nil
 }
 
-func (d *Dapper) PEFEndpoints() []global.PEFEndpoint {
+func (d *Flow) PEFEndpoints() []global.PEFEndpoint {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.config.PEFEndpoints
 }
 
-func (d *Dapper) ContainerRegex() []string {
+func (d *Flow) ContainerRegex() []string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.config.ContainerRegex
 }
 
-func (d *Dapper) LogEventsList() map[string]model.FromContext {
+func (d *Flow) LogEventsList() map[string]model.FromContext {
 	return eventsFromContext
 }
 
-func (d *Dapper) NodeLogPath() string {
+func (d *Flow) NodeLogPath() string {
 	return ""
 }
 
-func (d *Dapper) NodeType() string {
+func (d *Flow) NodeType() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.nodeRole
 }
 
-func (d *Dapper) Network() string {
+func (d *Flow) Network() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.network
 }
 
-func (d *Dapper) updateFromLogs(containerName string) error {
+func (d *Flow) updateFromLogs(containerName string) error {
 	if d.nodeRole != "" && d.network != "" {
 		// TODO: node type discovery is quite expensive
 		// and we are not handling role changes for now
@@ -387,14 +387,14 @@ func (d *Dapper) updateFromLogs(containerName string) error {
 	return nil
 }
 
-func (d *Dapper) NodeVersion() string {
+func (d *Flow) NodeVersion() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	return d.nodeVersion
 }
 
-func (d *Dapper) updateNodeVersion() (string, error) {
+func (d *Flow) updateNodeVersion() (string, error) {
 	if d.container == nil {
 		return "", errors.New("node version: container not configured")
 	}
@@ -409,6 +409,6 @@ func (d *Dapper) updateNodeVersion() (string, error) {
 	return d.nodeVersion, nil
 }
 
-func (d *Dapper) Protocol() string {
+func (d *Flow) Protocol() string {
 	return protocolName
 }

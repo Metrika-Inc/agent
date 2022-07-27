@@ -1,4 +1,4 @@
-package dapper
+package flow
 
 import (
 	"fmt"
@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	DefaultDapperPath   = "/etc/metrikad/configs/dapper.yml"
-	DefaultTemplatePath = "/etc/metrikad/configs/dapper.template"
+	DefaultFlowPath   = "/etc/metrikad/configs/flow.yml"
+	DefaultTemplatePath = "/etc/metrikad/configs/flow.template"
 )
 
-var DapperConf *DapperConfig
+var FlowConf *FlowConfig
 
-type DapperConfig struct {
+type FlowConfig struct {
 	configPath     string
 	Client         string               `yaml:"client"`
 	ContainerRegex []string             `yaml:"containerRegex"`
@@ -25,38 +25,38 @@ type DapperConfig struct {
 	EnvFilePath    string               `yaml:"envFile"`
 }
 
-func NewDapperConfig(configPath ...string) DapperConfig {
+func NewFlowConfig(configPath ...string) FlowConfig {
 	var path string
 	if len(configPath) == 0 {
-		path = DefaultDapperPath
+		path = DefaultFlowPath
 	} else {
 		path = configPath[0]
 	}
-	return DapperConfig{
+	return FlowConfig{
 		configPath: path,
 	}
 }
 
-func (d *DapperConfig) Load() (DapperConfig, error) {
-	var conf DapperConfig
+func (d *FlowConfig) Load() (FlowConfig, error) {
+	var conf FlowConfig
 	content, err := ioutil.ReadFile(d.configPath)
 	if err != nil {
-		return DapperConfig{}, err
+		return FlowConfig{}, err
 	}
 
 	if err := yaml.Unmarshal(content, &conf); err != nil {
-		return DapperConfig{}, err
+		return FlowConfig{}, err
 	}
 
-	DapperConf = &conf
+	FlowConf = &conf
 	return conf, nil
 }
 
 // Default overrides the configuration file specified in configPath
 // with the template preset, and then loads it in memory.
-func (d *DapperConfig) Default() (DapperConfig, error) {
+func (d *FlowConfig) Default() (FlowConfig, error) {
 	if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, d.configPath, d); err != nil {
-		return DapperConfig{}, fmt.Errorf("failed to generate default template: %w", err)
+		return FlowConfig{}, fmt.Errorf("failed to generate default template: %w", err)
 	}
 
 	return d.Load()
