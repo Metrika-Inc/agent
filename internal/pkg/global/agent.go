@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -29,6 +31,12 @@ var (
 	Version    = "v0.0.0"
 	CommitHash = ""
 	Blockchain = "development"
+)
+
+const (
+	// cloudProviderDiscoveryTimeout max time to wait until at least
+	// one provider metadata sever responds.
+	cloudProviderDiscoveryTimeout = 1 * time.Second
 )
 
 // Chain provides necessary configuration information
@@ -143,17 +151,58 @@ func init() {
 
 func setAgentHostname() error {
 	var err error
-	if gce.IsRunningOn() {
-		// GCE
-		AgentHostname, err = gce.Hostname()
-	} else if do.IsRunningOn() {
-		// Digital Ocean
-		AgentHostname, err = do.Hostname()
-	} else if ec2.IsRunningOn() {
-		// AWS EC2
-		AgentHostname, err = ec2.Hostname()
-	} else {
+	wg := &sync.WaitGroup{}
+	hostnameCh := make(chan string)
+
+	wg.Add(1)
+	go func() { // GCE
+		defer wg.Done()
+		if gce.IsRunningOn() {
+			hostname, err := gce.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on GCE")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() { // Digital Ocean
+		defer wg.Done()
+		if do.IsRunningOn() {
+			hostname, err := do.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on Digital Ocean")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if ec2.IsRunningOn() { // AWS EC2
+			hostname, err := ec2.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on AWS EC2")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	select {
+	case AgentHostname = <-hostnameCh:
+		if len(AgentHostname) == 0 {
+			return fmt.Errorf("got empty hostname")
+		}
+	case <-time.After(cloudProviderDiscoveryTimeout):
 		AgentHostname, err = os.Hostname()
+		if err != nil {
+			return errors.Wrapf(err, "could not get hostname from OS")
+		}
 	}
 
 	return err
