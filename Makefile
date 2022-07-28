@@ -29,9 +29,9 @@ PROM_CLIENT_VERSION := 1.12.1
 OPENMETRICS_VERSION := 1.0.0
 
 # List of supported blockchains by the agent
-DAPPER := dapper
+FLOW := flow
 ALGORAND := algorand
-PROTOS = $(DAPPER) $(ALGORAND)
+PROTOS = $(FLOW) $(ALGORAND)
 
 PROTOBIND = protobind
 

@@ -3,7 +3,7 @@
         "CreatedAt": "2022-03-06 18:55:52 +0000 UTC",
         "ID": "3076fe58cd89",
         "Image": "localnet-consensus",
-        "Names": ["dapper-private-network_consensus_2_1"],
+        "Names": ["flow-private-network_consensus_2_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -12,7 +12,7 @@
         "CreatedAt": "2022-03-06 18:55:52 +0000 UTC",
         "ID": "fe4b24f231ee",
         "Image": "localnet-consensus",
-        "Names": ["dapper-private-network_consensus_3_1"],
+        "Names": ["flow-private-network_consensus_3_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -21,7 +21,7 @@
         "CreatedAt": "2022-03-06 18:55:52 +0000 UTC",
         "ID": "98acb98ec332",
         "Image": "localnet-collection",
-        "Names": ["dapper-private-network_collection_3_1"],
+        "Names": ["flow-private-network_collection_3_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -30,7 +30,7 @@
         "CreatedAt": "2022-03-06 18:55:52 +0000 UTC",
         "ID": "adebaf04b450",
         "Image": "localnet-collection",
-        "Names": ["dapper-private-network_collection_2_1"],
+        "Names": ["flow-private-network_collection_2_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -39,7 +39,7 @@
         "CreatedAt": "2022-03-06 18:55:50 +0000 UTC",
         "ID": "3e6ce0af27fb",
         "Image": "localnet-access",
-        "Names": ["dapper-private-network_access_2_1"],
+        "Names": ["flow-private-network_access_2_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -48,7 +48,7 @@
         "CreatedAt": "2022-03-06 18:55:50 +0000 UTC",
         "ID": "e37d90f305d9",
         "Image": "localnet-consensus",
-        "Names": ["dapper-private-network_consensus_1_1"],
+        "Names": ["flow-private-network_consensus_1_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -57,7 +57,7 @@
         "CreatedAt": "2022-03-06 18:55:50 +0000 UTC",
         "ID": "8494996a4644",
         "Image": "localnet-collection",
-        "Names": ["dapper-private-network_collection_1_1"],
+        "Names": ["flow-private-network_collection_1_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -66,7 +66,7 @@
         "CreatedAt": "2022-03-06 18:55:50 +0000 UTC",
         "ID": "916b1e10077e",
         "Image": "localnet-execution",
-        "Names": ["dapper-private-network_execution_2_1"],
+        "Names": ["flow-private-network_execution_2_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -75,7 +75,7 @@
         "CreatedAt": "2022-03-06 18:55:48 +0000 UTC",
         "ID": "3cf9c1763295",
         "Image": "localnet-access",
-        "Names": ["dapper-private-network_access_1_1"],
+        "Names": ["flow-private-network_access_1_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -84,7 +84,7 @@
         "CreatedAt": "2022-03-06 18:55:48 +0000 UTC",
         "ID": "4aaf0f504bc3",
         "Image": "localnet-execution",
-        "Names": ["dapper-private-network_execution_1_1"],
+        "Names": ["flow-private-network_execution_1_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"
@@ -93,7 +93,7 @@
         "CreatedAt": "2022-03-06 18:55:48 +0000 UTC",
         "ID": "d38ecf57e352",
         "Image": "localnet-verification",
-        "Names": ["dapper-private-network_verification_1_1"],
+        "Names": ["flow-private-network_verification_1_1"],
         "Ports": [{}],
         "State": "running",
         "Status": "Up About an hour"

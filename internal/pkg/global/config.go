@@ -138,7 +138,7 @@ type LogConfig struct {
 	Outputs []string `yaml:"outputs"`
 }
 
-type DapperConfig struct {
+type FlowConfig struct {
 	Client         string   `yaml:"client"`
 	ContainerRegex []string `yaml:"containerRegex"`
 	NodeID         string   `yaml:"nodeID"`

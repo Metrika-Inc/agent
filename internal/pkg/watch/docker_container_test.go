@@ -51,13 +51,13 @@ type DockerMockAdapterHealthy struct{}
 
 func (d *DockerMockAdapterHealthy) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
-		{Names: []string{"/dapper-private-network_consensus_3_1"}},
+		{Names: []string{"/flow-private-network_consensus_3_1"}},
 	}, nil
 }
 
 func (d *DockerMockAdapterHealthy) MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	return dt.Container{
-		Names: []string{"/dapper-private-network_consensus_3_1"},
+		Names: []string{"/flow-private-network_consensus_3_1"},
 	}, nil
 }
 
@@ -105,7 +105,7 @@ func TestContainerWatch_happy(t *testing.T) {
 	defer deferme()
 
 	w := NewContainerWatch(ContainerWatchConf{
-		Regex: []string{"dapper-private-network_consensus_3_1"},
+		Regex: []string{"flow-private-network_consensus_3_1"},
 	})
 	defer w.wg.Wait()
 	defer w.Stop()
@@ -152,13 +152,13 @@ type DockerMockAdapterError struct {
 
 func (d *DockerMockAdapterError) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
-		{Names: []string{"/dapper-private-network_consensus_3_1"}},
+		{Names: []string{"/flow-private-network_consensus_3_1"}},
 	}, nil
 }
 
 func (d *DockerMockAdapterError) MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	return dt.Container{
-		Names: []string{"/dapper-private-network_consensus_3_1"},
+		Names: []string{"/flow-private-network_consensus_3_1"},
 	}, nil
 }
 
@@ -194,7 +194,7 @@ func TestContainerWatch_error(t *testing.T) {
 	defer deferme()
 
 	w := NewContainerWatch(ContainerWatchConf{
-		Regex:     []string{"dapper-private-network_consensus_3_1"},
+		Regex:     []string{"flow-private-network_consensus_3_1"},
 		RetryIntv: 10 * time.Millisecond,
 	})
 	defer w.wg.Wait()

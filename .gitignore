@@ -5,6 +5,6 @@ profile*.out
 **/*.test
 **/coverage.html
 algorand.yml
-dapper.yml
+flow.yml
 tmp/
 /metrikad*

@@ -38,8 +38,8 @@ func init() {
 
 	switch blockchain {
 	case "":
-		log.Fatalf("-blockchain is required (i.e. dapper)")
-	case "dapper", "algorand":
+		log.Fatalf("-blockchain is required (i.e. flow)")
+	case "flow", "algorand":
 	default:
 		log.Fatalf("no bindings available for protocol %q", blockchain)
 	}
@@ -52,7 +52,6 @@ func init() {
 }
 
 func main() {
-
 	if _, err := os.Stat(defaultPath); err != nil {
 		log.Fatal(err)
 	}

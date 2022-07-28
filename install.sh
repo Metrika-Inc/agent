@@ -9,16 +9,16 @@ function goodbye {
   exit 1
 }
 
-supported_blockchains=("dapper algorand")
+supported_blockchains=("flow algorand")
 if [[ -z "${MA_BLOCKCHAIN}" ]]
 then
     goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
 fi
 
 case $MA_BLOCKCHAIN in
-    dapper)
-        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="dapper.template"
-        BLOCKCHAIN_CONFIG_NAME="dapper.yml"
+    flow)
+        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="flow.template"
+        BLOCKCHAIN_CONFIG_NAME="flow.yml"
         ;;
     algorand)
         BLOCKCHAIN_CONFIG_TEMPLATE_NAME="algorand.template"
