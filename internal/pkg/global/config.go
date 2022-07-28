@@ -1,7 +1,6 @@
 package global
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -10,10 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"agent/internal/pkg/cloudproviders/do"
-	"agent/internal/pkg/cloudproviders/ec2"
-	"agent/internal/pkg/cloudproviders/gce"
 
 	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v3"
@@ -50,53 +45,6 @@ var (
 	// DefaultRuntimeSamplingInterval default sampling interval
 	DefaultRuntimeSamplingInterval = 5 * time.Second
 )
-
-func setAgentHostnameOrFatal() {
-	var err error
-	if gce.IsRunningOn() {
-		// GCE
-		AgentHostname, err = gce.Hostname()
-	} else if do.IsRunningOn() {
-		// Digital Ocean
-		AgentHostname, err = do.Hostname()
-	} else if ec2.IsRunningOn() {
-		// AWS EC2
-		AgentHostname, err = ec2.Hostname()
-	} else {
-		AgentHostname, err = os.Hostname()
-	}
-
-	if err != nil {
-		log.Fatalf("error getting hostname: %v", err)
-	}
-}
-
-func init() {
-	var err error
-
-	// Agent cache directory (i.e $HOME/.cache/metrikad)
-	AgentCacheDir, err = os.UserCacheDir()
-	if err != nil {
-		log.Fatalf("user cache directory error: :%v", err)
-	}
-
-	if err := os.Mkdir(AgentCacheDir, 0o755); err != nil &&
-		!errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrExist) {
-
-		log.Fatalf("error creating cache directory: %s (%v)", AgentCacheDir, err)
-	}
-
-	// Agent UUID
-	setAgentHostnameOrFatal()
-
-	// Fingerprint validation and caching persisted in the cache directory
-	_, err = FingerprintSetup()
-	if err != nil {
-		if !AgentConf.Runtime.DisableFingerprintValidation {
-			log.Fatalf("fingerprint initialization error: %v", err)
-		}
-	}
-}
 
 type PlatformConfig struct {
 	APIKey             string        `yaml:"api_key"`

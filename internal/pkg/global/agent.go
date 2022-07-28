@@ -1,14 +1,18 @@
 package global
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"agent/api/v1/model"
+	"agent/internal/pkg/cloudproviders/do"
+	"agent/internal/pkg/cloudproviders/ec2"
+	"agent/internal/pkg/cloudproviders/gce"
 	"agent/internal/pkg/fingerprint"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -135,4 +139,53 @@ func FingerprintSetup() (string, error) {
 func init() {
 	PrometheusRegistry = prometheus.NewPedanticRegistry()
 	PrometheusGatherer = PrometheusRegistry.(prometheus.Gatherer)
+}
+
+func setAgentHostname() error {
+	var err error
+	if gce.IsRunningOn() {
+		// GCE
+		AgentHostname, err = gce.Hostname()
+	} else if do.IsRunningOn() {
+		// Digital Ocean
+		AgentHostname, err = do.Hostname()
+	} else if ec2.IsRunningOn() {
+		// AWS EC2
+		AgentHostname, err = ec2.Hostname()
+	} else {
+		AgentHostname, err = os.Hostname()
+	}
+
+	return err
+}
+
+func AgentPrepareStartup() error {
+	var err error
+
+	// Agent cache directory (i.e $HOME/.cache/metrikad)
+	AgentCacheDir, err = os.UserCacheDir()
+	if err != nil {
+		return errors.Wrapf(err, "user cache directory error: %v", err)
+	}
+
+	if err := os.Mkdir(AgentCacheDir, 0o755); err != nil &&
+		!errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrExist) {
+
+		return errors.Wrapf(err, "error creating cache directory: %s", AgentCacheDir)
+	}
+
+	// Agent UUID
+	if err := setAgentHostname(); err != nil {
+		return errors.Wrap(err, "error setting agent hostname")
+	}
+
+	// Fingerprint validation and caching persisted in the cache directory
+	_, err = FingerprintSetup()
+	if err != nil {
+		if !AgentConf.Runtime.DisableFingerprintValidation {
+			return errors.Wrap(err, "fingerprint initialization error")
+		}
+	}
+
+	return nil
 }

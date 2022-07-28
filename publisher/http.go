@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -22,11 +21,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type platformState int32
-
 var (
-	state *AgentState
-
 	// AgentUUIDHeaderName GRPC metadata key name for agent hostname
 	AgentUUIDHeaderName = "x-agent-uuid"
 
@@ -34,17 +29,9 @@ var (
 	AgentAPIKeyHeaderName = "x-api-key"
 )
 
-func init() {
-	state = new(AgentState)
-	state.Reset()
-}
-
 const (
-	platformStateUknown   platformState = iota
-	platformStateUp                     = iota
-	platformStateDown                   = iota
-	agentUpTimerFreq                    = 30 * time.Second
-	defaultPublishTimeout               = 5 * time.Second
+	agentUpTimerFreq      = 30 * time.Second
+	defaultPublishTimeout = 5 * time.Second
 )
 
 type TransportConf struct {
@@ -94,9 +81,6 @@ type Transport struct {
 }
 
 func NewTransport(ch <-chan interface{}, conf TransportConf) *Transport {
-	state := new(AgentState)
-	state.Reset()
-
 	// Anything put here will be transmitted as request headers.
 	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
 
@@ -172,7 +156,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 			timestamp, err := t.publish(ctx, batch)
 			if err != nil {
 				PlatformHTTPRequestErrors.Inc()
-				state.SetPublishState(platformStateDown)
+				global.AgentRuntimeState.SetPublishState(global.PlatformStateDown)
 
 				errCh <- err
 				return
@@ -181,7 +165,7 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 				timesync.Refresh(timestamp)
 			}
 			MetricsPublishedCnt.Add(float64(len(batch)))
-			state.SetPublishState(platformStateUp)
+			global.AgentRuntimeState.SetPublishState(global.PlatformStateUp)
 
 			errCh <- nil
 		}()
@@ -195,22 +179,6 @@ func (t *Transport) NewPublishFuncWithContext(ctx context.Context) func(b buf.It
 	}
 
 	return publishFunc
-}
-
-type AgentState struct {
-	publishState platformState
-}
-
-func (a *AgentState) PublishState() platformState {
-	return platformState(atomic.LoadInt32((*int32)(&a.publishState)))
-}
-
-func (a *AgentState) SetPublishState(st platformState) {
-	atomic.StoreInt32((*int32)(&a.publishState), int32(st))
-}
-
-func (a *AgentState) Reset() {
-	atomic.StoreInt32((*int32)(&a.publishState), int32(platformStateUp))
 }
 
 func (t *Transport) Connect() error {
@@ -318,8 +286,8 @@ func (t *Transport) Start(wg *sync.WaitGroup) {
 					continue
 				}
 
-				publishState := state.PublishState()
-				if publishState == platformStateUp {
+				publishState := global.AgentRuntimeState.PublishState()
+				if publishState == global.PlatformStateUp {
 					if t.buffer.Len() >= t.conf.MaxBatchLen {
 						log.Debug("maxBatchLen exceeded, eager drain kick in")
 
