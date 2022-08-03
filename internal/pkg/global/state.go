@@ -7,9 +7,9 @@ type platformState int32
 var AgentRuntimeState *AgentState
 
 const (
-	PlatformStateUknown platformState = iota
-	PlatformStateUp     platformState = iota
-	PlatformStateDown   platformState = iota
+	PlatformStateUnknown platformState = iota
+	PlatformStateUp      platformState = iota
+	PlatformStateDown    platformState = iota
 )
 
 func init() {

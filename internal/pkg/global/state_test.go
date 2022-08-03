@@ -13,7 +13,7 @@ func TestAgentState(t *testing.T) {
 	testState := new(AgentState)
 
 	// check default state
-	require.Equal(t, PlatformStateUknown, testState.PublishState())
+	require.Equal(t, PlatformStateUnknown, testState.PublishState())
 
 	testState.SetPublishState(PlatformStateUp)
 	require.Equal(t, PlatformStateUp, testState.PublishState())
