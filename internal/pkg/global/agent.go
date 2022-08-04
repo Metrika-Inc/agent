@@ -1,14 +1,20 @@
 package global
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/cloudproviders/do"
+	"agent/internal/pkg/cloudproviders/ec2"
+	"agent/internal/pkg/cloudproviders/gce"
 	"agent/internal/pkg/fingerprint"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,6 +31,12 @@ var (
 	Version    = "v0.0.0"
 	CommitHash = ""
 	Blockchain = "development"
+)
+
+const (
+	// cloudProviderDiscoveryTimeout max time to wait until at least
+	// one provider metadata sever responds.
+	cloudProviderDiscoveryTimeout = 1 * time.Second
 )
 
 // Chain provides necessary configuration information
@@ -135,4 +147,94 @@ func FingerprintSetup() (string, error) {
 func init() {
 	PrometheusRegistry = prometheus.NewPedanticRegistry()
 	PrometheusGatherer = PrometheusRegistry.(prometheus.Gatherer)
+}
+
+func setAgentHostname() error {
+	var err error
+	wg := &sync.WaitGroup{}
+	hostnameCh := make(chan string)
+
+	wg.Add(1)
+	go func() { // GCE
+		defer wg.Done()
+		if gce.IsRunningOn() {
+			hostname, err := gce.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on GCE")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() { // Digital Ocean
+		defer wg.Done()
+		if do.IsRunningOn() {
+			hostname, err := do.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on Digital Ocean")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if ec2.IsRunningOn() { // AWS EC2
+			hostname, err := ec2.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on AWS EC2")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	select {
+	case AgentHostname = <-hostnameCh:
+		if len(AgentHostname) == 0 {
+			return fmt.Errorf("got empty hostname")
+		}
+	case <-time.After(cloudProviderDiscoveryTimeout):
+		AgentHostname, err = os.Hostname()
+		if err != nil {
+			return errors.Wrapf(err, "could not get hostname from OS")
+		}
+	}
+
+	return err
+}
+
+func AgentPrepareStartup() error {
+	var err error
+
+	// Agent cache directory (i.e $HOME/.cache/metrikad)
+	AgentCacheDir, err = os.UserCacheDir()
+	if err != nil {
+		return errors.Wrapf(err, "user cache directory error: %v", err)
+	}
+
+	if err := os.Mkdir(AgentCacheDir, 0o755); err != nil &&
+		!errors.Is(err, os.ErrNotExist) && !errors.Is(err, os.ErrExist) {
+
+		return errors.Wrapf(err, "error creating cache directory: %s", AgentCacheDir)
+	}
+
+	// Agent UUID
+	if err := setAgentHostname(); err != nil {
+		return errors.Wrap(err, "error setting agent hostname")
+	}
+
+	// Fingerprint validation and caching persisted in the cache directory
+	_, err = FingerprintSetup()
+	if err != nil {
+		if !AgentConf.Runtime.DisableFingerprintValidation {
+			return errors.Wrap(err, "fingerprint initialization error")
+		}
+	}
+
+	return nil
 }

@@ -15,9 +15,9 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 		p := &PlatformSync{RWMutex: &sync.RWMutex{}}
 
 		// 1st registration, expect all timestamps equal
-		ts := time.Now().Add(-100 * time.Millisecond).UnixNano()
+		ts := time.Now().Add(-100 * time.Millisecond).UnixMilli()
 		p.Register(ts)
-		expectedTs := time.Unix(0, ts)
+		expectedTs := time.UnixMilli(ts)
 		require.Equal(t, expectedTs, p.firstTimestamp)
 		require.Equal(t, expectedTs, p.prevTimestamp)
 		require.Equal(t, expectedTs, p.currentTimestamp)
@@ -29,8 +29,8 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 		require.True(t, p.Healthy())
 
 		// 2nd registration, expect prev/current timestamp change
-		ts2 := time.Now().Add(-50 * time.Millisecond).UnixNano()
-		expectedTs2 := time.Unix(0, ts2)
+		ts2 := time.Now().Add(-50 * time.Millisecond).UnixMilli()
+		expectedTs2 := time.UnixMilli(ts2)
 		p.Register(ts2)
 		require.Equal(t, expectedTs, p.firstTimestamp)
 		require.Equal(t, expectedTs, p.prevTimestamp)
@@ -43,8 +43,8 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 		require.True(t, p.Healthy())
 
 		// 3rd registration
-		ts3 := time.Now().Add(150 * time.Millisecond).UnixNano()
-		expectedTs3 := time.Unix(0, ts3)
+		ts3 := time.Now().Add(150 * time.Millisecond).UnixMilli()
+		expectedTs3 := time.UnixMilli(ts3)
 		p.Register(ts3)
 		require.Equal(t, expectedTs, p.firstTimestamp)
 		require.Equal(t, expectedTs2, p.prevTimestamp)
@@ -57,8 +57,8 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 		require.True(t, p.Healthy())
 
 		// 4th registration, increase the delta beyond threshhold
-		ts4 := time.Now().Add(5500 * time.Millisecond).UnixNano()
-		expectedTs4 := time.Unix(0, ts4)
+		ts4 := time.Now().Add(5500 * time.Millisecond).UnixMilli()
+		expectedTs4 := time.UnixMilli(ts4)
 		p.Register(ts4)
 		require.Equal(t, expectedTs, p.firstTimestamp)
 		require.Equal(t, expectedTs3, p.prevTimestamp)
@@ -75,7 +75,7 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 		p := &PlatformSync{RWMutex: &sync.RWMutex{}}
 
 		// 1st registration, expect all timestamps equal
-		ts := time.Now().Add(-25000 * time.Millisecond).UnixNano()
+		ts := time.Now().Add(-25000 * time.Millisecond).UnixMilli()
 		p.Register(ts)
 		require.False(t, p.Healthy())
 	})
@@ -83,14 +83,13 @@ func TestPlatformSync_RegisterAndCheck(t *testing.T) {
 
 func TestPlatformSync_LastDeltas(t *testing.T) {
 	p := &PlatformSync{RWMutex: &sync.RWMutex{}}
-	ts := time.Now().Add(-100 * time.Millisecond).UnixNano()
+	ts := time.Now().Add(-100 * time.Millisecond).UnixMilli()
 	p.Register(ts)
-	ts2 := time.Now().Add(5500 * time.Millisecond).UnixNano()
+	ts2 := time.Now().Add(5500 * time.Millisecond).UnixMilli()
 	p.Register(ts2)
 	d1, d2 := p.LastDeltas()
 	require.Less(t, abs(p.prevDelta-d1), time.Millisecond)
 	require.Less(t, abs(p.currentDelta-d2), time.Millisecond)
-
 }
 
 func TestAbs(t *testing.T) {
@@ -131,10 +130,10 @@ func TestTrackTimestamps(t *testing.T) {
 	// test scenario
 	ctx, cancel := context.WithCancel(context.Background())
 	ch := TrackTimestamps(ctx)
-	ch <- time.Now().UnixNano()
+	ch <- time.Now().UnixMilli()
 	<-time.After(10 * time.Millisecond)
 	require.False(t, called)
-	ch <- time.Now().Add(15 * time.Second).UnixNano()
+	ch <- time.Now().Add(15 * time.Second).UnixMilli()
 	<-time.After(10 * time.Millisecond)
 	cancel()
 	m.Lock()
