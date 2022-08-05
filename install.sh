@@ -148,7 +148,6 @@ EOF
     log_info "\033[1;32m $service ${end}"
     echo "$service" | $sudo_cmd tee "/lib/systemd/system/$BIN_NAME.service"
     cd /etc/systemd/system
-    $sudo_cmd ln -s "/lib/systemd/system/$BIN_NAME.service" "$BIN_NAME.service" || true
     $sudo_cmd systemctl daemon-reload
     $sudo_cmd systemctl enable "$BIN_NAME.service"
     $sudo_cmd systemctl --no-pager start -l "$BIN_NAME.service"
