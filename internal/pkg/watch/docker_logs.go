@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -58,12 +59,20 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 		// Since: "2022-02-25T19:14:59.721119832Z",
 	}
 
-	rc, err := utils.DockerLogs(ctx, w.Regex[0], options)
-	if err != nil {
-		return nil, err
+	var rc io.ReadCloser
+	var err error
+	for _, regex := range w.Regex {
+		rc, err = utils.DockerLogs(ctx, regex, options)
+		if err == nil {
+			// successfully matched with container, exit early
+			return rc, nil
+		}
+
+		zap.S().Warnw("failed getting docker logs", "container_regex", regex, zap.Error(err))
 	}
 
-	return rc, nil
+	return nil, fmt.Errorf("failed repairing the log stream, last error: %w", err)
+
 }
 
 func (w *DockerLogWatch) parseJSON(body []byte) (map[string]interface{}, error) {
