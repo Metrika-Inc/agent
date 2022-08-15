@@ -72,15 +72,20 @@ func (h *HttpGetWatch) StartUnsafe() {
 				}
 				if resp.StatusCode > 299 {
 					h.Log.Errorw("http request failed", "status_code", resp.StatusCode)
+					resp.Body.Close()
 					continue
 				}
 
 				out, err := io.ReadAll(resp.Body)
 				if err != nil {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
+					resp.Body.Close()
 					continue
 				}
-				defer resp.Body.Close()
+
+				if err := resp.Body.Close(); err != nil {
+					h.Log.Errorw("failed to close http body", zap.Error(err))
+				}
 
 				h.Emit(out)
 			case <-h.StopKey:
