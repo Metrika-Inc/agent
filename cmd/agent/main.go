@@ -14,15 +14,17 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/buf"
 	"agent/internal/pkg/contrib"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
+	"agent/internal/pkg/publisher"
+	"agent/internal/pkg/transport"
 	"agent/internal/pkg/watch"
 	"agent/internal/pkg/watch/factory"
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
-	"agent/publisher"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -198,21 +200,35 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	conf := publisher.TransportConf{
-		UUID:           global.AgentHostname,
-		APIKey:         global.AgentConf.Platform.APIKey,
-		URL:            global.AgentConf.Platform.Addr,
-		Timeout:        global.AgentConf.Platform.TransportTimeout,
-		MaxBatchLen:    global.AgentConf.Platform.BatchN,
-		MaxBufferBytes: global.AgentConf.Buffer.Size,
-		PublishIntv:    global.AgentConf.Platform.MaxPublishInterval,
-		BufferTTL:      global.AgentConf.Buffer.TTL,
-		RetryCount:     global.AgentConf.Platform.RetryCount,
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            global.AgentHostname,
+		APIKey:          global.AgentConf.Platform.APIKey,
+		TransmitTimeout: global.AgentConf.Platform.TransportTimeout,
+		URL:             global.AgentConf.Platform.Addr,
 	}
 
-	pub := publisher.NewTransport(ch, conf)
+	platform, err := transport.NewPlatformGRPC(transportConf)
+	if err != nil {
+		log.Fatalw("transport initialize error", zap.Error(err))
+	}
+
+	// initialize the buffer for temporary in-memory caching of collected data
+	// and its controller for maintaining and accessing the buffer.
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         global.AgentConf.Platform.BatchN,
+		BufDrainFreq:        global.AgentConf.Platform.MaxPublishInterval,
+		OnBufRemoveCallback: platform.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.Size, global.AgentConf.Buffer.TTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
+	// attach the buffer controller to the publisher
+	pub := publisher.NewPublisher(ch, publisher.PublisherConf{}, bufCtrl)
 	pub.Start(wg)
 
+	// we should be (almost) ready to publish at this point
+	// start default and enabled watchers
 	if err := registerWatchers(); err != nil {
 		log.Fatal(err)
 	}

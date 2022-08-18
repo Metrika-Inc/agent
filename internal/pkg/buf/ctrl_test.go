@@ -1,7 +1,6 @@
 package buf
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -28,9 +27,9 @@ func TestControllerDrainBatch(t *testing.T) {
 	}
 
 	conf := ControllerConf{
-		DrainFreq:        1 * time.Millisecond,
-		MaxDrainBatchLen: n,
-		DrainOp:          onDrain,
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         n,
+		OnBufRemoveCallback: onDrain,
 	}
 
 	pb := NewPriorityBuffer(bufSz, time.Duration(0))
@@ -40,14 +39,14 @@ func TestControllerDrainBatch(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()
 
 	select {
 	case b := <-drainCh:
-		require.Len(t, b, conf.MaxDrainBatchLen)
+		require.Len(t, b, conf.BufLenLimit)
 		require.Equal(t, b, m)
 		require.Len(t, drainCh, 0)
 	case <-time.After(100 * time.Millisecond):
@@ -58,9 +57,9 @@ func TestControllerDrainBatch(t *testing.T) {
 	_, err = pb.Insert(m...)
 	require.NoError(t, err)
 
-	conf.MaxDrainBatchLen = 1
+	conf.BufLenLimit = 1
 	ctrl = NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()
@@ -69,7 +68,7 @@ func TestControllerDrainBatch(t *testing.T) {
 	for i := 0; i < n; i++ {
 		select {
 		case b := <-drainCh:
-			require.Len(t, b, conf.MaxDrainBatchLen)
+			require.Len(t, b, conf.BufLenLimit)
 			require.Equal(t, b[0], m[i])
 		case <-time.After(100 * time.Millisecond):
 			t.Error("timeout waiting for drain callback")
@@ -89,9 +88,9 @@ func TestControllerDrainCallback(t *testing.T) {
 	}
 
 	conf := ControllerConf{
-		DrainFreq:        1 * time.Millisecond,
-		MaxDrainBatchLen: n,
-		DrainOp:          onDrain,
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         n,
+		OnBufRemoveCallback: onDrain,
 	}
 
 	pb := NewPriorityBuffer(bufSz, time.Duration(0))
@@ -101,7 +100,7 @@ func TestControllerDrainCallback(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()
@@ -117,16 +116,16 @@ func TestControllerDrainCallback(t *testing.T) {
 
 func TestControllerDrainCallbackErr(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz * n)
+	bufSz := uint(testItemSz*n) + uint(216)
 
 	onDrain := func(b ItemBatch) error {
 		return fmt.Errorf("drain test error")
 	}
 
 	conf := ControllerConf{
-		DrainFreq:        1 * time.Millisecond,
-		MaxDrainBatchLen: n,
-		DrainOp:          onDrain,
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         n,
+		OnBufRemoveCallback: onDrain,
 	}
 
 	pb := NewPriorityBuffer(bufSz, time.Duration(0))
@@ -136,11 +135,11 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()
-	require.Equal(t, n, pb.Len())
+	require.Equal(t, n+1, pb.Len()) // +1 to compensate for agent.net.error event
 }
 
 // TestControllerDrain uses:
@@ -161,9 +160,9 @@ func TestControllerDrain(t *testing.T) {
 	}
 
 	conf := ControllerConf{
-		DrainFreq:        1 * time.Millisecond,
-		MaxDrainBatchLen: 2 * n,
-		DrainOp:          onDrain,
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         2 * n,
+		OnBufRemoveCallback: onDrain,
 	}
 
 	pb := NewPriorityBuffer(bufSz, time.Duration(0))
@@ -173,7 +172,7 @@ func TestControllerDrain(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()
@@ -185,7 +184,6 @@ func TestControllerDrain(t *testing.T) {
 		t.Error("timeout waiting for drain callback")
 	}
 	require.Equal(t, 0, pb.Len())
-
 }
 
 func TestControllerClose(t *testing.T) {
@@ -197,9 +195,9 @@ func TestControllerClose(t *testing.T) {
 	}
 
 	conf := ControllerConf{
-		DrainFreq:        1 * time.Millisecond,
-		MaxDrainBatchLen: 1,
-		DrainOp:          onDrain,
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         1,
+		OnBufRemoveCallback: onDrain,
 	}
 
 	pb := NewPriorityBuffer(bufSz, time.Duration(0))
@@ -209,7 +207,7 @@ func TestControllerClose(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start(context.Background())
+	go ctrl.Start()
 	<-time.After(100 * time.Millisecond)
 
 	ctrl.Stop()

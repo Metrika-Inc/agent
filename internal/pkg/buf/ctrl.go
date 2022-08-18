@@ -1,59 +1,85 @@
 package buf
 
 import (
-	"context"
 	"time"
+	"unsafe"
+
+	"agent/api/v1/model"
+	"agent/internal/pkg/global"
+	"agent/pkg/timesync"
 
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
+const (
+	defaultMaxDrainBatchLen = 1000
+	defaultDrainFreq        = 5 * time.Second
+)
+
 type ControllerConf struct {
-	// MaxDrainBatchLen max number of items to drain at once
-	MaxDrainBatchLen int
+	// BufLenLimit max number of items to drain at once
+	BufLenLimit int
 
-	// DrainFreq drain frequency
-	DrainFreq time.Duration
+	// BufDrainFreq drain frequency
+	BufDrainFreq time.Duration
 
-	// DrainOp callback executed when an batch item is removed from the buffer
-	DrainOp func(data ItemBatch) error
+	// OnBufRemoveCallback callback executed when an batch item is removed from the buffer.
+	OnBufRemoveCallback func(data ItemBatch) error
 }
 
+// Controller starts a goroutine to perform periodic buffer cleanup. It also exposes
+// a coarse grained interface to the buffer so that callers can access it.
 type Controller struct {
 	ControllerConf
 
-	B       Buffer
+	// B Buffer implementation to use for all cached data
+	B Buffer
+
 	closeCh chan bool
 }
 
 func NewController(conf ControllerConf, b Buffer) *Controller {
-	return &Controller{conf, b, make(chan bool)}
+	if conf.BufLenLimit == 0 {
+		conf.BufLenLimit = defaultMaxDrainBatchLen
+	}
+
+	if conf.BufDrainFreq == 0 {
+		conf.BufDrainFreq = defaultDrainFreq
+	}
+
+	return &Controller{
+		ControllerConf: conf,
+		B:              b,
+		closeCh:        make(chan bool),
+	}
 }
 
-func (c *Controller) Start(ctx context.Context) {
+// Start starts a goroutine that drains the underlying buffer based
+// on two timers: by default periodically and falls back to exponential
+// backoff if an error occurs while draining. When it recovers, the
+// goroutine switches back to periodic drains.
+func (c *Controller) Start() {
 	log := zap.S()
 	log.Debug("starting buffer controller")
 
 	backof := backoff.NewExponentialBackOff()
 	backof.MaxElapsedTime = 0 // never expire
 
-	// no errors, reset to periodic timer
 	select {
-	case <-time.After(c.DrainFreq):
+	case <-time.After(c.BufDrainFreq):
 		backof.Reset()
 	case <-c.closeCh:
-		c.Drain()
+		c.BufDrain()
 
 		return
 	}
 
 	for {
-		log.Debugw("buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
-
 		// use exp backoff if errors occur
 		log.Debug("scheduled drain kick in")
-		if err := c.Drain(); err != nil {
+		if err := c.BufDrain(); err != nil {
 			nextBo := backof.NextBackOff()
 			log.Warnw("scheduled drain failed", zap.Error(err), "retry_timer", nextBo)
 
@@ -61,7 +87,7 @@ func (c *Controller) Start(ctx context.Context) {
 			case <-time.After(nextBo):
 				continue
 			case <-c.closeCh:
-				c.Drain()
+				c.BufDrain()
 
 				return
 			}
@@ -69,15 +95,16 @@ func (c *Controller) Start(ctx context.Context) {
 
 		// no errors, reset to periodic timer
 		select {
-		case <-time.After(c.DrainFreq):
+		case <-time.After(c.BufDrainFreq):
 			backof.Reset()
 		case <-c.closeCh:
-			c.Drain()
+			c.BufDrain()
 
 			return
 		}
 
 		log.Debug("scheduled drain ok")
+		log.Debugw("buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
 	}
 }
 
@@ -85,7 +112,48 @@ func (c *Controller) Stop() {
 	close(c.closeCh)
 }
 
-func (c *Controller) Drain() error {
+// BufInsert inserts an item in the backing buffer.
+func (c *Controller) BufInsert(item Item) error {
+	_, err := c.B.Insert(item)
+	if err != nil {
+		MetricsDropCnt.Inc()
+
+		return err
+	}
+
+	return nil
+}
+
+// BufInsertAndEarlyDrain inserts an item to the underlying buffer and also checks if
+// it should be drained based on the current number of bufferred items. If platform state
+// is down, it just buffers the item and returns nil.
+func (c *Controller) BufInsertAndEarlyDrain(item Item) error {
+	if err := c.BufInsert(item); err != nil {
+		return err
+	}
+
+	publishState := global.AgentRuntimeState.PublishState()
+	if publishState == global.PlatformStateUp {
+		if c.B.Len() >= c.BufLenLimit {
+			zap.S().Debug("maxBatchLen exceeded, eager drain kick in")
+
+			drainErr := c.BufDrain()
+			if drainErr != nil {
+				zap.S().Warnw("eager drain failed", zap.Error(drainErr))
+
+				return drainErr
+			}
+			zap.S().Debug("eager drain ok")
+		}
+	}
+	return nil
+}
+
+// BufDrain empties the buffer and executes remove callbacks for each batch
+// removed from the buffer. If callback returns an error try to put the batch
+// back to the buffer. If inserting back to the buffer fails, it will return an
+// error.
+func (c *Controller) BufDrain() error {
 	t := time.Now()
 	defer func() { BufferDrainDuration.Observe(time.Since(t).Seconds()) }()
 
@@ -102,7 +170,12 @@ func (c *Controller) Drain() error {
 			return err
 		}
 
-		if err := c.DrainOp(items); err != nil {
+		if err := c.OnBufRemoveCallback(items); err != nil {
+			// Since DrainOp is mostly I/O, send an agent.net.error.
+			if err := c.EmitEventWithError(err, model.AgentNetErrorName); err != nil {
+				zap.S().Warnw("error emitting event", "event", model.AgentNetErrorName, zap.Error(err))
+			}
+
 			_, inErr := c.B.Insert(items...)
 			if inErr != nil {
 				err = errors.Wrap(err, inErr.Error())
@@ -117,20 +190,52 @@ func (c *Controller) Drain() error {
 		return nil
 	}
 
-	for c.B.Len() > c.MaxDrainBatchLen {
-		if err := drainFunc(c.MaxDrainBatchLen); err != nil {
+	for c.B.Len() > c.BufLenLimit {
+		if err := drainFunc(c.BufLenLimit); err != nil {
 			return err
 		}
-
 	}
 
-	batchN := min(c.B.Len(), c.MaxDrainBatchLen)
+	batchN := min(c.B.Len(), c.BufLenLimit)
 	if err := drainFunc(batchN); err != nil {
 		return err
 	}
 
 	if drainedCnt > 0 {
 		zap.S().Infow("buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
+	}
+
+	return nil
+}
+
+func (c *Controller) EmitEventWithError(err error, name string) error {
+	ctx := map[string]interface{}{model.ErrorKey: err.Error()}
+	return c.EmitEvent(ctx, name)
+}
+
+func (c *Controller) EmitEvent(ctx map[string]interface{}, name string) error {
+	ev, err := model.NewWithCtx(ctx, name, timesync.Now())
+	if err != nil {
+		return err
+	}
+
+	zap.S().Debugf("emitting event: %s, %v", ev.Name, ev.Values.String())
+
+	m := &model.Message{
+		Name:  ev.GetName(),
+		Value: &model.Message_Event{Event: ev},
+	}
+
+	item := Item{
+		Priority: 0,
+		Bytes:    uint(unsafe.Sizeof(Item{})) + m.Bytes(),
+		Data:     m,
+	}
+
+	if err := c.BufInsert(item); err != nil {
+		zap.S().Errorw("controller returned buffer insert error (for event)", zap.Error(err))
+
+		return err
 	}
 
 	return nil

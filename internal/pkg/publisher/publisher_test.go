@@ -3,7 +3,6 @@ package publisher
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,8 +11,10 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/buf"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/global"
+	"agent/internal/pkg/transport"
 	"agent/pkg/timesync"
 
 	"github.com/stretchr/testify/require"
@@ -65,22 +66,42 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
 
-	conf := TransportConf{
-		UUID:           "test-agent-uuid",
-		Timeout:        10 * time.Second,
-		MaxBatchLen:    n / 2,
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishIntv:    5 * time.Second,
-		BufferTTL:      time.Duration(0),
+	conf := testConf{
+		UUID:            "test-agent-uuid",
+		APIKey:          "test-api-key",
+		TransmitTimeout: 10 * time.Second,
+		MaxBatchLen:     n / 2,
+		MaxBufferBytes:  uint(50 * 1024 * 1024),
+		PublishIntv:     5 * time.Second,
+		BufferTTL:       time.Duration(0),
 	}
 
-	pubCh := make(chan interface{}, n)
-	pub := NewTransport(pubCh, conf)
+	mocksvc := newMockAgentClient(
+		func() (*model.PlatformResponse, error) {
+			platformCh <- nil
+			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+		})
 
-	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
-		platformCh <- nil
-		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
-	})
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            conf.UUID,
+		APIKey:          conf.APIKey,
+		TransmitTimeout: conf.TransmitTimeout,
+		AgentService:    mocksvc,
+	}
+
+	tr, err := transport.NewPlatformGRPC(transportConf)
+	require.Nil(t, err)
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         conf.MaxBatchLen,
+		BufDrainFreq:        conf.PublishIntv,
+		OnBufRemoveCallback: tr.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
+	pubCh := make(chan interface{}, n)
+	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -104,7 +125,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, 0, pub.buffer.Len())
+	require.Equal(t, 0, pub.bufCtrl.B.Len())
 
 	select {
 	case <-platformCh:
@@ -134,23 +155,43 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
 
-	conf := TransportConf{
-		UUID:           "test-agent-uuid",
-		Timeout:        10 * time.Second,
-		MaxBatchLen:    10000,
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishIntv:    500 * time.Millisecond,
-		BufferTTL:      time.Duration(0),
+	conf := testConf{
+		UUID:            "test-agent-uuid",
+		APIKey:          "test-api-key",
+		TransmitTimeout: 10 * time.Second,
+		MaxBatchLen:     10000,
+		MaxBufferBytes:  uint(50 * 1024 * 1024),
+		PublishIntv:     500 * time.Millisecond,
+		BufferTTL:       time.Duration(0),
 	}
 
+	mocksvc := newMockAgentClient(
+		func() (*model.PlatformResponse, error) {
+			platformCh <- nil
+			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+		})
+
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            conf.UUID,
+		APIKey:          conf.APIKey,
+		TransmitTimeout: conf.TransmitTimeout,
+		AgentService:    mocksvc,
+	}
+
+	tr, err := transport.NewPlatformGRPC(transportConf)
+	require.Nil(t, err)
+
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         conf.MaxBatchLen,
+		BufDrainFreq:        conf.PublishIntv,
+		OnBufRemoveCallback: tr.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
 	pubCh := make(chan interface{}, n)
-
-	pub := NewTransport(pubCh, conf)
-
-	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
-		platformCh <- nil
-		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
-	})
+	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -173,10 +214,10 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n, pub.buffer.Len()) // +1 for the very first agent.up event
+	require.Equal(t, n, pub.bufCtrl.B.Len()) // +1 for the very first agent.up event
 
 	<-time.After(conf.PublishIntv)
-	require.Equal(t, 0, pub.buffer.Len())
+	require.Equal(t, 0, pub.bufCtrl.B.Len())
 }
 
 // TestPublisher_Error checks:
@@ -186,7 +227,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 func TestPublisher_Error(t *testing.T) {
 	n := 10
 
-	healthyAfter := 500 * time.Millisecond
+	healthyAfter := 300 * time.Millisecond
 	st := time.Now()
 	platformCh := make(chan interface{}, n)
 	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -201,29 +242,49 @@ func TestPublisher_Error(t *testing.T) {
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
 
-	conf := TransportConf{
-		URL:            ts.URL,
-		UUID:           "test-agent-uuid",
-		Timeout:        10 * time.Second,
-		MaxBatchLen:    10 + 1, // + 1 to compensate for agent.net.error event
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishIntv:    healthyAfter,
-		BufferTTL:      time.Duration(0),
+	conf := testConf{
+		URL:             ts.URL,
+		UUID:            "test-agent-uuid",
+		APIKey:          "test-api-key",
+		TransmitTimeout: 10 * time.Second,
+		MaxBatchLen:     10 + 1, // + 1 to compensate for agent.net.error event
+		MaxBufferBytes:  uint(50 * 1024 * 1024),
+		PublishIntv:     healthyAfter,
+		BufferTTL:       time.Duration(0),
 	}
 
+	mocksvc := newMockAgentClient(
+		func() (*model.PlatformResponse, error) {
+			defer func() {
+				platformCh <- nil
+			}()
+			if time.Since(st) < healthyAfter {
+				return nil, errors.New("foo")
+			}
+			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+		})
+
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            conf.UUID,
+		APIKey:          conf.APIKey,
+		TransmitTimeout: conf.TransmitTimeout,
+		AgentService:    mocksvc,
+	}
+
+	tr, err := transport.NewPlatformGRPC(transportConf)
+	require.Nil(t, err)
+
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         conf.MaxBatchLen,
+		BufDrainFreq:        conf.PublishIntv,
+		OnBufRemoveCallback: tr.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
 	pubCh := make(chan interface{}, n)
-
-	pub := NewTransport(pubCh, conf)
-
-	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
-		defer func() {
-			platformCh <- nil
-		}()
-		if time.Since(st) < healthyAfter {
-			return nil, errors.New("foo")
-		}
-		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
-	})
+	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -240,7 +301,7 @@ func TestPublisher_Error(t *testing.T) {
 	}()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n+2, pub.buffer.Len()) // + 1 compensate for agent.net.error event
+	require.Equal(t, n+2, pub.bufCtrl.B.Len()) // + 1 compensate for agent.net.error event
 
 	select {
 	case <-platformCh:
@@ -249,7 +310,18 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	<-time.After(conf.PublishIntv)
-	require.Equal(t, 1, pub.buffer.Len())
+	require.Equal(t, 1, pub.bufCtrl.B.Len())
+}
+
+type testConf struct {
+	URL             string
+	APIKey          string
+	UUID            string
+	TransmitTimeout time.Duration
+	MaxBatchLen     int
+	MaxBufferBytes  uint
+	PublishIntv     time.Duration
+	BufferTTL       time.Duration
 }
 
 // TestPublisher_Stop checks:
@@ -258,23 +330,43 @@ func TestPublisher_Stop(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
 
-	conf := TransportConf{
-		UUID:           "test-agent-uuid",
-		Timeout:        10 * time.Second,
-		MaxBatchLen:    100,
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishIntv:    5 * time.Second,
-		BufferTTL:      time.Duration(0),
+	conf := testConf{
+		UUID:            "test-agent-uuid",
+		APIKey:          "test-api-key",
+		TransmitTimeout: 10 * time.Second,
+		MaxBatchLen:     100,
+		MaxBufferBytes:  uint(50 * 1024 * 1024),
+		PublishIntv:     5 * time.Second,
+		BufferTTL:       time.Duration(0),
 	}
 
+	mocksvc := newMockAgentClient(
+		func() (*model.PlatformResponse, error) {
+			platformCh <- nil
+			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
+		})
+
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            "test-agent-uuid",
+		APIKey:          conf.APIKey,
+		TransmitTimeout: conf.TransmitTimeout,
+		AgentService:    mocksvc,
+	}
+
+	tr, err := transport.NewPlatformGRPC(transportConf)
+	require.Nil(t, err)
+
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         conf.MaxBatchLen,
+		BufDrainFreq:        conf.PublishIntv,
+		OnBufRemoveCallback: tr.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
 	pubCh := make(chan interface{}, n)
-
-	pub := NewTransport(pubCh, conf)
-
-	pub.agentService = newMockAgentClient(func() (*model.PlatformResponse, error) {
-		platformCh <- nil
-		return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
-	})
+	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -297,7 +389,7 @@ func TestPublisher_Stop(t *testing.T) {
 	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, n, pub.buffer.Len())
+	require.Equal(t, n, pub.bufCtrl.B.Len())
 
 	pub.Stop()
 	pubWg.Wait()
@@ -308,7 +400,7 @@ func TestPublisher_Stop(t *testing.T) {
 		t.Error("timeout waiting for platform message")
 	}
 
-	require.Equal(t, 0, pub.buffer.Len())
+	require.Equal(t, 0, pub.bufCtrl.B.Len())
 }
 
 // TestPublisher_GRPCMetadata checks:
@@ -317,30 +409,47 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
 
-	conf := TransportConf{
-		UUID:           "test-agent-uuid",
-		APIKey:         "test-api-key",
-		Timeout:        10 * time.Second,
-		MaxBatchLen:    n / 2,
-		MaxBufferBytes: uint(50 * 1024 * 1024),
-		PublishIntv:    5 * time.Second,
-		BufferTTL:      time.Duration(0),
+	conf := testConf{
+		UUID:            "test-agent-uuid",
+		APIKey:          "test-api-key",
+		TransmitTimeout: 10 * time.Second,
+		MaxBatchLen:     n / 2,
+		MaxBufferBytes:  uint(50 * 1024 * 1024),
+		PublishIntv:     5 * time.Second,
+		BufferTTL:       time.Duration(0),
 	}
 
-	pubCh := make(chan interface{}, n)
-	pub := NewTransport(pubCh, conf)
-
-	pub.agentService = newMockAgentClientWithCtx(
+	mocksvc := newMockAgentClientWithCtx(
 		func(ctx context.Context) (*model.PlatformResponse, error) {
-			fmt.Println(ctx)
 			md, ok := metadata.FromOutgoingContext(ctx)
 			require.True(t, ok)
 
 			platformCh <- md
 
 			return &model.PlatformResponse{Timestamp: time.Now().UnixNano()}, nil
-		},
-	)
+		})
+
+	transportConf := transport.PlatformGRPCConf{
+		UUID:            conf.UUID,
+		APIKey:          conf.APIKey,
+		TransmitTimeout: conf.TransmitTimeout,
+		AgentService:    mocksvc,
+	}
+
+	tr, err := transport.NewPlatformGRPC(transportConf)
+	require.Nil(t, err)
+
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         conf.MaxBatchLen,
+		BufDrainFreq:        conf.PublishIntv,
+		OnBufRemoveCallback: tr.PublishFunc,
+	}
+
+	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
+	pubCh := make(chan interface{}, n)
+	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -362,15 +471,15 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	wg.Wait()
 
 	<-time.After(200 * time.Millisecond)
-	require.Equal(t, 0, pub.buffer.Len())
+	require.Equal(t, 0, pub.bufCtrl.B.Len())
 
 	select {
 	case got := <-platformCh:
 		require.IsType(t, metadata.MD{}, got)
 		md := got.(metadata.MD)
 
-		require.Equal(t, conf.UUID, md.Get(AgentUUIDHeaderName)[0])
-		require.Equal(t, conf.APIKey, md.Get(AgentAPIKeyHeaderName)[0])
+		require.Equal(t, conf.UUID, md.Get(transport.AgentUUIDHeaderName)[0])
+		require.Equal(t, conf.APIKey, md.Get(transport.AgentAPIKeyHeaderName)[0])
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
@@ -380,8 +489,8 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 		require.IsType(t, metadata.MD{}, got)
 		md := got.(metadata.MD)
 
-		require.Equal(t, conf.UUID, md.Get(AgentUUIDHeaderName)[0])
-		require.Equal(t, conf.APIKey, md.Get(AgentAPIKeyHeaderName)[0])
+		require.Equal(t, conf.UUID, md.Get(transport.AgentUUIDHeaderName)[0])
+		require.Equal(t, conf.APIKey, md.Get(transport.AgentAPIKeyHeaderName)[0])
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
