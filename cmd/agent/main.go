@@ -36,7 +36,7 @@ import (
 var (
 	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
 	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
-	showVersion   = flag.Bool("version", false, "Show the agent version and exit")
+	showVersion   = flag.Bool("version", false, "Show the metrika agent version and exit")
 
 	ch            = newSubscriptionChan()
 	subscriptions = []chan<- interface{}{ch}
@@ -54,57 +54,6 @@ func newSubscriptionChan() chan interface{} {
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	flag.Parse()
-
-	if *showVersion {
-		fmt.Print(global.Version)
-		os.Exit(0)
-	}
-
-	if err := global.LoadDefaultConfig(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-
-		os.Exit(1)
-	}
-
-	setupZapLogger()
-
-	global.BlockchainNode = discover.AutoConfig(*reset)
-	if *configureOnly {
-		zap.S().Info("configure only mode on, exiting")
-
-		os.Exit(0)
-	}
-
-	timesync.Default.Start(ch)
-	if err := timesync.Default.SyncNow(); err != nil {
-		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
-
-		ctx := map[string]interface{}{model.ErrorKey: err.Error()}
-		timesync.EmitEventWithCtx(timesync.Default, ctx, model.AgentClockNoSyncName)
-	} else {
-		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName)
-	}
-
-	go func() {
-		promHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
-		http.Handle("/metrics", promHandler)
-		http.ListenAndServe(global.AgentConf.Runtime.MetricsAddr, nil)
-	}()
-
-	wg = &sync.WaitGroup{}
-	ctx, cancel = context.WithCancel(context.Background())
-	if global.AgentConf.Runtime.ReadStream {
-		subCh := newSubscriptionChan()
-		subscriptions = append(subscriptions, subCh)
-
-		streams, err := contrib.GetStreams()
-		if err != nil {
-			log.Fatalf("could not create file stream: %v", err)
-		}
-
-		global.DefaultStreamRegisterer.Register(streams...)
-		global.DefaultStreamRegisterer.Start(ctx, wg, subCh)
-	}
 }
 
 func setupZapLogger() {
@@ -197,6 +146,12 @@ func registerWatchers() error {
 }
 
 func main() {
+
+	if *showVersion {
+		fmt.Print(global.Version)
+		os.Exit(0)
+	}
+
 	if err := global.LoadDefaultConfig(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 
