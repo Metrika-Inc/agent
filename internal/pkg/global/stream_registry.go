@@ -42,14 +42,17 @@ func (e *ExporterRegisterer) Start(ctx context.Context, wg *sync.WaitGroup, ch c
 	for i := range e.exporters {
 		wg.Add(1)
 		go func(e Exporter) {
-			HandleExporter(ctx, wg, ch, e)
+			MessageListener(ctx, wg, ch, e)
 		}(e.exporters[i])
 	}
 
 	return nil
 }
 
-func HandleExporter(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}, e Exporter) {
+// MessageListener reads from one Watcher emit channel
+// and sequentially passes received messages to the exporter's
+// HandleMessage method.
+func MessageListener(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}, e Exporter) {
 	defer wg.Done()
 	for {
 		select {
@@ -62,6 +65,9 @@ func HandleExporter(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}
 			ctx, cancel := context.WithTimeout(ctx, DefaultExporterTimeout)
 			e.HandleMessage(ctx, message)
 			cancel()
+		case <-ctx.Done():
+			zap.S().Info("exiting listener")
+			return
 		}
 	}
 }

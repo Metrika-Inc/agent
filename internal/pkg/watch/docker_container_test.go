@@ -22,12 +22,13 @@ import (
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestMain(m *testing.M) {
 	global.BlockchainNode = &discover.MockBlockchain{}
-	// l, _ := zap.NewProduction()
-	// zap.ReplaceGlobals(l)
+	l, _ := zap.NewProduction()
+	zap.ReplaceGlobals(l)
 	m.Run()
 }
 
@@ -121,7 +122,6 @@ func TestContainerWatch_happy(t *testing.T) {
 	w.Subscribe(emitch)
 
 	global.BlockchainNode = &discover.MockBlockchain{}
-	discover.Init()
 	Start(w)
 
 	expEvents := []string{
