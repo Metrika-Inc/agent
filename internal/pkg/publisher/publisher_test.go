@@ -116,7 +116,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 				NodeState: model.NodeState_up,
 				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
-			pubCh <- m
+			pub.HandleMessage(context.Background(), m)
 			if i == n/2 {
 				wg.Done()
 			}
@@ -208,7 +208,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 				NodeState: model.NodeState_up,
 				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
-			pubCh <- m
+			pub.HandleMessage(context.Background(), m)
 		}
 	}()
 	wg.Wait()
@@ -296,7 +296,7 @@ func TestPublisher_Error(t *testing.T) {
 				NodeState: model.NodeState_up,
 				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
-			pubCh <- m
+			pub.HandleMessage(context.Background(), m)
 		}
 	}()
 
@@ -383,7 +383,7 @@ func TestPublisher_Stop(t *testing.T) {
 				NodeState: model.NodeState_up,
 				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
-			pubCh <- m
+			pub.HandleMessage(context.Background(), m)
 		}
 	}()
 	wg.Wait()
@@ -465,7 +465,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 				NodeState: model.NodeState_up,
 				Value:     &model.Message_MetricFamily{MetricFamily: &model.MetricFamily{Name: "foobar"}},
 			}
-			pubCh <- m
+			pub.HandleMessage(context.Background(), m)
 		}
 	}()
 	wg.Wait()

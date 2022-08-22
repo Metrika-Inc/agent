@@ -108,7 +108,7 @@ func (l LogConfig) Level() zapcore.Level {
 	return zapLevelMapper[l.Lvl]
 }
 
-var configFilePriority = []string{
+var ConfigFilePriority = []string{
 	DefaultAgentConfigName,
 	DefaultAgentConfigPath,
 }
@@ -119,7 +119,7 @@ func LoadDefaultConfig() error {
 		err     error
 	)
 
-	for _, fn := range configFilePriority {
+	for _, fn := range ConfigFilePriority {
 		content, err = ioutil.ReadFile(fn)
 		if err == nil {
 			break

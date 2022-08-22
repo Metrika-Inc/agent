@@ -1,0 +1,10 @@
+client: flow-go
+nodeID: 58d56de897fa1b0fd3f81086ddc03607369090af79f37ce3112a21fc9d4fba1a
+envFile: /etc/flow/runtime-conf.env
+containerRegex:
+  - kafka-docker_kafka_1
+pefEndpoints:
+  - name: dapper_metrics
+    URL: http://localhost:9000/metrics
+    filters:
+      - agent_buffer_drain_duration_seconds

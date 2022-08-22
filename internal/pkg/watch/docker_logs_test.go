@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/flow"
+	"agent/internal/pkg/global"
 
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +61,7 @@ func TestDockerLogs_happy(t *testing.T) {
 
 	emitch := make(chan interface{}, 10)
 	w.Subscribe(emitch)
-
+	global.BlockchainNode = &flow.Flow{}
 	Start(w)
 
 	expMessages := []*model.Message{

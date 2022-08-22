@@ -130,7 +130,7 @@ func TestDtoToOpenMetrics(t *testing.T) {
 }
 
 func BenchmarkDtoToOpenMetrics(b *testing.B) {
-	res, err := ioutil.ReadFile("../parse/openmetrics/testdata/happy/pef_algorand")
+	res, err := ioutil.ReadFile("../../../pkg/parse/openmetrics/testdata/happy/pef_algorand")
 	require.NoError(b, err, "failed to read file")
 	buf := bytes.NewBuffer(res)
 	metricFams, err := openmetrics.ParsePEF(buf, nil)

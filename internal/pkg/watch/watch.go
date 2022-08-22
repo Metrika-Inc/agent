@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"agent/internal/pkg/buf"
 	"strings"
 	"sync"
 
@@ -78,7 +79,13 @@ func (w *Watch) Subscribe(handler chan<- interface{}) {
 }
 
 func (w *Watch) Emit(message interface{}) {
-	for _, handler := range w.listeners {
-		handler <- message
+	for i, handler := range w.listeners {
+		select {
+		case handler <- message:
+		default:
+			zap.S().Warnw("handler channel blocked a metric, discarding it", "handler_no", i)
+			buf.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
+		}
+
 	}
 }

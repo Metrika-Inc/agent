@@ -68,7 +68,7 @@ func TestNewWatcherByType(t *testing.T) {
 		t.Run(tt, func(t *testing.T) {
 			conf := global.WatchConfig{
 				Type:             tt,
-				SamplingInterval: time.Duration(1) * time.Second,
+				SamplingInterval: 50 * time.Millisecond,
 			}
 
 			w := NewWatcherByType(conf)
@@ -81,7 +81,7 @@ func TestNewWatcherByType(t *testing.T) {
 			select {
 			case msg, _ := <-testch:
 				require.IsType(t, &model.Message{}, msg)
-			case <-time.After(5 * time.Second):
+			case <-time.After(2 * time.Second):
 				t.Error("timeout waiting for prometheus.cpu metrics")
 			}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -183,20 +182,6 @@ func main() {
 		http.ListenAndServe(global.AgentConf.Runtime.MetricsAddr, nil)
 	}()
 
-	wg = &sync.WaitGroup{}
-	ctx, cancel = context.WithCancel(context.Background())
-	if global.AgentConf.Runtime.ReadStream {
-		subCh := newSubscriptionChan()
-		subscriptions = append(subscriptions, subCh)
-
-		streams, err := contrib.GetStreams()
-		if err != nil {
-			log.Fatalf("could not create file stream: %v", err)
-		}
-
-		global.DefaultStreamRegisterer.Register(streams...)
-		global.DefaultStreamRegisterer.Start(ctx, wg, subCh)
-	}
 	log := zap.S()
 	defer log.Sync()
 
@@ -226,6 +211,26 @@ func main() {
 	// attach the buffer controller to the publisher
 	pub := publisher.NewPublisher(ch, publisher.PublisherConf{}, bufCtrl)
 	pub.Start(wg)
+
+	wg = &sync.WaitGroup{}
+	ctx, cancel = context.WithCancel(context.Background())
+	// register Metrika Platform exporter
+	// TODO: make possible to disable in configuration
+	global.DefaultExporterRegisterer.Register(pub)
+
+	// register other exporters (if enabled)
+	if global.AgentConf.Runtime.ReadStream {
+		subCh := newSubscriptionChan()
+		subscriptions = append(subscriptions, subCh)
+
+		exporters, err := contrib.GetExporters()
+		if err != nil {
+			log.Fatalw("could not setup the exporters", zap.Error(err))
+		}
+
+		global.DefaultExporterRegisterer.Register(exporters...)
+		global.DefaultExporterRegisterer.Start(ctx, wg, subCh)
+	}
 
 	// we should be (almost) ready to publish at this point
 	// start default and enabled watchers
@@ -267,7 +272,8 @@ func main() {
 	factory.WatcherRegistry.Stop()
 	factory.WatcherRegistry.Wait()
 
-	// stop publisher and wait for buffers to drain
+	// stop platform publisher and other exporters &&
+	// wait for buffers to drain
 	pub.Stop()
 	cancel()
 	wg.Wait()

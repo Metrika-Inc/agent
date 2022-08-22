@@ -3,10 +3,8 @@ package contrib
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/global"
@@ -29,12 +27,7 @@ type logLine struct {
 
 type jsonProcessor struct{}
 
-func (m *jsonProcessor) Process(msgi interface{}) ([]byte, error) {
-	msg, ok := msgi.(*model.Message)
-	if !ok {
-		return nil, fmt.Errorf("type assertion failed: %T", msg)
-	}
-
+func (m *jsonProcessor) Process(msg *model.Message) ([]byte, error) {
 	var err error
 	line := &logLine{Hostname: global.AgentHostname}
 
@@ -63,7 +56,7 @@ type fileStream struct {
 	f  *os.File
 }
 
-func newFileStream() (global.Stream, error) {
+func newFileStream() (global.Exporter, error) {
 	f, err := os.OpenFile(outPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o755)
 	if err != nil {
 		return nil, err
@@ -72,40 +65,24 @@ func newFileStream() (global.Stream, error) {
 	return &fileStream{jsonProcessor: &jsonProcessor{}, f: f}, nil
 }
 
-func (m *fileStream) Start(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}) {
+func (m *fileStream) HandleMessage(ctx context.Context, msg *model.Message) {
 	log := zap.S()
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		for {
-			select {
-			case msg, ok := <-ch:
-				if !ok {
-					return
-				}
-
-				body, err := m.Process(msg)
-				if err != nil {
-					log.Errorw("file stream handle error", zap.Error(err))
-
-					continue
-				}
-
-				if _, err := m.f.Write(append(body, '\n')); err != nil {
-					log.Errorw("write error", zap.Error(err))
-
-					continue
-				}
-			case <-ctx.Done():
-				if err := m.f.Close(); err != nil {
-					log.Warnw("close error", zap.Error(err))
-				}
-
-				return
-			}
+	select {
+	case <-ctx.Done():
+		if err := m.f.Close(); err != nil {
+			log.Warnw("close error", zap.Error(err))
 		}
-	}()
+
+		return
+	default:
+	}
+	body, err := m.Process(msg)
+	if err != nil {
+		log.Errorw("file stream handle error", zap.Error(err))
+	}
+
+	if _, err := m.f.Write(append(body, '\n')); err != nil {
+		log.Errorw("write error", zap.Error(err))
+	}
 }

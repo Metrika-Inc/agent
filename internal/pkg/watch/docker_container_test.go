@@ -24,6 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMain(m *testing.M) {
+	global.BlockchainNode = &discover.MockBlockchain{}
+	// l, _ := zap.NewProduction()
+	// zap.ReplaceGlobals(l)
+	m.Run()
+}
+
 func newMockDockerDaemonHTTP(t *testing.T) *httptest.Server {
 	out, err := ioutil.ReadFile("testdata/containers.json")
 	require.NoError(t, err)
