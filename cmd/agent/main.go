@@ -41,7 +41,7 @@ var (
 	subscriptions = []chan<- interface{}{ch}
 	simpleEmitter = emit.NewSimpleEmitter(ch)
 
-	wg     *sync.WaitGroup
+	wg     = &sync.WaitGroup{}
 	ctx    context.Context
 	cancel context.CancelFunc
 )
@@ -212,25 +212,26 @@ func main() {
 	pub := publisher.NewPublisher(ch, publisher.PublisherConf{}, bufCtrl)
 	pub.Start(wg)
 
-	wg = &sync.WaitGroup{}
 	ctx, cancel = context.WithCancel(context.Background())
 	// register Metrika Platform exporter
 	// TODO: make possible to disable in configuration
-	global.DefaultExporterRegisterer.Register(pub)
+	global.DefaultExporterRegisterer.Register(pub, ch)
 
 	// register other exporters (if enabled)
 	if global.AgentConf.Runtime.UseExporters {
-		subCh := newSubscriptionChan()
-		subscriptions = append(subscriptions, subCh)
-
 		exporters, err := contrib.GetExporters()
 		if err != nil {
 			log.Fatalw("could not setup the exporters", zap.Error(err))
 		}
+		for _, exporter := range exporters {
+			subCh := newSubscriptionChan()
+			subscriptions = append(subscriptions, subCh)
+			global.DefaultExporterRegisterer.Register(exporter, subCh)
 
-		global.DefaultExporterRegisterer.Register(exporters...)
-		global.DefaultExporterRegisterer.Start(ctx, wg, subCh)
+		}
+
 	}
+	global.DefaultExporterRegisterer.Start(ctx, wg)
 
 	// we should be (almost) ready to publish at this point
 	// start default and enabled watchers

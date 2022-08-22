@@ -24,26 +24,27 @@ type Exporter interface {
 	HandleMessage(ctx context.Context, msg *model.Message)
 }
 
+type ExporterHandler struct {
+	exporter       Exporter
+	subscriptionCh <-chan interface{}
+}
+
 type ExporterRegisterer struct {
-	exporters []Exporter
+	handlers []ExporterHandler
 }
 
-func newRegisterer() *ExporterRegisterer {
-	return &ExporterRegisterer{}
-}
-
-func (e *ExporterRegisterer) Register(w ...Exporter) error {
-	e.exporters = append(e.exporters, w...)
+func (e *ExporterRegisterer) Register(exporter Exporter, subCh chan interface{}) error {
+	e.handlers = append(e.handlers, ExporterHandler{exporter: exporter, subscriptionCh: subCh})
 
 	return nil
 }
 
-func (e *ExporterRegisterer) Start(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}) error {
-	for i := range e.exporters {
+func (e *ExporterRegisterer) Start(ctx context.Context, wg *sync.WaitGroup) error {
+	for i := range e.handlers {
 		wg.Add(1)
-		go func(e Exporter) {
-			MessageListener(ctx, wg, ch, e)
-		}(e.exporters[i])
+		go func(e ExporterHandler) {
+			MessageListener(ctx, wg, e.subscriptionCh, e.exporter)
+		}(e.handlers[i])
 	}
 
 	return nil
@@ -52,7 +53,7 @@ func (e *ExporterRegisterer) Start(ctx context.Context, wg *sync.WaitGroup, ch c
 // MessageListener reads from one Watcher emit channel
 // and sequentially passes received messages to the exporter's
 // HandleMessage method.
-func MessageListener(ctx context.Context, wg *sync.WaitGroup, ch chan interface{}, e Exporter) {
+func MessageListener(ctx context.Context, wg *sync.WaitGroup, ch <-chan interface{}, e Exporter) {
 	defer wg.Done()
 	for {
 		select {
