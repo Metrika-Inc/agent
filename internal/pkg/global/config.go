@@ -70,7 +70,7 @@ type RuntimeConfig struct {
 	MetricsAddr                  string         `yaml:"metrics_addr"`
 	Log                          LogConfig      `yaml:"logging"`
 	SamplingInterval             time.Duration  `yaml:"sampling_interval"`
-	ReadStream                   bool           `yaml:"read_stream"`
+	UseExporters                 bool           `yaml:"use_exporters"`
 	Watchers                     []*WatchConfig `yaml:"watchers"`
 	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
 }

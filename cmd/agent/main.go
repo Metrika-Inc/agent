@@ -219,7 +219,7 @@ func main() {
 	global.DefaultExporterRegisterer.Register(pub)
 
 	// register other exporters (if enabled)
-	if global.AgentConf.Runtime.ReadStream {
+	if global.AgentConf.Runtime.UseExporters {
 		subCh := newSubscriptionChan()
 		subscriptions = append(subscriptions, subCh)
 
