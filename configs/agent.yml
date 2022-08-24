@@ -62,9 +62,10 @@ runtime:
   # polling for collecting metrics/events.
   sampling_interval: 5s
 
-  # read_stream: boolean, enables stream reading by implementations under
-  # pkg/contrib. Default value is false.
-  read_stream: false
+  # use_exporters: boolean, enables exporter implementations under
+  # pkg/contrib. Used to process and/or send data to other sources than
+  # Metrika Platform. Default value is false.
+  use_exporters: false
 
   # watchers: list[object], list of watchers to be enabled on agent startup.
   # The watcher constructor name must be registered first in the pkg/collector.

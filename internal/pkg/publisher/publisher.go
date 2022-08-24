@@ -1,6 +1,7 @@
 package publisher
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -23,7 +24,6 @@ const (
 type PublisherConf struct{}
 
 type Publisher struct {
-	receiveCh <-chan interface{}
 
 	conf    PublisherConf
 	closeCh chan interface{}
@@ -38,10 +38,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewPublisher(ch <-chan interface{}, conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
+func NewPublisher(conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
 		conf:      conf,
-		receiveCh: ch,
 		closeCh:   make(chan interface{}),
 		log:       zap.S().With("publisher", "transport"),
 		bufCtrl:   bufCtrl,
@@ -102,37 +101,8 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 
 		for {
 			select {
-			case msg, ok := <-t.receiveCh:
-				if !ok {
-					log.Error("receive channel closed")
-
-					return
-				}
-
-				m, ok := msg.(*model.Message)
-				if !ok {
-					log.Error("type assertion failed")
-
-					continue
-				}
-
-				item := buf.Item{
-					Priority:  0,
-					Timestamp: timesync.Now().UnixMilli(),
-					Bytes:     uint(unsafe.Sizeof(buf.Item{})) + m.Bytes(),
-					Data:      m,
-				}
-
-				err := t.bufCtrl.BufInsertAndEarlyDrain(item)
-				if err != nil {
-					if t.lastErr == nil {
-						log.Errorw("buffer insert+drain error", zap.Error(err))
-						t.lastErr = err
-					}
-					continue
-				}
-				t.lastErr = nil
 			case <-agentUpTimer.C:
+				// publish periodic update
 				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
 				agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
 				agentUpCtx[model.AgentVersionKey] = global.Version
@@ -147,6 +117,27 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 			}
 		}
 	}()
+}
+
+// HandleMessage stores the message into the buffer and checks if buffer is ready
+// to be drained. Implements global.Exporter interface.
+func (t *Publisher) HandleMessage(ctx context.Context, message *model.Message) {
+	item := buf.Item{
+		Priority:  0,
+		Timestamp: timesync.Now().UnixMilli(),
+		Bytes:     uint(unsafe.Sizeof(buf.Item{})) + message.Bytes(),
+		Data:      message,
+	}
+
+	err := t.bufCtrl.BufInsertAndEarlyDrain(item)
+	if err != nil {
+		if t.lastErr == nil {
+			zap.S().Errorw("buffer insert+drain error", zap.Error(err))
+			t.lastErr = err
+		}
+		return
+	}
+	t.lastErr = nil
 }
 
 func (t *Publisher) Stop() {

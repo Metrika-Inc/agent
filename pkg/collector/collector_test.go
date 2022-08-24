@@ -9,10 +9,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	defaultConfigPathWas := global.DefaultAgentConfigPath
-	global.DefaultAgentConfigPath = "../../configs/agent.yml"
+	defaultConfigPathWas := global.ConfigFilePriority
+	global.ConfigFilePriority = []string{"../../configs/agent.yml"}
 	defer func() {
-		global.DefaultAgentConfigPath = defaultConfigPathWas
+		global.ConfigFilePriority = defaultConfigPathWas
+
 	}()
 
 	if err := global.LoadDefaultConfig(); err != nil {

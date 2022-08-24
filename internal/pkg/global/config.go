@@ -70,7 +70,7 @@ type RuntimeConfig struct {
 	MetricsAddr                  string         `yaml:"metrics_addr"`
 	Log                          LogConfig      `yaml:"logging"`
 	SamplingInterval             time.Duration  `yaml:"sampling_interval"`
-	ReadStream                   bool           `yaml:"read_stream"`
+	UseExporters                 bool           `yaml:"use_exporters"`
 	Watchers                     []*WatchConfig `yaml:"watchers"`
 	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
 }
@@ -108,7 +108,7 @@ func (l LogConfig) Level() zapcore.Level {
 	return zapLevelMapper[l.Lvl]
 }
 
-var configFilePriority = []string{
+var ConfigFilePriority = []string{
 	DefaultAgentConfigName,
 	DefaultAgentConfigPath,
 }
@@ -119,7 +119,7 @@ func LoadDefaultConfig() error {
 		err     error
 	)
 
-	for _, fn := range configFilePriority {
+	for _, fn := range ConfigFilePriority {
 		content, err = ioutil.ReadFile(fn)
 		if err == nil {
 			break

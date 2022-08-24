@@ -22,7 +22,15 @@ import (
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
+
+func TestMain(m *testing.M) {
+	global.BlockchainNode = &discover.MockBlockchain{}
+	l, _ := zap.NewProduction()
+	zap.ReplaceGlobals(l)
+	m.Run()
+}
 
 func newMockDockerDaemonHTTP(t *testing.T) *httptest.Server {
 	out, err := ioutil.ReadFile("testdata/containers.json")

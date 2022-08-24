@@ -116,7 +116,7 @@ func (c *Controller) Stop() {
 func (c *Controller) BufInsert(item Item) error {
 	_, err := c.B.Insert(item)
 	if err != nil {
-		MetricsDropCnt.Inc()
+		MetricsDropCnt.WithLabelValues("buffer_full").Inc()
 
 		return err
 	}

@@ -45,6 +45,6 @@ Useful links:
 * [google.protobuf.Struct](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Struct)
 
 ### Reading the agent stream
-When `runtime.read_stream` is enabled, the agent will push data to all `global.Stream` implementations included in this [list](internal/pkg/contrib/stream.go#L5). The implementation should at least start a Go routine consuming the data. All other agent functionality remains unaffected when this setting is enabled.
+When `runtime.use_exporters` is enabled, the agent will push data to all `global.Exporter` implementations included in this [list](internal/pkg/contrib/stream.go#L5). The implementation needs to implement a callback function `HandleMessage` which will be called on every new message Metrika's agent produces. All other agent functionality remains unaffected when this setting is enabled.
 
 An example implementation can be found [here](internal/pkg/contrib/example.go).
