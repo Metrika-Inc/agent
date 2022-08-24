@@ -209,7 +209,7 @@ func main() {
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	// attach the buffer controller to the publisher
-	pub := publisher.NewPublisher(ch, publisher.PublisherConf{}, bufCtrl)
+	pub := publisher.NewPublisher(publisher.PublisherConf{}, bufCtrl)
 	pub.Start(wg)
 
 	ctx, cancel = context.WithCancel(context.Background())

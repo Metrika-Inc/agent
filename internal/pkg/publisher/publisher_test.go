@@ -59,9 +59,9 @@ func newMockAgentClientWithCtx(execFunc func(ctx context.Context) (*model.Platfo
 }
 
 // TestPublisher_EagerDrain checks:
-// - buffer is drained immediately when it reaches MaxBatchLen (before
-//   periodic drain timer kicks in)
-// - any drained metric is published to the platform
+//   - buffer is drained immediately when it reaches MaxBatchLen (before
+//     periodic drain timer kicks in)
+//   - any drained metric is published to the platform
 func TestPublisher_EagerDrain(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
@@ -100,8 +100,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pubCh := make(chan interface{}, n)
-	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
+	pub := NewPublisher(PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -141,10 +140,10 @@ func TestPublisher_EagerDrain(t *testing.T) {
 }
 
 // TestPublisher_EagerDrainRegression checks:
-// - the buffer is not drained by the publisher if less than MaxBatchLen
-//   items are bufferred.
-// - buffer drains when periodic draining kicks in
-// - any drained metric is published to the platform
+//   - the buffer is not drained by the publisher if less than MaxBatchLen
+//     items are bufferred.
+//   - buffer drains when periodic draining kicks in
+//   - any drained metric is published to the platform
 func TestPublisher_EagerDrainRegression(t *testing.T) {
 	n := 10
 	platformCh := make(chan interface{}, n)
@@ -190,8 +189,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pubCh := make(chan interface{}, n)
-	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
+	pub := NewPublisher(PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -283,8 +281,7 @@ func TestPublisher_Error(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pubCh := make(chan interface{}, n)
-	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
+	pub := NewPublisher(PublisherConf{}, bufCtrl)
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -365,8 +362,7 @@ func TestPublisher_Stop(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pubCh := make(chan interface{}, n)
-	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
+	pub := NewPublisher(PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -448,8 +444,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pubCh := make(chan interface{}, n)
-	pub := NewPublisher(pubCh, PublisherConf{}, bufCtrl)
+	pub := NewPublisher(PublisherConf{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()

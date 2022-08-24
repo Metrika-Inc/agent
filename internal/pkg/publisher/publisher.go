@@ -24,7 +24,6 @@ const (
 type PublisherConf struct{}
 
 type Publisher struct {
-	receiveCh <-chan interface{}
 
 	conf    PublisherConf
 	closeCh chan interface{}
@@ -39,10 +38,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewPublisher(ch <-chan interface{}, conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
+func NewPublisher(conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
 		conf:      conf,
-		receiveCh: ch,
 		closeCh:   make(chan interface{}),
 		log:       zap.S().With("publisher", "transport"),
 		bufCtrl:   bufCtrl,
