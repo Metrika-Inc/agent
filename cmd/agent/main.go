@@ -205,7 +205,7 @@ func main() {
 		OnBufRemoveCallback: platform.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.Size, global.AgentConf.Buffer.TTL)
+	buffer := buf.NewPriorityBuffer(uint(global.AgentConf.Buffer.MaxHeapAlloc), global.AgentConf.Buffer.TTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	// attach the buffer controller to the publisher

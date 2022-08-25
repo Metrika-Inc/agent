@@ -214,3 +214,35 @@ func TestControllerClose(t *testing.T) {
 
 	assert.Equal(t, 0, pb.Len())
 }
+
+func TestController_HeapAllocLimitError(t *testing.T) {
+	n := 5
+	bufSz := uint(testItemSz * n)
+
+	onDrain := func(b ItemBatch) error {
+		return nil
+	}
+
+	conf := ControllerConf{
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         1,
+		OnBufRemoveCallback: onDrain,
+	}
+
+	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	m := newTestItemBatch(n)
+
+	_, err := pb.Insert(m...)
+	require.NoError(t, err)
+
+	ctrl := NewController(conf, pb)
+	// update cached memstats to mimic the limit error
+	ctrl.ControllerConf.MaxHeapAllocBytes = 100
+	ctrl.memstats.HeapAlloc = 200
+	ctrl.memstatsUpdatedAt = time.Now()
+
+	// re-insert should be rejected
+	err = ctrl.BufInsert(m[0])
+	require.Error(t, err)
+	require.IsType(t, HeapAllocLimitError, err)
+}

@@ -57,8 +57,8 @@ type PlatformConfig struct {
 }
 
 type BufferConfig struct {
-	Size uint          `yaml:"size"`
-	TTL  time.Duration `yaml:"ttl"`
+	MaxHeapAlloc uint64        `yaml:"max_heap_alloc"`
+	TTL          time.Duration `yaml:"ttl"`
 }
 
 type WatchConfig struct {
@@ -147,7 +147,7 @@ func LoadDefaultConfig() error {
 	}
 
 	if len(AgentConf.Platform.APIKey) == 0 {
-		return fmt.Errorf("API key is empty. Export env var MA_API_KEY=<yourkey> or use platform.api_key config")
+		return fmt.Errorf("API key is missing from loaded config")
 	}
 
 	if err := createLogFolders(); err != nil {

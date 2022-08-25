@@ -24,11 +24,13 @@ platform:
 
 buffer:
 
-  # size: integer, the maximum memory the agent is allowed to preserve in bytes.
-  size: 52428800
+  # max_heap_alloc: integer, the maximum bytes of allocated heap objects as reported
+  # by Go's runtime memstats, that are allowed by the agent before it starts
+  # dropping metrics (default: 50MB).
+  max_heap_alloc: 52428800
 
   # ttl: duration, a Time-To-Live for any buffered data. Data will never expire
-  # for zero TTL values.
+  # for zero TTL values and stay in the buffer until they are evicted for publishing.
   ttl: 0s
 
 runtime:
