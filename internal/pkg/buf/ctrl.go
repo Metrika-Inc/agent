@@ -3,7 +3,6 @@ package buf
 import (
 	"runtime"
 	"time"
-	"unsafe"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/global"
@@ -133,7 +132,7 @@ func (c *Controller) Start() {
 		}
 
 		log.Debug("scheduled drain ok")
-		log.Debugw("buffer stats", "buffer_length", c.B.Len(), "buffer_bytes", c.B.Bytes())
+		log.Debugw("buffer stats", "buffer_length", c.B.Len())
 	}
 }
 
@@ -164,8 +163,7 @@ func (c *Controller) BufInsert(item Item) error {
 		return err
 	}
 
-	_, err := c.B.Insert(item)
-	if err != nil {
+	if err := c.B.Insert(item); err != nil {
 		MetricsDropCnt.WithLabelValues("buffer_full").Inc()
 
 		return err
@@ -208,14 +206,13 @@ func (c *Controller) BufDrain() error {
 	defer func() { BufferDrainDuration.Observe(time.Since(t).Seconds()) }()
 
 	drainedCnt := 0
-	drainedSz := 0
 
 	drainFunc := func(batchN int) error {
 		if batchN < 1 {
 			return nil
 		}
 
-		items, n, err := c.B.Get(batchN)
+		items, err := c.B.Get(batchN)
 		if err != nil {
 			return err
 		}
@@ -225,7 +222,7 @@ func (c *Controller) BufDrain() error {
 				zap.S().Warnw("error emitting event", "event", model.AgentNetErrorName, zap.Error(err))
 			}
 
-			_, inErr := c.B.Insert(items...)
+			inErr := c.B.Insert(items...)
 			if inErr != nil {
 				err = errors.Wrap(err, inErr.Error())
 			}
@@ -233,7 +230,6 @@ func (c *Controller) BufDrain() error {
 			return err
 		}
 
-		drainedSz += int(n)
 		drainedCnt += len(items)
 
 		return nil
@@ -251,7 +247,7 @@ func (c *Controller) BufDrain() error {
 	}
 
 	if drainedCnt > 0 {
-		zap.S().Infow("buffer drain ok", "item_count", drainedCnt, "drained_size", drainedSz)
+		zap.S().Infow("buffer drain ok", "count", drainedCnt)
 	}
 
 	return nil
@@ -277,7 +273,6 @@ func (c *Controller) EmitEvent(ctx map[string]interface{}, name string) error {
 
 	item := Item{
 		Priority: 0,
-		Bytes:    uint(unsafe.Sizeof(Item{})) + m.Bytes(),
 		Data:     m,
 	}
 

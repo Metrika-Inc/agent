@@ -97,7 +97,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 		OnBufRemoveCallback: tr.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	pub := NewPublisher(PublisherConf{}, bufCtrl)
@@ -186,7 +186,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 		OnBufRemoveCallback: tr.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	pub := NewPublisher(PublisherConf{}, bufCtrl)
@@ -278,7 +278,7 @@ func TestPublisher_Error(t *testing.T) {
 		OnBufRemoveCallback: tr.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	pub := NewPublisher(PublisherConf{}, bufCtrl)
@@ -359,7 +359,7 @@ func TestPublisher_Stop(t *testing.T) {
 		OnBufRemoveCallback: tr.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	pub := NewPublisher(PublisherConf{}, bufCtrl)
@@ -441,7 +441,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 		OnBufRemoveCallback: tr.PublishFunc,
 	}
 
-	buffer := buf.NewPriorityBuffer(conf.MaxBufferBytes, conf.BufferTTL)
+	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	pub := NewPublisher(PublisherConf{}, bufCtrl)

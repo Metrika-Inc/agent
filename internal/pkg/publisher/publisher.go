@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-	"unsafe"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
@@ -24,7 +23,6 @@ const (
 type PublisherConf struct{}
 
 type Publisher struct {
-
 	conf    PublisherConf
 	closeCh chan interface{}
 
@@ -40,10 +38,10 @@ func init() {
 
 func NewPublisher(conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
-		conf:      conf,
-		closeCh:   make(chan interface{}),
-		log:       zap.S().With("publisher", "transport"),
-		bufCtrl:   bufCtrl,
+		conf:    conf,
+		closeCh: make(chan interface{}),
+		log:     zap.S().With("publisher", "transport"),
+		bufCtrl: bufCtrl,
 	}
 
 	return publisher
@@ -125,7 +123,6 @@ func (t *Publisher) HandleMessage(ctx context.Context, message *model.Message) {
 	item := buf.Item{
 		Priority:  0,
 		Timestamp: timesync.Now().UnixMilli(),
-		Bytes:     uint(unsafe.Sizeof(buf.Item{})) + message.Bytes(),
 		Data:      message,
 	}
 

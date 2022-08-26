@@ -1,7 +1,6 @@
 package buf
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -18,63 +17,29 @@ func (a *ItemBatch) Clear() {
 	*a = (*a)[:0]
 }
 
-func (a ItemBatch) Bytes() uint {
-	var bytesDec uint
-	for _, m := range a {
-		bytesDec += m.Bytes
-	}
-
-	return bytesDec
-}
-
-type FullErr struct {
-	sz uint
-}
-
-func (f *FullErr) Error() string {
-	return fmt.Sprintf("max size reached %d", f.sz)
-}
-
 type PriorityBuffer struct {
-	q        multiQueue
-	mu       *sync.RWMutex
-	ttl      time.Duration
-	bytes    uint
-	maxBytes uint
+	q   multiQueue
+	mu  *sync.RWMutex
+	ttl time.Duration
 }
 
-func (p *PriorityBuffer) Insert(ms ...Item) (uint, error) {
+func (p *PriorityBuffer) Insert(ms ...Item) error {
 	t := time.Now()
 	defer func() {
 		BufferInsertDuration.Observe(time.Since(t).Seconds())
-		BufferSize.Set(float64(p.Bytes()))
 	}()
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	prevSz := p.bytes
-
-	p.bytes -= p.q.DrainExpired()
-
-	var totalSz uint
-	for _, m := range ms {
-		totalSz += m.Bytes
-	}
-
-	if p.bytes+totalSz > p.maxBytes {
-		return 0, &FullErr{p.bytes}
-	}
-
 	for _, m := range ms {
 		p.q.Push(m)
-		p.bytes += m.Bytes
 	}
 
-	return p.bytes - prevSz, nil
+	return nil
 }
 
-func (p *PriorityBuffer) Get(n int) (ItemBatch, uint, error) {
+func (p *PriorityBuffer) Get(n int) (ItemBatch, error) {
 	t := time.Now()
 	defer func() {
 		BufferGetDuration.Observe(time.Since(t).Seconds())
@@ -85,12 +50,8 @@ func (p *PriorityBuffer) Get(n int) (ItemBatch, uint, error) {
 
 	res := make([]Item, 0, n+1)
 
-	p.bytes -= p.q.DrainExpired()
-
-	var batchSz uint
 	for len(res) < n {
-		pop, sz := p.q.Pop()
-		batchSz += sz
+		pop := p.q.Pop()
 
 		if pop == nil {
 			break
@@ -104,10 +65,9 @@ func (p *PriorityBuffer) Get(n int) (ItemBatch, uint, error) {
 		}
 
 		res = append(res, itemQ)
-		p.bytes -= sz
 	}
 
-	return res, batchSz, nil
+	return res, nil
 }
 
 func (p *PriorityBuffer) Len() int {
@@ -122,18 +82,10 @@ func (p *PriorityBuffer) Len() int {
 	return total
 }
 
-func (p *PriorityBuffer) Bytes() uint {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	return p.bytes
-}
-
-func NewPriorityBuffer(maxBytes uint, ttl time.Duration) *PriorityBuffer {
+func NewPriorityBuffer(ttl time.Duration) *PriorityBuffer {
 	p := PriorityBuffer{
-		mu:       new(sync.RWMutex),
-		maxBytes: maxBytes,
-		ttl:      ttl,
+		mu:  new(sync.RWMutex),
+		ttl: ttl,
 	}
 
 	p.q = newMultiQueue(newPriorityQueueN(ttl, int(high)+1)...)
