@@ -146,6 +146,7 @@ func (c *Controller) checkMemStats() error {
 	if time.Since(c.memstatsUpdatedAt) > c.MemStatsCacheTimeout {
 		runtime.ReadMemStats(c.memstats)
 		c.memstatsUpdatedAt = time.Now()
+		zap.S().Debugw("memstats refreshed", "max_heap_alloc_bytes", c.memstats.HeapAlloc)
 	}
 
 	if c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
