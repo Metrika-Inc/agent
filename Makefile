@@ -20,11 +20,11 @@ VERSION ?= v0.0.1
 HASH := $(shell git rev-parse --short HEAD)
 
 # Protocol Buffer related vars
-PROTOC_VERSION := 3.19.0
+PROTOC_VERSION := 3.20.1
 PROTOC_GEN_GO_GRPC_VERSION := v1.1
 PROTOC_GEN_GO_VERSION := v1.5.2
-PROTOC_OS = linux
-PROTOC_ARCH = x86_64
+PROTOC_OS := linux
+PROTOC_ARCH := x86_64
 PROM_CLIENT_VERSION := 1.12.1
 OPENMETRICS_VERSION := 1.0.0
 
@@ -32,10 +32,38 @@ OPENMETRICS_VERSION := 1.0.0
 FLOW := flow
 PROTOS = $(FLOW)
 
+GOOS := linux
+GOARCH := amd64
+
+LINUX_GOARCHAR = amd64 arm64
+DARWIN_GOARCHAR = amd64 arm64
+
+OSAR = LINUX DARWIN
+
 PROTOBIND = protobind
 
 .PHONY: all
 all: build
+
+.PHONY: linux-amd64-env
+linux-amd64-env:
+	$(eval GOOS:=linux)
+	$(eval GOARCH:=amd64)
+
+.PHONY: linux-arm64-env
+linux-arm64-env:
+	$(eval GOOS:=linux)
+	$(eval GOARCH:=arm64)
+
+.PHONY: osx-amd64-env
+osx-amd64-env:
+	$(eval GOOS:=darwin)
+	$(eval GOARCH:=amd64)
+
+.PHONY: osx-arm64-env
+osx-arm64-env:
+	$(eval GOOS:=darwin)
+	$(eval GOARCH:=arm64)
 
 .PHONY: test-%
 test-%:
@@ -55,15 +83,19 @@ $(PROTOBIND):
 .PHONY: generate-%
 generate-%: $(PROTOBIND)
 	MA_SRC_PATH=$(dir $(abspath $(lastword $(MAKEFILE_LIST)))) \
-		go generate -tags=$* ./...
+		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go generate -tags=$* ./...
 
 .PHONY: build-%
 build-%: generate-%
-	go build -o=metrikad-$* -tags=$* -ldflags="\
+	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
 	-X 'agent/internal/pkg/global.Version=${VERSION}' \
 	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
-	-X 'agent/internal/pkg/global.Blockchain=$*' \
+	-X 'agent/internal/pkg/global.Blockchain=${*}' \
 	" cmd/agent/main.go
+
+checksum-%:
+	sha256sum metrikad-${*}-$(GOOS)-$(GOARCH) > metrikad-${*}-$(GOOS)-$(GOARCH).sha256
 
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
@@ -88,6 +120,20 @@ protogen:
 	--go-grpc_out=api/v1/model \
 	api/v1/proto/agent.proto api/v1/proto/openmetrics/openmetrics.proto
 
+.PHONY: fmt
+fmt:
+	go fmt ./...
+
+
+build-all-debug:
+	echo "protogen $(PROTOBIND) $(foreach o,$(OSAR),$(foreach a,$($(o)_GOARCHAR),$(foreach p,$(PROTOS),$(shell echo $(o) | tr A-Z a-z)-$(a)-env build-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p) checksum-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p))))"
+
+.PHONY: build-linux-amd64
+build-linux-amd64: protogen $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+
+.PHONY: build-linux-arm64
+build-linux-arm64: protogen $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+
 .PHONY: build
 build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))
 
@@ -98,3 +144,4 @@ clean-%:
 .PHONY: clean
 clean: $(foreach b,$(PROTOS),clean-$(b))
 	@cd $(PROTOBIND) && $(MAKE) clean
+

@@ -1,0 +1,147 @@
+---
+name: "Release"
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.18
+        if: success()
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Checkout code
+        if: success()
+        uses: actions/checkout@v3
+
+      - name: "Get tag data"
+        if: success()
+        id: git_tags
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --prune --unshallow
+
+      - name: Download module dependencies
+        if: success()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+        run: |
+          go clean -modcache
+          go mod download
+
+      - name: Build binaries for Linux
+        if: success()
+        id: build_binaries
+        run: |
+          make build-linux-amd64
+          make build-linux-arm64
+
+      - name: Get latest release tag
+        id: git_last_tag
+        run: |
+          echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+$"| tail -n1)'
+
+      - name: Create Release Changelog
+        id: git_release_changelog
+        if: success()
+        run: |
+          export RELEASE_BODY=$(git log --no-merges ${{ steps.git_describe.outputs.previous_tag }}..${{ github.ref }} --format='* [%h] %s (%an)')
+          RELEASE_BODY="${RELEASE_BODY//'%'/'%25'}"
+          RELEASE_BODY="${RELEASE_BODY//$'\n'/'%0A'}"
+          RELEASE_BODY="${RELEASE_BODY//$'\r'/'%0D'}"
+          echo "::set-output name=release_body::$RELEASE_BODY"
+
+      - name: Create Release
+        if: success()
+        id: create_release
+        uses: actions/create-release@v1.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: ${{ steps.git_release_changelog.outputs.release_body }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Flow Release Asset Linux amd64
+        if: success()
+        id: upload-release-flow-asset-linux-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./metrikad-flow-linux-amd64
+          asset_name: metrikad-flow-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Flow Release Asset Linux amd64 checksum
+        if: success()
+        id: upload-release-flow-asset-linux-amd64-checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./metrikad-flow-linux-amd64.sha256
+          asset_name: metrikad-flow-linux-amd64.sha256
+          asset_content_type: text/plain
+
+      - name: Upload Flow Release Asset Linux arm64
+        if: success()
+        id: upload-release-flow-asset-linux-arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./metrikad-flow-linux-arm64
+          asset_name: metrikad-flow-linux-arm64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Flow Release Asset Linux arm64 checksum
+        if: success()
+        id: upload-release-flow-asset-linux-arm64-checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./metrikad-flow-linux-arm64.sha256
+          asset_name: metrikad-flow-linux-arm64.sha256
+          asset_content_type: text/plain
+
+      - name: Slack Notification Failure
+        if: failure()
+        id: status
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "Agent release finished with ${{ job.status  }}"
+          SLACK_TITLE: GitHub Release Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
+      - name: Slack Notification Success
+        if: success()
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "Agent release finished with ${{ job.status  }}"
+          SLACK_TITLE: GitHub Release Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-release-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub Release Job from Metrika Agent repo"
+
