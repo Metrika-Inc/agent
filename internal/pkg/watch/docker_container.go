@@ -24,9 +24,6 @@ const (
 
 	// defaultNodeDownFreq default period for emitting agent.node.down events
 	defaultNodeDownFreq = 5 * time.Second
-
-	discoveryError   discoveryStatus = iota
-	discoverySuccess discoveryStatus = iota
 )
 
 // newNodeEventCtx creates a map with the context for agent.node.* events.
@@ -74,11 +71,10 @@ type ContainerWatch struct {
 	ContainerWatchConf
 	Watch
 
-	watchCh             chan interface{}
-	stopListCh          chan interface{}
-	stopEventsch        chan interface{}
-	containerGone       bool
-	lastDiscoveryStatus discoveryStatus
+	watchCh       chan interface{}
+	stopListCh    chan interface{}
+	stopEventsch  chan interface{}
+	containerGone bool
 }
 
 func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
@@ -104,16 +100,12 @@ func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 	return w
 }
 
-func (w *ContainerWatch) setLastDiscoveryStatus(st discoveryStatus) {
-	w.lastDiscoveryStatus = st
-}
-
 func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	<-chan events.Message, <-chan error, error,
 ) {
 	container, err := global.BlockchainNode.DiscoverContainer()
 	if err != nil {
-		w.setLastDiscoveryStatus(discoveryError)
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 		return nil, nil, err
 	}
@@ -129,11 +121,11 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 	msgchan, errchan, err := utils.DockerEvents(ctx, options)
 	if err != nil {
-		w.setLastDiscoveryStatus(discoveryError)
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 		return nil, nil, err
 	}
-	w.setLastDiscoveryStatus(discoverySuccess)
+	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 
 	return msgchan, errchan, nil
 }
@@ -296,7 +288,7 @@ func (w *ContainerWatch) StartUnsafe() {
 					resetTimers()
 				}
 			case <-nodeUpTicker.C:
-				if w.lastDiscoveryStatus == discoveryError {
+				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
 					// do nothing if node is down
 
 					continue
@@ -314,7 +306,7 @@ func (w *ContainerWatch) StartUnsafe() {
 					continue
 				}
 			case <-nodeDownTicker.C:
-				if w.lastDiscoveryStatus == discoverySuccess {
+				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoverySuccess {
 					// do nothing if node is up
 
 					continue
