@@ -3,6 +3,7 @@ nodeID: {{ .NodeID }}
 envFile: {{ or .EnvFilePath "/etc/flow/runtime-conf.env" }}
 containerRegex:{{ range .ContainerRegex }}
   - {{ . }}{{else}}
+  - dapper-private-network_consensus_1_1
   - flow-private-network_consensus_1_1{{end}}
 pefEndpoints:{{ range .PEFEndpoints }}
   - URL: {{ .URL }}
