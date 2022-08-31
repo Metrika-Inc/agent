@@ -83,6 +83,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 		})
 
 	transportConf := transport.PlatformGRPCConf{
+		URL:             "mockurl",
 		UUID:            conf.UUID,
 		APIKey:          conf.APIKey,
 		TransmitTimeout: conf.TransmitTimeout,
@@ -171,6 +172,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 		})
 
 	transportConf := transport.PlatformGRPCConf{
+		URL:             "mockurl",
 		UUID:            conf.UUID,
 		APIKey:          conf.APIKey,
 		TransmitTimeout: conf.TransmitTimeout,
@@ -263,6 +265,7 @@ func TestPublisher_Error(t *testing.T) {
 		})
 
 	transportConf := transport.PlatformGRPCConf{
+		URL:             "mockurl",
 		UUID:            conf.UUID,
 		APIKey:          conf.APIKey,
 		TransmitTimeout: conf.TransmitTimeout,
@@ -344,6 +347,7 @@ func TestPublisher_Stop(t *testing.T) {
 		})
 
 	transportConf := transport.PlatformGRPCConf{
+		URL:             "mockurl",
 		UUID:            "test-agent-uuid",
 		APIKey:          conf.APIKey,
 		TransmitTimeout: conf.TransmitTimeout,
@@ -426,6 +430,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 		})
 
 	transportConf := transport.PlatformGRPCConf{
+		URL:             "mockurl",
 		UUID:            conf.UUID,
 		APIKey:          conf.APIKey,
 		TransmitTimeout: conf.TransmitTimeout,

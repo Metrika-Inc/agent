@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -49,6 +51,9 @@ type PlatformGRPCConf struct {
 
 	// AgentService overrides the agent client (only used by tests)
 	AgentService model.AgentClient
+
+	// Dialer
+	Dialer func(context.Context, string) (net.Conn, error)
 }
 
 type PlatformGRPC struct {
@@ -63,8 +68,8 @@ func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 	// Anything put here will be transmitted as request headers.
 	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
 
-	if conf.UUID == "" || conf.APIKey == "" {
-		return nil, fmt.Errorf("invalid platform configuration (uuid or api key missing): %+v", conf)
+	if conf.UUID == "" || conf.APIKey == "" || conf.URL == "" {
+		return nil, fmt.Errorf("invalid platform configuration (check uuid, api key or url): %+v", conf)
 	}
 
 	if conf.ConnectTimeout == 0 {
@@ -88,7 +93,10 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 	metrikaMsg := model.PlatformMessage{
 		AgentUUID: t.UUID,
 		Data:      data,
+		Protocol:  global.BlockchainNode.Protocol(),
+		Network:   global.BlockchainNode.Network(),
 	}
+
 	if t.AgentService == nil {
 		if err := t.connect(); err != nil {
 			return 0, err
@@ -118,8 +126,13 @@ func (t *PlatformGRPC) connect() error {
 	defer cancel()
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: false}
-	t.grpcConn, err = grpc.DialContext(ctx, t.URL,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
+
+	if t.Dialer != nil {
+		ctxDialer := grpc.WithContextDialer(t.Dialer)
+		t.grpcConn, err = grpc.DialContext(ctx, t.URL, grpc.WithTransportCredentials(insecure.NewCredentials()), ctxDialer)
+	} else {
+		t.grpcConn, err = grpc.DialContext(ctx, t.URL, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock())
+	}
 	if err != nil {
 		return fmt.Errorf("grpc connect error: %v (%s)", err, t.URL)
 	}
