@@ -30,6 +30,8 @@ var (
 )
 
 func AutoConfig(reset bool) global.Chain {
+	Init()
+
 	log := zap.S()
 	if reset {
 		if err := chain.ResetConfig(); err != nil {
