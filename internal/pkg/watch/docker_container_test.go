@@ -122,7 +122,6 @@ func TestContainerWatch_happy(t *testing.T) {
 	w.Subscribe(emitch)
 
 	global.BlockchainNode = &discover.MockBlockchain{}
-	discover.Init()
 	Start(w)
 
 	expEvents := []string{
