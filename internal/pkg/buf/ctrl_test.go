@@ -17,7 +17,6 @@ import (
 // - drain callback batch size is equal to MaxDrainBatchLen
 func TestControllerDrainBatch(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz * n)
 
 	drainCh := make(chan ItemBatch, n)
 	onDrain := func(b ItemBatch) error {
@@ -32,10 +31,10 @@ func TestControllerDrainBatch(t *testing.T) {
 		OnBufRemoveCallback: onDrain,
 	}
 
-	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	pb := NewPriorityBuffer(time.Duration(0))
 	m := newTestItemBatch(n)
 
-	_, err := pb.Insert(m...)
+	err := pb.Insert(m...)
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
@@ -53,8 +52,8 @@ func TestControllerDrainBatch(t *testing.T) {
 		t.Error("timeout waiting for drain callback")
 	}
 
-	pb = NewPriorityBuffer(bufSz, time.Duration(0))
-	_, err = pb.Insert(m...)
+	pb = NewPriorityBuffer(time.Duration(0))
+	err = pb.Insert(m...)
 	require.NoError(t, err)
 
 	conf.BufLenLimit = 1
@@ -78,7 +77,6 @@ func TestControllerDrainBatch(t *testing.T) {
 
 func TestControllerDrainCallback(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz * n)
 
 	drainCh := make(chan ItemBatch, n)
 	onDrain := func(b ItemBatch) error {
@@ -93,10 +91,10 @@ func TestControllerDrainCallback(t *testing.T) {
 		OnBufRemoveCallback: onDrain,
 	}
 
-	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	pb := NewPriorityBuffer(time.Duration(0))
 	m := newTestItemBatch(n)
 
-	_, err := pb.Insert(m...)
+	err := pb.Insert(m...)
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
@@ -116,8 +114,6 @@ func TestControllerDrainCallback(t *testing.T) {
 
 func TestControllerDrainCallbackErr(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz*n) + uint(216)
-
 	onDrain := func(b ItemBatch) error {
 		return fmt.Errorf("drain test error")
 	}
@@ -128,10 +124,10 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 		OnBufRemoveCallback: onDrain,
 	}
 
-	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	pb := NewPriorityBuffer(time.Duration(0))
 	m := newTestItemBatch(n)
 
-	_, err := pb.Insert(m...)
+	err := pb.Insert(m...)
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
@@ -150,7 +146,6 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 // - batch smaller than MaxDrainBatchLen is evicted periodically
 func TestControllerDrain(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz * n)
 
 	drainCh := make(chan ItemBatch, n)
 	onDrain := func(b ItemBatch) error {
@@ -165,10 +160,10 @@ func TestControllerDrain(t *testing.T) {
 		OnBufRemoveCallback: onDrain,
 	}
 
-	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	pb := NewPriorityBuffer(time.Duration(0))
 	m := newTestItemBatch(n)
 
-	_, err := pb.Insert(m...)
+	err := pb.Insert(m...)
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
@@ -188,7 +183,6 @@ func TestControllerDrain(t *testing.T) {
 
 func TestControllerClose(t *testing.T) {
 	n := 5
-	bufSz := uint(testItemSz * n)
 
 	onDrain := func(b ItemBatch) error {
 		return nil
@@ -200,10 +194,10 @@ func TestControllerClose(t *testing.T) {
 		OnBufRemoveCallback: onDrain,
 	}
 
-	pb := NewPriorityBuffer(bufSz, time.Duration(0))
+	pb := NewPriorityBuffer(time.Duration(0))
 	m := newTestItemBatch(n)
 
-	_, err := pb.Insert(m...)
+	err := pb.Insert(m...)
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
@@ -213,4 +207,35 @@ func TestControllerClose(t *testing.T) {
 	ctrl.Stop()
 
 	assert.Equal(t, 0, pb.Len())
+}
+
+func TestController_HeapAllocLimitError(t *testing.T) {
+	n := 5
+
+	onDrain := func(b ItemBatch) error {
+		return nil
+	}
+
+	conf := ControllerConf{
+		BufDrainFreq:        1 * time.Millisecond,
+		BufLenLimit:         1,
+		OnBufRemoveCallback: onDrain,
+	}
+
+	pb := NewPriorityBuffer(time.Duration(0))
+	m := newTestItemBatch(n)
+
+	err := pb.Insert(m...)
+	require.NoError(t, err)
+
+	ctrl := NewController(conf, pb)
+	// update cached memstats to mimic the limit error
+	ctrl.ControllerConf.MaxHeapAllocBytes = 100
+	ctrl.memstats.HeapAlloc = 200
+	ctrl.memstatsUpdatedAt = time.Now()
+
+	// re-insert should be rejected
+	err = ctrl.BufInsert(m[0])
+	require.Error(t, err)
+	require.IsType(t, HeapAllocLimitError, err)
 }

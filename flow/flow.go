@@ -25,7 +25,13 @@ const (
 	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
 	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
 	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
-	protocolName          = "flow"
+
+	// protocolName blockchain protocol name
+	protocolName = "flow"
+
+	// tailLinesStr is the default number of lines to fetch
+	// when peeking the logfile for network/chain or node role data.
+	tailLinesStr = "100"
 )
 
 // Flow is responsible for discovery and validation
@@ -111,6 +117,7 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 			log.Warnw("unable to find running flow-go docker container, will attempt to auto-configure anyway")
 			errs.Append(err)
 		} else {
+			log.Infow("discovered container with names", "names", container.Names)
 			d.mutex.Lock()
 			d.container = &container
 			d.mutex.Unlock()
@@ -315,6 +322,8 @@ func (d *Flow) Network() string {
 	return d.network
 }
 
+// updateFromLogs consumes a container's logs for at most 5 seconds
+// until it discovers both node role and network properties.
 func (d *Flow) updateFromLogs(containerName string) error {
 	if d.nodeRole != "" && d.network != "" {
 		// TODO: node type discovery is quite expensive
@@ -330,7 +339,7 @@ func (d *Flow) updateFromLogs(containerName string) error {
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
-			Tail:       "0",
+			Tail:       tailLinesStr,
 		},
 	)
 	if err != nil {
@@ -344,13 +353,15 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	for time.Since(started) < 5*time.Second {
 		// cleanup header from log line
 		hdr := make([]byte, 8)
-		reader.Read(hdr)
+		_, err := reader.Read(hdr)
+		if err != nil {
+			return err
+		}
 
 		got, err := utils.GetLogLine(reader)
 		if err != nil {
 			return err
 		}
-
 		if len(got) == 0 {
 			return fmt.Errorf("empty log line")
 		}
@@ -375,14 +386,16 @@ func (d *Flow) updateFromLogs(containerName string) error {
 		}
 
 		if d.network != "" && d.nodeRole != "" {
+			zap.S().Debugw("found both node_role and network", "node_role", d.nodeRole, "network", d.network)
 			break
 		}
-
-		time.Sleep(10 * time.Millisecond)
 	}
 
-	log := zap.S()
-	log.Debugf("node metadata discovery took %v", time.Since(started))
+	zap.S().Debugw("node metadata discovery took ", "took", time.Since(started), "network", d.network, "node_role", d.nodeRole)
+
+	if d.network == "" || d.nodeRole == "" {
+		return fmt.Errorf("could not discover node role or network")
+	}
 
 	return nil
 }

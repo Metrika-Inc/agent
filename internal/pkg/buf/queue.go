@@ -11,7 +11,6 @@ import (
 type Item struct {
 	Priority
 	Timestamp int64
-	Bytes     uint
 	Data      interface{}
 }
 
@@ -57,21 +56,18 @@ func (pq *priorityQueue) Pop() interface{} {
 	return itemQ
 }
 
-func (pq *priorityQueue) DrainExpired() uint {
-	expiredCnt := 0
-	var claimSz uint
-
+func (pq *priorityQueue) DrainExpired() {
 	for pq.Len() > 0 {
 		v := pq.Peek()
 		if v == nil {
-			return 0
+			return
 		}
 
 		item, ok := v.(Item)
 		if !ok {
 			zap.S().Warnf("unknown queue item type peeked %T", item)
 
-			return 0
+			return
 		}
 
 		now := time.Now()
@@ -81,11 +77,8 @@ func (pq *priorityQueue) DrainExpired() uint {
 			if !ok {
 				zap.S().Warnf("unknown queue item type popped %T", item)
 
-				return claimSz
+				return
 			}
-
-			claimSz += item.Bytes
-			expiredCnt++
 
 			continue
 		}
@@ -93,7 +86,7 @@ func (pq *priorityQueue) DrainExpired() uint {
 		break
 	}
 
-	return claimSz
+	return
 }
 
 func min(a, b int) int {
@@ -134,22 +127,13 @@ func (m multiQueue) Push(x interface{}) {
 	heap.Push(q, x)
 }
 
-func (m multiQueue) DrainExpired() uint {
-	var claimSz uint
-	expiredCnt := 0
-
+func (m multiQueue) DrainExpired() {
 	for i := 0; i < len(m); i++ {
-		claimSz += m[i].DrainExpired()
+		m[i].DrainExpired()
 	}
-
-	if expiredCnt > 0 {
-		zap.S().Warnw("items in buffer expired", "expired_count", expiredCnt, "expired_bytes", claimSz)
-	}
-
-	return claimSz
 }
 
-func (m multiQueue) Pop() (interface{}, uint) {
+func (m multiQueue) Pop() interface{} {
 	for i := len(m) - 1; i >= 0; i-- {
 		for m[i].Len() > 0 {
 			v := heap.Pop(m[i])
@@ -157,14 +141,14 @@ func (m multiQueue) Pop() (interface{}, uint) {
 			if !ok {
 				zap.S().Warnf("unknown queue item type %T", item)
 
-				return nil, 0
+				return nil
 			}
 
-			return item, item.Bytes
+			return item
 		}
 	}
 
-	return nil, 0
+	return nil
 }
 
 func newPriorityQueue(ttl time.Duration) *priorityQueue {
