@@ -30,7 +30,6 @@ var (
 	// Modified at runtime
 	Version    = "v0.0.0"
 	CommitHash = ""
-	Blockchain = "development"
 )
 
 const (

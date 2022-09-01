@@ -87,9 +87,9 @@ func defaultWatchers() []watch.Watcher {
 	dw := []watch.Watcher{}
 
 	// Log watch for event generation
-	logEvs := discover.LogEventsList()
+	logEvs := global.BlockchainNode.LogEventsList()
 
-	regex := discover.ContainerRegex()
+	regex := global.BlockchainNode.ContainerRegex()
 	if len(regex) > 0 {
 		// Docker container watch
 		dw = append(dw, watch.NewContainerWatch(watch.ContainerWatchConf{
