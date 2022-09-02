@@ -39,7 +39,7 @@ func init() {
 	switch blockchain {
 	case "":
 		log.Fatalf("-blockchain is required (i.e. flow)")
-	case "flow", "algorand":
+	case "flow":
 	default:
 		log.Fatalf("no bindings available for protocol %q", blockchain)
 	}

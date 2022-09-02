@@ -2,13 +2,10 @@ package watch
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"testing"
 	"time"
-
-	"agent/pkg/parse/openmetrics"
 
 	"github.com/golang/protobuf/jsonpb"
 	dto "github.com/prometheus/client_model/go"
@@ -126,23 +123,6 @@ func TestDtoToOpenMetrics(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-func BenchmarkDtoToOpenMetrics(b *testing.B) {
-	res, err := ioutil.ReadFile("../../../pkg/parse/openmetrics/testdata/happy/pef_algorand")
-	require.NoError(b, err, "failed to read file")
-	buf := bytes.NewBuffer(res)
-	metricFams, err := openmetrics.ParsePEF(buf, nil)
-	require.NoError(b, err)
-	for j := range metricFams {
-		f := func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				dtoToOpenMetrics(metricFams[j])
-			}
-		}
-		b.Run(fmt.Sprintf("metric %d", j), f)
-
 	}
 }
 

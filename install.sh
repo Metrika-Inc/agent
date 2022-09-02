@@ -9,7 +9,7 @@ function goodbye {
   exit 1
 }
 
-supported_blockchains=("flow algorand")
+supported_blockchains=("flow")
 if [[ -z "${MA_BLOCKCHAIN}" ]]
 then
     goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
@@ -19,10 +19,6 @@ case $MA_BLOCKCHAIN in
     flow)
         BLOCKCHAIN_CONFIG_TEMPLATE_NAME="flow.template"
         BLOCKCHAIN_CONFIG_NAME="flow.yml"
-        ;;
-    algorand)
-        BLOCKCHAIN_CONFIG_TEMPLATE_NAME="algorand.template"
-        BLOCKCHAIN_CONFIG_NAME="algorand.yml"
         ;;
     *)
         echo -e "MA_BLOCKCHAIN environment variable must be set to one of: '${supported_blockchains[*]}'. Exiting."
