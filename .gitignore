@@ -4,7 +4,6 @@ cover.out
 profile*.out
 **/*.test
 **/coverage.html
-algorand.yml
 flow.yml
 tmp/
 /metrikad*

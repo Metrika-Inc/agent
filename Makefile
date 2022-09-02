@@ -30,8 +30,7 @@ OPENMETRICS_VERSION := 1.0.0
 
 # List of supported blockchains by the agent
 FLOW := flow
-ALGORAND := algorand
-PROTOS = $(FLOW) $(ALGORAND)
+PROTOS = $(FLOW)
 
 PROTOBIND = protobind
 
