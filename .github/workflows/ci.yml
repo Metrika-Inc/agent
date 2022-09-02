@@ -1,0 +1,117 @@
+---
+name: "CI Tests"
+on: push
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.18
+        if: success()
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Checkout code
+        if: success()
+        uses: actions/checkout@v3
+
+      - name: Run go fmt
+        if: success()
+        run: make fmt
+
+      - name: Run golint
+        id: lint
+        if: success()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+        run: |
+          go clean -modcache
+          go mod download
+          go install golang.org/x/lint/golint@latest
+          golint -set_exit_status $(go list ./...)
+
+      - name: Slack Notification Failure
+        if: failure()
+        id: status
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "Linting ${{ job.status  }}"
+          SLACK_TITLE: GitHub CI Agent running golint
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
+  test:
+    needs: lint
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.18
+        if: success()
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Checkout code
+        if: success()
+        uses: actions/checkout@v3
+
+      - name: Download module dependencies
+        if: success()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+        run: |
+          go clean -modcache
+          go mod download
+
+      - name: Copy config to /etc/metrikad
+        if: success()
+        run: |
+          sudo rm -rf /etc/metrikad; 
+          sudo mkdir -vp /etc/metrikad; 
+          sudo chown -R ${USER} /etc/metrikad
+          cp -r configs /etc/metrikad/
+
+      - name: Run go test
+        if: success()
+        id: tests
+        run: make test
+
+      - name: Slack Notification Failure
+        if: failure()
+        id: status
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "Make test: ${{ job.status  }}"
+          SLACK_TITLE: GitHub CI Agent tests
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
+  reports:
+    needs: test
+    name: CI Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Notification Success
+        if: success()
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "CI Finished with ${{ job.status  }}"
+          SLACK_TITLE: GitHub CI Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
+
