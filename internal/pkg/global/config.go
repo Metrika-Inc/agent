@@ -110,9 +110,6 @@ var zapLevelMapper = map[string]zapcore.Level{
 	"info":    zapcore.InfoLevel,
 	"warning": zapcore.WarnLevel,
 	"error":   zapcore.ErrorLevel,
-	"dpanic":  zapcore.DPanicLevel,
-	"panic":   zapcore.PanicLevel,
-	"fatal":   zapcore.FatalLevel,
 }
 
 // Level returns the current zap logging level
