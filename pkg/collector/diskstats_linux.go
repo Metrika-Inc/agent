@@ -192,9 +192,7 @@ func (c *diskstatsCollector) Collect(ch chan<- prometheus.Metric) {
 
 		diskSectorSize := 512.0
 		blockQueue, err := c.fs.SysBlockDeviceQueueStats(dev)
-		if err != nil {
-			zap.S().Debugw("Error getting queue stats", "device", dev, "err", err)
-		} else {
+		if err == nil {
 			diskSectorSize = float64(blockQueue.LogicalBlockSize)
 		}
 

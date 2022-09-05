@@ -89,7 +89,6 @@ func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
 				deviceError: 1,
 			})
 
-			zap.S().Debugw("Error on statfs() system call", "rootfs", rootfsFilePath(labels.mountPoint), "err", err)
 			continue
 		}
 
