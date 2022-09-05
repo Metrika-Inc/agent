@@ -29,7 +29,6 @@ const (
 	| uptime         | string | String formatted duration denoting how long the agent has been up |
 	| endpoint       | string | A network address                                                 |
 	| error          | string | An error string                                                   |
-	| container_id   | string | The last discovered container ID                                  |
 	| node_id        | string | The last discovered blockchain node ID                            |
 	| node_type      | string | The last discovered blockchain node type                          |
 	| node_version   | string | The last discovered blockchain node version                       |
@@ -37,18 +36,29 @@ const (
 	| ntp_server     | string | The NTP server used by the agent's clock                          |
 	+----------------+--------+-------------------------------------------------------------------+ */
 
-	AgentUptimeKey   = "uptime"
+	// AgentUptimeKey used for indexing in Event.Values
+	AgentUptimeKey = "uptime"
+
+	// AgentProtocolKey used for indexing in Event.Values
 	AgentProtocolKey = "protocol"
-	AgentVersionKey  = "agent_version"
-	EndpointKey      = "endpoint"
-	ErrorKey         = "error"
-	ContainerIDKey   = "container_id"
-	NodeIDKey        = "node_id"
-	NodeTypeKey      = "node_type"
-	NodeVersionKey   = "node_version"
-	OffsetMillisKey  = "offset_millis"
-	NTPServerKey     = "ntp_server"
-	NetworkKey       = "network"
+	// AgentVersionKey used for indexing in Event.Values
+	AgentVersionKey = "agent_version"
+	// EndpointKey used for indexing in Event.Values
+	EndpointKey = "endpoint"
+	// ErrorKey used for indexing in Event.Values
+	ErrorKey = "error"
+	// NodeIDKey used for indexing in Event.Values
+	NodeIDKey = "node_id"
+	// NodeTypeKey used for indexing in Event.Values
+	NodeTypeKey = "node_type"
+	// NodeVersionKey used for indexing in Event.Values
+	NodeVersionKey = "node_version"
+	// OffsetMillisKey used for indexing in Event.Values
+	OffsetMillisKey = "offset_millis"
+	// NTPServerKey used for indexing in Event.Values
+	NTPServerKey = "ntp_server"
+	// NetworkKey used for indexing in Event.Values
+	NetworkKey = "network"
 
 	/* core specific events */
 
@@ -67,13 +77,13 @@ const (
 
 	/* chain specific events */
 
-	// AgentNodeDownName The blockchain node is down. Ctx: container_id, node_id, node_type, node_version
+	// AgentNodeDownName The blockchain node is down. Ctx: node_id, node_type, node_version
 	AgentNodeDownName = "agent.node.down"
 
-	// AgentNodeUpName The blockchain node is up. Ctx: container_id, node_id, node_type, node_version
+	// AgentNodeUpName The blockchain node is up. Ctx: node_id, node_type, node_version
 	AgentNodeUpName = "agent.node.up"
 
-	// AgentNodeRestartName The blockchain node restarted. Ctx: container_id, node_id, node_type, node_version
+	// AgentNodeRestartName The blockchain node restarted. Ctx: node_id, node_type, node_version
 	AgentNodeRestartName = "agent.node.restart"
 
 	// AgentNodeLogMissingName The node log file has gone missing. Ctx: node_id, node_type, node_version
@@ -144,6 +154,7 @@ func NewWithCtx(ctx map[string]interface{}, name string, t time.Time) (*Event, e
 	return ev, nil
 }
 
+// New creates a new event by name and time.
 func New(name string, t time.Time) (*Event, error) {
 	return NewWithFilteredCtx(nil, name, t, []string{}...)
 }

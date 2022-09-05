@@ -27,12 +27,20 @@ import (
 )
 
 const (
-	defaultMaxDrainBatchLen     = 1000
-	defaultMaxHeapAllocBytes    = 52428800
-	defaultDrainFreq            = 5 * time.Second
+	// defaultMaxDrainBatchLen default max items to drain at each iteration
+	defaultMaxDrainBatchLen = 1000
+
+	// defaultMaxHeapAllocBytes default max heal alloc before buffer drop
+	defaultMaxHeapAllocBytes = 52428800
+
+	// defaultDrainFreq default buffer drain frequency
+	defaultDrainFreq = 5 * time.Second
+
+	// defaultMemStatsCacheTimeout default timeout for runtime.MemStats()
 	defaultMemStatsCacheTimeout = 15 * time.Second
 )
 
+// ControllerConf controller configuration
 type ControllerConf struct {
 	// BufLenLimit max number of items to drain at once
 	BufLenLimit int
@@ -66,6 +74,7 @@ type Controller struct {
 	memstatsUpdatedAt time.Time
 }
 
+// NewController Controller constructor
 func NewController(conf ControllerConf, b Buffer) *Controller {
 	if conf.BufLenLimit == 0 {
 		conf.BufLenLimit = defaultMaxDrainBatchLen
@@ -95,7 +104,8 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 	}
 }
 
-var HeapAllocLimitError = errors.New("heap allocated bytes limit reached")
+// ErrHeapAllocLimit agent reached max heap alloc
+var ErrHeapAllocLimit = errors.New("heap allocated bytes limit reached")
 
 // Start starts a goroutine that drains the underlying buffer based
 // on two timers: by default periodically and falls back to exponential
@@ -149,6 +159,7 @@ func (c *Controller) Start() {
 	}
 }
 
+// Stop stops the controller
 func (c *Controller) Stop() {
 	close(c.closeCh)
 }
@@ -163,7 +174,7 @@ func (c *Controller) checkMemStats() error {
 	}
 
 	if c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
-		return HeapAllocLimitError
+		return ErrHeapAllocLimit
 	}
 
 	return nil
@@ -217,7 +228,7 @@ func (c *Controller) BufInsertAndEarlyDrain(item Item) error {
 // error.
 func (c *Controller) BufDrain() error {
 	t := time.Now()
-	defer func() { BufferDrainDuration.Observe(time.Since(t).Seconds()) }()
+	defer func() { bufferDrainDuration.Observe(time.Since(t).Seconds()) }()
 
 	drainedCnt := 0
 
@@ -267,11 +278,13 @@ func (c *Controller) BufDrain() error {
 	return nil
 }
 
+// EmitEventWithError buffers an event with an error context key
 func (c *Controller) EmitEventWithError(err error, name string) error {
 	ctx := map[string]interface{}{model.ErrorKey: err.Error()}
 	return c.EmitEvent(ctx, name)
 }
 
+// EmitEvent buffers an event for publishing
 func (c *Controller) EmitEvent(ctx map[string]interface{}, name string) error {
 	ev, err := model.NewWithCtx(ctx, name, timesync.Now())
 	if err != nil {

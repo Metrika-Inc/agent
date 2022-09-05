@@ -109,6 +109,7 @@ func min(a, b int) int {
 	return b
 }
 
+// Priority denotes queue priority
 type Priority uint8
 
 const (

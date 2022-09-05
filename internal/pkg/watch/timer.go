@@ -19,15 +19,19 @@ import (
 
 // *** TimerWatch ***
 
+// TimerWatchConf TimerWatch configuration struct.
 type TimerWatchConf struct {
 	Interval time.Duration
 }
 
+// TimerWatch implements Watcher interface.
+// Emits 0 periodically per a configured interval.
 type TimerWatch struct {
 	TimerWatchConf
 	Watch
 }
 
+// NewTimerWatch timer watch constructor.
 func NewTimerWatch(conf TimerWatchConf) *TimerWatch {
 	w := new(TimerWatch)
 	w.Watch = NewWatch()
@@ -41,6 +45,8 @@ func NewTimerWatch(conf TimerWatchConf) *TimerWatch {
 	return w
 }
 
+// StartUnsafe sets watch running state to true
+// and starts the timer goroutine.
 func (w *TimerWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
@@ -58,7 +64,6 @@ func (w *TimerWatch) timerLoop() {
 
 		case <-w.StopKey:
 			return
-
 		}
 	}
 }

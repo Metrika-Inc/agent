@@ -23,13 +23,16 @@ import (
 )
 
 const (
-	DefaultFlowPath     = "/etc/metrikad/configs/flow.yml"
+	// DefaultFlowPath default flow configuration path
+	DefaultFlowPath = "/etc/metrikad/configs/flow.yml"
+
+	// DefaultTemplatePath default flow template configuration path
 	DefaultTemplatePath = "/etc/metrikad/configs/flow.template"
 )
 
-var FlowConf *FlowConfig
+var flowConf *flowConfig
 
-type FlowConfig struct {
+type flowConfig struct {
 	configPath     string
 	Client         string               `yaml:"client"`
 	ContainerRegex []string             `yaml:"containerRegex"`
@@ -38,39 +41,39 @@ type FlowConfig struct {
 	EnvFilePath    string               `yaml:"envFile"`
 }
 
-func NewFlowConfig(configPath ...string) FlowConfig {
+func newFlowConfig(configPath ...string) flowConfig {
 	var path string
 	if len(configPath) == 0 {
 		path = DefaultFlowPath
 	} else {
 		path = configPath[0]
 	}
-	return FlowConfig{
+	return flowConfig{
 		configPath: path,
 	}
 }
 
-func (d *FlowConfig) Load() (FlowConfig, error) {
-	var conf FlowConfig
+func (d *flowConfig) load() (flowConfig, error) {
+	var conf flowConfig
 	content, err := ioutil.ReadFile(d.configPath)
 	if err != nil {
-		return FlowConfig{}, err
+		return flowConfig{}, err
 	}
 
 	if err := yaml.Unmarshal(content, &conf); err != nil {
-		return FlowConfig{}, err
+		return flowConfig{}, err
 	}
 
-	FlowConf = &conf
+	flowConf = &conf
 	return conf, nil
 }
 
 // Default overrides the configuration file specified in configPath
 // with the template preset, and then loads it in memory.
-func (d *FlowConfig) Default() (FlowConfig, error) {
+func (d *flowConfig) Default() (flowConfig, error) {
 	if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, d.configPath, d); err != nil {
-		return FlowConfig{}, fmt.Errorf("failed to generate default template: %w", err)
+		return flowConfig{}, fmt.Errorf("failed to generate default template: %w", err)
 	}
 
-	return d.Load()
+	return d.load()
 }

@@ -23,6 +23,7 @@ var enabledExporters = map[string]func() (global.Exporter, error){
 	"file_stream_exporter": newFileStream,
 }
 
+// GetExporters get enabled exporters.
 func GetExporters() ([]global.Exporter, error) {
 	exporters := []global.Exporter{}
 	for name, exporterSetup := range enabledExporters {

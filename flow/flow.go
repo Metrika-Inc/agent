@@ -34,10 +34,10 @@ import (
 )
 
 const (
-	FlowVersionKey        = "FLOW_GO_NODE_VERSION"
-	FlowNodeIDKey         = "FLOW_GO_NODE_ID"
-	FlowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
-	FlowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
+	flowVersionKey        = "FLOW_GO_NODE_VERSION"
+	flowNodeIDKey         = "FLOW_GO_NODE_ID"
+	flowExecutionNodeKey  = "FLOW_NETWORK_EXECUTION_NODE"
+	flowCollectionNodeKey = "FLOW_NETWORK_COLLECTION_NODE"
 
 	// protocolName blockchain protocol name
 	protocolName = "flow"
@@ -49,8 +49,9 @@ const (
 
 // Flow is responsible for discovery and validation
 // of the agent's flow-related configuration.
+// Implements global.Chain.
 type Flow struct {
-	config       FlowConfig
+	config       flowConfig
 	renderNeeded bool // if any config value was empty but got updated
 	container    *types.Container
 	env          map[string]string
@@ -60,11 +61,12 @@ type Flow struct {
 	mutex        *sync.RWMutex
 }
 
+// NewFlow flow chain constructor.
 func NewFlow() (*Flow, error) {
 	flow := &Flow{mutex: &sync.RWMutex{}}
-	config := NewFlowConfig(DefaultFlowPath)
+	config := newFlowConfig(DefaultFlowPath)
 	var err error
-	flow.config, err = config.Load()
+	flow.config, err = config.load()
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		// configuration does not exist, create it
 		flow.config, err = config.Default()
@@ -78,16 +80,18 @@ func NewFlow() (*Flow, error) {
 	return flow, nil
 }
 
+// ResetConfig resets discovered configuration to default.
 func (d *Flow) ResetConfig() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	var err error
-	config := NewFlowConfig(DefaultFlowPath)
+	config := newFlowConfig(DefaultFlowPath)
 	d.config, err = config.Default()
 	return err
 }
 
+// IsConfigured depends on Client, NodeID and PEF configuration to be present.
 func (d *Flow) IsConfigured() bool {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -107,6 +111,7 @@ func (d *Flow) isPEFConfigured() bool {
 	return len(d.config.PEFEndpoints[0].URL) != 0
 }
 
+// DiscoverContainer discovers the node's container based on loaded config.
 func (d *Flow) DiscoverContainer() (*types.Container, error) {
 	log := zap.S()
 	log.Info("flow not fully configured, starting discovery")
@@ -174,12 +179,13 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 			errs.Append(err)
 		}
 		d.renderNeeded = false
-		FlowConf = &d.config
+		flowConf = &d.config
 	}
 
 	return d.container, errs.ErrIfAny()
 }
 
+// NodeID returns the discovered node id.
 func (d *Flow) NodeID() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -218,7 +224,7 @@ func (d *Flow) configureNodeID() (string, error) {
 
 	// fall back to environment file
 	if d.env != nil {
-		if nodeID, ok := d.env[FlowNodeIDKey]; ok {
+		if nodeID, ok := d.env[flowNodeIDKey]; ok {
 			log.Infow("node id found", "node_id", nodeID)
 			d.config.NodeID = nodeID
 			d.renderNeeded = true
@@ -284,6 +290,7 @@ func (d *Flow) configurePEFEndpoints() error {
 	return nil
 }
 
+// ValidateClient validates client name
 func (d *Flow) ValidateClient() error {
 	// flow-go is the only flow client
 	if d.config.Client != "flow-go" {
@@ -299,6 +306,7 @@ func (d *Flow) configureClient() error {
 	return nil
 }
 
+// PEFEndpoints returns a list of endpoints for fetching PEF metrics.
 func (d *Flow) PEFEndpoints() []global.PEFEndpoint {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -306,6 +314,7 @@ func (d *Flow) PEFEndpoints() []global.PEFEndpoint {
 	return d.config.PEFEndpoints
 }
 
+// ContainerRegex regex to match against container names on discovery
 func (d *Flow) ContainerRegex() []string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -313,14 +322,17 @@ func (d *Flow) ContainerRegex() []string {
 	return d.config.ContainerRegex
 }
 
+// LogEventsList map of events being tracked from the node log
 func (d *Flow) LogEventsList() map[string]model.FromContext {
 	return eventsFromContext
 }
 
+// NodeLogPath Note: to be implemented with linux process discovery.
 func (d *Flow) NodeLogPath() string {
 	return ""
 }
 
+// NodeType returns the discovered node role (i.e. consensus).
 func (d *Flow) NodeType() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -328,6 +340,7 @@ func (d *Flow) NodeType() string {
 	return d.nodeRole
 }
 
+// Network returns the discovered network (i.e. flow-localnet).
 func (d *Flow) Network() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -413,6 +426,7 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	return nil
 }
 
+// NodeVersion returns the discovered node version
 func (d *Flow) NodeVersion() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -435,6 +449,7 @@ func (d *Flow) updateNodeVersion() (string, error) {
 	return d.nodeVersion, nil
 }
 
+// Protocol returns "flow"
 func (d *Flow) Protocol() string {
 	return protocolName
 }

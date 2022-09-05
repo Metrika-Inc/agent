@@ -26,6 +26,7 @@ func init() {
 	client = imds.New(imds.Options{})
 }
 
+// IsRunningOn returns true if agent runs on AWS EC2.
 func IsRunningOn() bool {
 	_, err := client.GetMetadata(context.TODO(), &imds.GetMetadataInput{
 		Path: "instance-id",
@@ -34,13 +35,13 @@ func IsRunningOn() bool {
 	return err == nil
 }
 
+// Hostname returns the hostname of the current instance.
 func Hostname() (string, error) {
-
 	// Using 'internal-hostname' as the 'public-hostname' may not exist!
 	ih, err := client.GetMetadata(context.TODO(),
 		&imds.GetMetadataInput{
-			Path: "instance-id"})
-
+			Path: "instance-id",
+		})
 	if err != nil {
 		return "", err
 	}

@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Emitter interface for emitting events to a channel
 type Emitter interface {
 	Emit(message interface{})
 }
@@ -27,6 +28,7 @@ type simpleEmitter struct {
 	emitch chan<- interface{}
 }
 
+// Emit emits messages to the configured channel.
 func (s *simpleEmitter) Emit(message interface{}) {
 	if s.emitch == nil {
 		zap.S().Error("emit channel not configured")
@@ -39,7 +41,7 @@ func (s *simpleEmitter) Emit(message interface{}) {
 
 // NewSimpleEmitter returns an object that solely implements the
 // Emitter interface. Used to emit events independent of a watchers.
-func NewSimpleEmitter(emitch chan<- interface{}) *simpleEmitter {
+func NewSimpleEmitter(emitch chan<- interface{}) Emitter {
 	return &simpleEmitter{emitch: emitch}
 }
 

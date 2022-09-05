@@ -29,6 +29,7 @@ var (
 	configPath string
 )
 
+// AutoConfig initializes the blockchain node for the agent runtime.
 func AutoConfig(reset bool) global.Chain {
 	Init()
 

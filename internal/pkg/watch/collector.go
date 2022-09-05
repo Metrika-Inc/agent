@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package collector includes all individual collectors to gather and export system metrics.
 package watch
 
 import (
@@ -27,13 +26,15 @@ import (
 
 const namespace = "node"
 
+// CollectorWatchConf CollectorWatch configuration.
 type CollectorWatchConf struct {
-	Type      WatchType
+	Type      Type
 	Collector prometheus.Collector
 	Gatherer  prometheus.Gatherer
 	Interval  time.Duration
 }
 
+// CollectorWatch implements a wrapper watch for node exporter collectors.
 type CollectorWatch struct {
 	CollectorWatchConf
 	Watch
@@ -42,6 +43,7 @@ type CollectorWatch struct {
 	stopCollectorCh chan bool
 }
 
+// NewCollectorWatch CollectorWatch constructor.
 func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	w := new(CollectorWatch)
 	w.CollectorWatchConf = conf
@@ -54,6 +56,7 @@ func NewCollectorWatch(conf CollectorWatchConf) *CollectorWatch {
 	return w
 }
 
+// StartUnsafe starts the goroutine for gathering node exporter metrics
 func (c *CollectorWatch) StartUnsafe() {
 	c.Watch.StartUnsafe()
 

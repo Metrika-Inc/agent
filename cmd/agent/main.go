@@ -122,13 +122,13 @@ func defaultWatchers() []watch.Watcher {
 	// PEF Watch
 	eps := global.BlockchainNode.PEFEndpoints()
 	for _, ep := range eps {
-		httpConf := watch.HttpGetWatchConf{
+		httpConf := watch.HTTPWatchConf{
 			Interval: global.AgentConf.Runtime.SamplingInterval,
-			Url:      ep.URL,
+			URL:      ep.URL,
 			Timeout:  global.AgentConf.Platform.TransportTimeout,
 			Headers:  nil,
 		}
-		httpWatch := watch.NewHttpGetWatch(httpConf)
+		httpWatch := watch.NewHTTPWatch(httpConf)
 		filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
 		pefConf := watch.PEFWatchConf{Filter: filter}
 		dw = append(dw, watch.NewPEFWatch(pefConf, httpWatch))
@@ -151,7 +151,7 @@ func registerWatchers() error {
 
 	watchersEnabled = append(watchersEnabled, defaultWatchers()...)
 
-	if err := factory.WatcherRegistry.Register(watchersEnabled...); err != nil {
+	if err := factory.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
 		return err
 	}
 
@@ -159,13 +159,12 @@ func registerWatchers() error {
 }
 
 func main() {
-
 	if *showVersion {
 		fmt.Print(global.Version)
 		os.Exit(0)
 	}
 
-	if err := global.LoadDefaultConfig(); err != nil {
+	if err := global.LoadAgentConfig(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 
 		os.Exit(1)
@@ -229,7 +228,7 @@ func main() {
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
 	// attach the buffer controller to the publisher
-	pub := publisher.NewPublisher(publisher.PublisherConf{}, bufCtrl)
+	pub := publisher.NewPublisher(publisher.Config{}, bufCtrl)
 	pub.Start(wg)
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -259,7 +258,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := factory.WatcherRegistry.Start(subscriptions...); err != nil {
+	if err := factory.DefaultWatchRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
 	}
 
@@ -290,8 +289,8 @@ func main() {
 	}
 
 	// stop watchers and wait for goroutine cleanup
-	factory.WatcherRegistry.Stop()
-	factory.WatcherRegistry.Wait()
+	factory.DefaultWatchRegistry.Stop()
+	factory.DefaultWatchRegistry.Wait()
 
 	// stop platform publisher and other exporters &&
 	// wait for buffers to drain

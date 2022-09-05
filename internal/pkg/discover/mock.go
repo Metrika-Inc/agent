@@ -20,16 +20,20 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
+// MockBlockchain ...
 type MockBlockchain struct{}
 
+// Protocol ...
 func (m *MockBlockchain) Protocol() string {
 	return "mock-protocol"
 }
 
+// IsConfigured ...
 func (m *MockBlockchain) IsConfigured() bool {
 	panic("not implemented") // TODO: Implement
 }
 
+// ResetConfig ...
 func (m *MockBlockchain) ResetConfig() error {
 	panic("not implemented") // TODO: Implement
 }
@@ -57,14 +61,17 @@ func (m *MockBlockchain) NodeLogPath() string {
 	panic("not implemented") // TODO: Implement
 }
 
+// NodeID ...
 func (m *MockBlockchain) NodeID() string {
 	return "mock-node-id"
 }
 
+// NodeType ...
 func (m *MockBlockchain) NodeType() string {
 	return "mock-node-type"
 }
 
+// NodeVersion ...
 func (m *MockBlockchain) NodeVersion() string {
 	return "mock-node-version"
 }
@@ -74,6 +81,7 @@ func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
 	return &types.Container{}, nil
 }
 
+// Network ...
 func (m *MockBlockchain) Network() string {
 	return "mock-node-network"
 }

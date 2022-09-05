@@ -27,14 +27,14 @@ import (
 
 func TestTimeSync_QueryNTP(t *testing.T) {
 	t.Run("QueryNTP/success", func(t *testing.T) {
-		ts := NewTimeSync("1000", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "1000", 1)
 		ts.queryNTP = mockQueryNTP
 		err := ts.QueryNTP()
 		require.NoError(t, err)
 		require.Equal(t, time.Millisecond*1000, ts.Offset())
 	})
 	t.Run("QueryNTP/failure", func(t *testing.T) {
-		ts := NewTimeSync("notInteger", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "notInteger", 1)
 		ts.queryNTP = mockQueryNTP
 		ts.delta = 1234
 		err := ts.QueryNTP()
@@ -45,7 +45,7 @@ func TestTimeSync_QueryNTP(t *testing.T) {
 
 func TestTimeSync(t *testing.T) {
 	t.Run("Start/tick_interval_and_stop", func(t *testing.T) {
-		ts := NewTimeSync("", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "", 1)
 		ts.SetSyncInterval(25 * time.Millisecond)
 		var tickCounter testCounter
 		ts.queryNTP = func(s string) (*ntp.Response, error) {
@@ -56,13 +56,13 @@ func TestTimeSync(t *testing.T) {
 		// 3 ticks expected
 		<-time.After(55 * time.Millisecond)
 		ts.Stop()
-		ts.WaitForDone()
+		ts.waitForDone()
 		<-time.After(30 * time.Millisecond)
 		require.Equal(t, 2, tickCounter.get())
 	})
 	t.Run("Start/stop_on_graceful_exit", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		ts := NewTimeSync("", 1, ctx)
+		ts := NewTimeSync(ctx, "", 1)
 		ts.SetSyncInterval(25 * time.Millisecond)
 		var tickCounter testCounter
 		ts.queryNTP = func(s string) (*ntp.Response, error) {
@@ -73,12 +73,12 @@ func TestTimeSync(t *testing.T) {
 		// 3 ticks expected
 		<-time.After(55 * time.Millisecond)
 		cancel()
-		ts.WaitForDone()
+		ts.waitForDone()
 		<-time.After(30 * time.Millisecond)
 		require.Equal(t, 2, tickCounter.get())
 	})
 	t.Run("Start/start_twice", func(t *testing.T) {
-		ts := NewTimeSync("", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "", 1)
 		ts.SetSyncInterval(25 * time.Millisecond)
 		var tickCounter testCounter
 		ts.queryNTP = func(s string) (*ntp.Response, error) {
@@ -97,7 +97,7 @@ func TestTimeSync(t *testing.T) {
 		require.Equal(t, 5, tickCounter.get())
 	})
 	t.Run("Start/sync_now", func(t *testing.T) {
-		ts := NewTimeSync("", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "", 1)
 		ts.SetSyncInterval(100 * time.Millisecond)
 		var tickCounter testCounter
 		ts.queryNTP = func(s string) (*ntp.Response, error) {
@@ -110,11 +110,11 @@ func TestTimeSync(t *testing.T) {
 		require.NoError(t, err)
 		<-time.After(80 * time.Millisecond)
 		ts.Stop()
-		ts.WaitForDone()
+		ts.waitForDone()
 		require.Equal(t, 1, tickCounter.get())
 	})
 	t.Run("Start/check_default_interval", func(t *testing.T) {
-		ts := NewTimeSync("", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "", 1)
 		ts.Start(nil)
 		<-time.After(15 * time.Millisecond)
 		ts.Stop()
@@ -133,7 +133,7 @@ func TestTimeSync_Now(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		ts := NewTimeSync("", 1, context.Background())
+		ts := NewTimeSync(context.Background(), "", 1)
 		ts.delta = testcase.offset
 		ts.shouldAdjust = testcase.adjust
 		expectedTime := time.Now()

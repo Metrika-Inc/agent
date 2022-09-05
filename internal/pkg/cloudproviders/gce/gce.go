@@ -25,10 +25,12 @@ func init() {
 	client = metadata.NewClient(&http.Client{Transport: http.DefaultTransport})
 }
 
+// IsRunningOn returns true if agent runs on GCE.
 func IsRunningOn() bool {
 	return metadata.OnGCE()
 }
 
+// Hostname returns the hostname of the current instance.
 func Hostname() (string, error) {
 	return client.Hostname()
 }

@@ -26,6 +26,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// TimeSync maintains a delta between upstream NTP and
+// the host's clock and exports methods equivalent to
+// the standard time package (i.e. Now()).
 type TimeSync struct {
 	host           string
 	ticker         *time.Ticker
@@ -48,9 +51,12 @@ const (
 	defaultRetryCount   = 3
 )
 
-var Default = NewTimeSync("pool.ntp.org", 0, context.Background())
+// Default is the default timesync instance used throughout
+// the agent.
+var Default = NewTimeSync(context.Background(), "pool.ntp.org", 0)
 
-func NewTimeSync(host string, retries int, ctx context.Context) *TimeSync {
+// NewTimeSync constructor
+func NewTimeSync(ctx context.Context, host string, retries int) *TimeSync {
 	if retries <= 0 {
 		retries = defaultRetryCount
 	}
@@ -73,6 +79,8 @@ func (t *TimeSync) SetSyncInterval(interval time.Duration) {
 	t.interval = interval
 }
 
+// Start starts a goroutine to periodically adjust the agent clock
+// according to upstream NTP servers.
 func (t *TimeSync) Start(emitch chan<- interface{}) {
 	t.Lock()
 	t.wg.Add(1)
@@ -176,13 +184,14 @@ func (t *TimeSync) QueryNTP() error {
 	return nil
 }
 
+// Offset returns the current NTP ClockOffset (see ntp docs)
 func (t *TimeSync) Offset() time.Duration {
 	t.RLock()
 	defer t.RUnlock()
 	return t.delta
 }
 
-func (t *TimeSync) WaitForDone() {
+func (t *TimeSync) waitForDone() {
 	t.wg.Wait()
 }
 
@@ -224,10 +233,12 @@ func Now() time.Time {
 	return Default.now()
 }
 
+// EmitEvent emits an event related to the timesync package.
 func EmitEvent(t *TimeSync, name string) error {
 	return EmitEventWithCtx(t, nil, name)
 }
 
+// EmitEventWithCtx emits events with context related to the timesync package.
 func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name string) error {
 	t.RLock()
 	defaultCtx := map[string]interface{}{
@@ -254,6 +265,7 @@ func EmitEventWithCtx(t *TimeSync, ctx map[string]interface{}, name string) erro
 	return nil
 }
 
+// Emit emits a timesync message to the configured channel.
 func (t *TimeSync) Emit(message interface{}) {
 	if t.emitch == nil {
 		zap.S().Warn("emit channel is not configured")

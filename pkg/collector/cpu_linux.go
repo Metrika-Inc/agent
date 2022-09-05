@@ -71,7 +71,6 @@ var (
 
 // NewCPUCollector returns a new Collector exposing kernel/system statistics.
 func NewCPUCollector() (prometheus.Collector, error) {
-
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -143,18 +142,18 @@ func (c *cpuCollector) compileIncludeFlags(flagsIncludeFlag, bugsIncludeFlag *st
 func (c *cpuCollector) Collect(ch chan<- prometheus.Metric) {
 	if enableCPUInfo {
 		if err := c.updateInfo(ch); err != nil {
-			zap.S().Warn(NodeExporterCollectErr{err})
+			zap.S().Warn(err)
 
 			return
 		}
 	}
 	if err := c.updateStat(ch); err != nil {
-		zap.S().Warn(NodeExporterCollectErr{err})
+		zap.S().Warn(err)
 
 		return
 	}
 	if err := c.updateThermalThrottle(ch); err != nil {
-		zap.S().Warn(NodeExporterCollectErr{err})
+		zap.S().Warn(err)
 
 		return
 	}
@@ -328,7 +327,6 @@ func (c *cpuCollector) updateStat(ch chan<- prometheus.Metric) error {
 
 // updateCPUStats updates the internal cache of CPU stats.
 func (c *cpuCollector) updateCPUStats(newStats []procfs.CPUStat) {
-
 	// Acquire a lock to update the stats.
 	c.cpuStatsMutex.Lock()
 	defer c.cpuStatsMutex.Unlock()

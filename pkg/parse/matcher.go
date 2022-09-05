@@ -13,6 +13,7 @@
 
 package parse
 
+// KeyMatcher interface for filter implementation
 type KeyMatcher interface {
 	Match(string) bool
 }

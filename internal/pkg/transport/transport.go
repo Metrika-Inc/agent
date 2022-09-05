@@ -46,6 +46,7 @@ const (
 	defaultTransmitTimeout = 5 * time.Second
 )
 
+// PlatformGRPCConf PlatformGRPC configuration struct.
 type PlatformGRPCConf struct {
 	// URL where the publisher will be pushing metrics to.
 	URL string
@@ -69,6 +70,8 @@ type PlatformGRPCConf struct {
 	Dialer func(context.Context, string) (net.Conn, error)
 }
 
+// PlatformGRPC implements a GRPC client for publishing data to the
+// Metrika platform.
 type PlatformGRPC struct {
 	PlatformGRPCConf
 
@@ -77,6 +80,7 @@ type PlatformGRPC struct {
 	lock     *sync.RWMutex
 }
 
+// NewPlatformGRPC platform transport constructor.
 func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 	// Anything put here will be transmitted as request headers.
 	md := metadata.Pairs(AgentUUIDHeaderName, conf.UUID, AgentAPIKeyHeaderName, conf.APIKey)
@@ -96,6 +100,8 @@ func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 	return &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}, nil
 }
 
+// Publish publishes a slice of messages to the platform by invoking
+// metrika.agent/Transmit.
 func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -155,6 +161,8 @@ func (t *PlatformGRPC) connect() error {
 	return nil
 }
 
+// PublishFunc is a callback function used by the agent buffer for
+// data publish.
 func (t *PlatformGRPC) PublishFunc(b buf.ItemBatch) error {
 	batch := make([]*model.Message, 0, len(b)+1)
 	for _, item := range b {
@@ -172,7 +180,7 @@ func (t *PlatformGRPC) PublishFunc(b buf.ItemBatch) error {
 	go func() {
 		timestamp, err := t.Publish(batch)
 		if err != nil {
-			PlatformPublishErrors.Inc()
+			platformPublishErrors.Inc()
 			global.AgentRuntimeState.SetPublishState(global.PlatformStateDown)
 
 			errCh <- err
@@ -181,7 +189,7 @@ func (t *PlatformGRPC) PublishFunc(b buf.ItemBatch) error {
 		if timestamp != 0 {
 			timesync.Refresh(timestamp)
 		}
-		MetricsPublishedCnt.Add(float64(len(batch)))
+		metricsPublishedCnt.Add(float64(len(batch)))
 		global.AgentRuntimeState.SetPublishState(global.PlatformStateUp)
 
 		errCh <- nil

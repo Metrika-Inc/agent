@@ -13,6 +13,7 @@
 
 package buf
 
+// Buffer interface for reading and writing data to a buffer implementation.
 type Buffer interface {
 	// Insert inserts a variadic number of items to the backing store
 	Insert(m ...Item) error

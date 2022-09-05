@@ -24,15 +24,18 @@ import (
 
 // *** HttpGetWatch ***
 
-type HttpGetWatchConf struct {
-	Url      string
+// HTTPWatchConf HttpGetWatch configuration struct.
+type HTTPWatchConf struct {
+	URL      string
 	Interval time.Duration
 	Headers  map[string]string
 	Timeout  time.Duration
 }
 
-type HttpGetWatch struct {
-	HttpGetWatchConf
+// HTTPWatch implements the Watcher interface for collecting
+// response body from an HTTP endpoint.
+type HTTPWatch struct {
+	HTTPWatchConf
 	Watch
 
 	client *http.Client
@@ -40,19 +43,23 @@ type HttpGetWatch struct {
 	httpDataCh chan []byte
 }
 
-func NewHttpGetWatch(conf HttpGetWatchConf) *HttpGetWatch {
-	w := &HttpGetWatch{
-		Watch:            NewWatch(),
-		HttpGetWatchConf: conf,
-		httpDataCh:       make(chan []byte, 10),
+// NewHTTPWatch HTTPWatch constructor.
+func NewHTTPWatch(conf HTTPWatchConf) *HTTPWatch {
+	w := &HTTPWatch{
+		Watch:         NewWatch(),
+		HTTPWatchConf: conf,
+		httpDataCh:    make(chan []byte, 10),
 	}
 
-	w.Log = w.Log.With("url", w.Url)
+	w.Log = w.Log.With("url", w.URL)
 
 	return w
 }
 
-func (h *HttpGetWatch) StartUnsafe() {
+// StartUnsafe starts a goroutine that periodically sends
+// GET requests to an HTTP endpoint and emits to the configured
+// channel a byte slice of its response body.
+func (h *HTTPWatch) StartUnsafe() {
 	h.Watch.StartUnsafe()
 
 	if h.client == nil {
@@ -68,7 +75,7 @@ func (h *HttpGetWatch) StartUnsafe() {
 			case <-time.After(h.Interval):
 				ctx, cancel := context.WithTimeout(context.Background(), h.Timeout)
 				defer cancel()
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.Url, nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.URL, nil)
 				if err != nil {
 					h.Log.Errorw("invalid http request", zap.Error(err))
 					continue
@@ -108,6 +115,7 @@ func (h *HttpGetWatch) StartUnsafe() {
 	}()
 }
 
-func (h *HttpGetWatch) Stop() {
+// Stop stops the watch.
+func (h *HTTPWatch) Stop() {
 	h.Watch.Stop()
 }

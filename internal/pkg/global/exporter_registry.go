@@ -14,16 +14,20 @@
 package global
 
 import (
-	"agent/api/v1/model"
 	"context"
 	"sync"
 	"time"
 
+	"agent/api/v1/model"
+
 	"go.uber.org/zap"
 )
 
+// DefaultExporterRegisterer default exporter registerer to use for
+// registering exporter implementations (see contrib package).
 var DefaultExporterRegisterer = new(ExporterRegisterer)
 
+// DefaultExporterTimeout exporter channel send timeout
 // TODO: make timeout configurable per exporter basis
 var DefaultExporterTimeout = 5 * time.Second
 
@@ -37,21 +41,25 @@ type Exporter interface {
 	HandleMessage(ctx context.Context, msg *model.Message)
 }
 
+// ExporterHandler is the registerer's subscription unit.
 type ExporterHandler struct {
 	exporter       Exporter
 	subscriptionCh <-chan interface{}
 }
 
+// ExporterRegisterer exporter handlers registry.
 type ExporterRegisterer struct {
 	handlers []ExporterHandler
 }
 
+// Register registers a new exporter and its channel.
 func (e *ExporterRegisterer) Register(exporter Exporter, subCh chan interface{}) error {
 	e.handlers = append(e.handlers, ExporterHandler{exporter: exporter, subscriptionCh: subCh})
 
 	return nil
 }
 
+// Start starts a goroutine for each configured handler.
 func (e *ExporterRegisterer) Start(ctx context.Context, wg *sync.WaitGroup) error {
 	for i := range e.handlers {
 		wg.Add(1)
