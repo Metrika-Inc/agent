@@ -19,7 +19,6 @@ package collector
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 var unameDesc = prometheus.NewDesc(
@@ -54,7 +53,6 @@ func NewUnameCollector() (prometheus.Collector, error) {
 func (c *unameCollector) Collect(ch chan<- prometheus.Metric) {
 	uname, err := getUname()
 	if err != nil {
-		zap.S().Error(err)
 
 		return
 	}

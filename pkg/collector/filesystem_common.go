@@ -22,7 +22,6 @@ import (
 	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 // Arch-dependent implementation must define:
@@ -79,7 +78,6 @@ type filesystemStats struct {
 func NewFilesystemCollector() (prometheus.Collector, error) {
 	if oldMountPointsExcluded != "" {
 		if !mountPointsExcludeSet {
-			zap.S().Warnw("--collector.filesystem.ignored-mount-points is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.mount-points-exclude")
 			mountPointsExclude = oldMountPointsExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-mount-points and --collector.filesystem.mount-points-exclude are mutually exclusive")
@@ -88,7 +86,6 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 
 	if oldFSTypesExcluded != "" {
 		if !fsTypesExcludeSet {
-			zap.S().Warnw("--collector.filesystem.ignored-fs-types is DEPRECATED and will be removed in 2.0.0, use --collector.filesystem.fs-types-exclude")
 			fsTypesExclude = oldFSTypesExcluded
 		} else {
 			return nil, errors.New("--collector.filesystem.ignored-fs-types and --collector.filesystem.fs-types-exclude are mutually exclusive")
@@ -96,9 +93,7 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 	}
 
 	subsystem := "filesystem"
-	zap.S().Debugw("Parsed flag --collector.filesystem.mount-points-exclude", "flag", mountPointsExclude)
 	mountPointPattern := regexp.MustCompile(mountPointsExclude)
-	zap.S().Debugw("Parsed flag --collector.filesystem.fs-types-exclude", "flag", fsTypesExclude)
 	filesystemsTypesPattern := regexp.MustCompile(fsTypesExclude)
 
 	sizeDesc := prometheus.NewDesc(
@@ -159,7 +154,6 @@ func NewFilesystemCollector() (prometheus.Collector, error) {
 func (c *filesystemCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := c.GetStats()
 	if err != nil {
-		zap.S().Error(err)
 	}
 	// Make sure we expose a metric once, even if there are multiple mounts
 	seen := map[filesystemLabels]bool{}
@@ -207,7 +201,6 @@ func (c *filesystemCollector) Collect(ch chan<- prometheus.Metric) {
 func (c *filesystemCollector) Describe(ch chan<- *prometheus.Desc) {
 	stats, err := c.GetStats()
 	if err != nil {
-		zap.S().Error(err)
 	}
 	// Make sure we expose a metric once, even if there are multiple mounts
 	seen := map[filesystemLabels]bool{}
