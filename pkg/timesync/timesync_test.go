@@ -79,19 +79,19 @@ func TestTimeSync(t *testing.T) {
 	})
 	t.Run("Start/start_twice", func(t *testing.T) {
 		ts := NewTimeSync(context.Background(), "", 1)
-		ts.SetSyncInterval(25 * time.Millisecond)
+		ts.SetSyncInterval(60 * time.Millisecond)
 		var tickCounter testCounter
 		ts.queryNTP = func(s string) (*ntp.Response, error) {
 			tickCounter.increment()
 			return nil, errors.New("error does not affect start flow")
 		}
 		ts.Start(nil)
-		// 3 ticks expected
-		<-time.After(55 * time.Millisecond)
+		// 2 ticks expected
+		<-time.After(150 * time.Millisecond)
 		require.Equal(t, 2, tickCounter.get())
-		ts.SetSyncInterval(10 * time.Millisecond)
+		ts.SetSyncInterval(30 * time.Millisecond)
 		ts.Start(nil)
-		<-time.After(35 * time.Millisecond)
+		<-time.After(115 * time.Millisecond)
 		ts.Stop()
 		<-time.After(11 * time.Millisecond)
 		require.Equal(t, 5, tickCounter.get())
