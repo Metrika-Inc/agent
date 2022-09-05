@@ -8,7 +8,7 @@ Metrika Agent is intended to be installed with a one-line command from the Metri
 ```bash
 MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/master/install.sh)"
 ```
-The script serves as installer by default, but can also be used with flags `--upgrade` or `--uninstall`. In it's default mode it does the following:
+The script serves as installer by default, but can also be used with flags `--upgrade` or `--uninstall`. In its default mode it does the following:
 * Downloads the latest stable release of Metrika Agent for `{blockchain}`.
 * Sets up Metrika Agent as `systemd` service.
 * Creates and populates `/etc/metrikad`:
@@ -48,12 +48,12 @@ By default, the only enabled exporter is Metrika Platform exporter, which encode
 #### Implementing Exporters
 Exporters can be implemented to encode the data in any desirable format and produce it anywhere.
 
-`exporter.HandleMessage()` method will be called for every Message (metric or event) arriving from the Agent watchers. If the exporter implementation cannot keep up with the data flow, newly collected Messages will be dropped. As such, it's recommended to take implement buffering in the exporter implementation.
+`exporter.HandleMessage()` method will be called for every Message (metric or event) arriving from the Agent watchers. If the exporter implementation cannot keep up with the data flow, newly collected Messages will be dropped. As such, it's recommended to implement buffering in the exporter implementation.
 
 ## Troubleshooting
 
 ### Logs
-Agent issues can be troubleshot with the help of logs. By default agent logs can be accessed via
+Agent issues can be troubleshot with the help of logs. By default agent logs can be accessed via:
 ```bash
 journalctl -u metrikad-{blockchain}.service
 ```
