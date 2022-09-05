@@ -170,7 +170,7 @@ func (c *Controller) checkMemStats() error {
 	if time.Since(c.memstatsUpdatedAt) > c.MemStatsCacheTimeout {
 		runtime.ReadMemStats(c.memstats)
 		c.memstatsUpdatedAt = time.Now()
-		zap.S().Debugw("memstats refreshed", "max_heap_alloc_bytes", c.memstats.HeapAlloc)
+		zap.S().Debugw("memstats refreshed", "max_heap_alloc_bytes", c.memstats.HeapAlloc, "max_heap_alloc", c.MaxHeapAllocBytes)
 	}
 
 	if c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
@@ -304,7 +304,7 @@ func (c *Controller) EmitEvent(ctx map[string]interface{}, name string) error {
 	}
 
 	if err := c.BufInsert(item); err != nil {
-		zap.S().Errorw("controller returned buffer insert error (for event)", zap.Error(err))
+		zap.S().Errorw("buffer insert error", err)
 
 		return err
 	}

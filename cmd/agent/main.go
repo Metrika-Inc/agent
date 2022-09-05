@@ -222,6 +222,7 @@ func main() {
 		BufLenLimit:         global.AgentConf.Platform.BatchN,
 		BufDrainFreq:        global.AgentConf.Platform.MaxPublishInterval,
 		OnBufRemoveCallback: platform.PublishFunc,
+		MaxHeapAllocBytes:   global.AgentConf.Buffer.MaxHeapAlloc,
 	}
 
 	buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.TTL)
