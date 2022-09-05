@@ -20,26 +20,31 @@ import (
 	"go.uber.org/zap"
 )
 
+// ItemBatch batch of buffered items.
 type ItemBatch []Item
 
+// Add adds a message to the batch.
 func (a *ItemBatch) Add(msg Item) {
 	*a = append(*a, msg)
 }
 
+// Clear resets the backing slice length
 func (a *ItemBatch) Clear() {
 	*a = (*a)[:0]
 }
 
+// PriorityBuffer buffer backed by a multi-heap struct
 type PriorityBuffer struct {
 	q   multiQueue
 	mu  *sync.RWMutex
 	ttl time.Duration
 }
 
+// Insert inserts one or more items to the buffer.
 func (p *PriorityBuffer) Insert(ms ...Item) error {
 	t := time.Now()
 	defer func() {
-		BufferInsertDuration.Observe(time.Since(t).Seconds())
+		bufferInsertDuration.Observe(time.Since(t).Seconds())
 	}()
 
 	p.mu.Lock()
@@ -52,10 +57,11 @@ func (p *PriorityBuffer) Insert(ms ...Item) error {
 	return nil
 }
 
+// Get returns a batch with at most n items and deletes them from the buffer.
 func (p *PriorityBuffer) Get(n int) (ItemBatch, error) {
 	t := time.Now()
 	defer func() {
-		BufferGetDuration.Observe(time.Since(t).Seconds())
+		bufferGetDuration.Observe(time.Since(t).Seconds())
 	}()
 
 	p.mu.Lock()
@@ -83,6 +89,7 @@ func (p *PriorityBuffer) Get(n int) (ItemBatch, error) {
 	return res, nil
 }
 
+// Len returns the number of buffered items.
 func (p *PriorityBuffer) Len() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -95,6 +102,8 @@ func (p *PriorityBuffer) Len() int {
 	return total
 }
 
+// NewPriorityBuffer PriorityBuffer constructor. TTL is used
+// to discard buffered data that were buffered for too long.
 func NewPriorityBuffer(ttl time.Duration) *PriorityBuffer {
 	p := PriorityBuffer{
 		mu:  new(sync.RWMutex),

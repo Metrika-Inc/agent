@@ -59,6 +59,7 @@ var (
 	DefaultRuntimeSamplingInterval = 5 * time.Second
 )
 
+// PlatformConfig platform specific configuration
 type PlatformConfig struct {
 	APIKey             string        `yaml:"api_key"`
 	BatchN             int           `yaml:"batch_n"`
@@ -69,16 +70,19 @@ type PlatformConfig struct {
 	RetryCount         int           `yaml:"retry_count"`
 }
 
+// BufferConfig used for configuring data buffering by the agent.
 type BufferConfig struct {
 	MaxHeapAlloc uint64        `yaml:"max_heap_alloc"`
 	TTL          time.Duration `yaml:"ttl"`
 }
 
+// WatchConfig watch configuration to override default sampling interval.
 type WatchConfig struct {
 	Type             string        `yaml:"type"`
 	SamplingInterval time.Duration `yaml:"sampling_interval"`
 }
 
+// RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
 	MetricsAddr                  string         `yaml:"metrics_addr"`
 	Log                          LogConfig      `yaml:"logging"`
@@ -88,23 +92,17 @@ type RuntimeConfig struct {
 	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
 }
 
+// AgentConfig wraps all config used by the agent
 type AgentConfig struct {
 	Platform PlatformConfig `yaml:"platform"`
 	Buffer   BufferConfig   `yaml:"buffer"`
 	Runtime  RuntimeConfig  `yaml:"runtime"`
 }
 
+// LogConfig agent logging configuration.
 type LogConfig struct {
 	Lvl     string   `yaml:"level"`
 	Outputs []string `yaml:"outputs"`
-}
-
-type FlowConfig struct {
-	Client         string   `yaml:"client"`
-	ContainerRegex []string `yaml:"containerRegex"`
-	NodeID         string   `yaml:"nodeID"`
-	PEFEndpoints   []string `yaml:"pefEndpoints"`
-	EnvFilePath    string   `yaml:"envFile"`
 }
 
 var zapLevelMapper = map[string]zapcore.Level{
@@ -117,16 +115,19 @@ var zapLevelMapper = map[string]zapcore.Level{
 	"fatal":  zapcore.FatalLevel,
 }
 
+// Level returns the current zap logging level
 func (l LogConfig) Level() zapcore.Level {
 	return zapLevelMapper[l.Lvl]
 }
 
+// ConfigFilePriority list of paths to check for agent configuration
 var ConfigFilePriority = []string{
 	DefaultAgentConfigName,
 	DefaultAgentConfigPath,
 }
 
-func LoadDefaultConfig() error {
+// LoadAgentConfig loads agent configuration.
+func LoadAgentConfig() error {
 	var (
 		content []byte
 		err     error
@@ -188,6 +189,8 @@ func createLogFolders() error {
 	return nil
 }
 
+// GenerateConfigFromTemplate generate a new configuration from a given
+// template to use for node discovery.
 func GenerateConfigFromTemplate(templatePath, configPath string, config interface{}) error {
 	t, err := template.ParseFiles(templatePath)
 	if err != nil {

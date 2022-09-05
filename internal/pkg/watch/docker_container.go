@@ -67,6 +67,7 @@ func newNodeEventCtx() map[string]interface{} {
 	return ctx
 }
 
+// ContainerWatchConf ContainerWatch configuration struct
 type ContainerWatchConf struct {
 	Regex             []string
 	RetryIntv         time.Duration
@@ -90,6 +91,7 @@ type ContainerWatch struct {
 	containerGone bool
 }
 
+// NewContainerWatch ContainerWatch constructor
 func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 	w := new(ContainerWatch)
 	w.Watch = NewWatch()
@@ -176,6 +178,8 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	return ev, nil
 }
 
+// StartUnsafe starts the goroutine for maintaining discovery and
+// emitting events about a container's state.
 func (w *ContainerWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 

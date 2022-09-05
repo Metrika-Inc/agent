@@ -1,8 +1,8 @@
+// Package collector includes all individual collectors to gather and export system metrics.
 package collector
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -18,14 +18,6 @@ var (
 	log *zap.SugaredLogger
 )
 
-type NodeExporterCollectErr struct {
-	Err error
-}
-
-func (n *NodeExporterCollectErr) Error() string {
-	return fmt.Sprint("error collecting node exporter metrics: ", n.Err)
-}
-
 type typedDesc struct {
 	desc      *prometheus.Desc
 	valueType prometheus.ValueType
@@ -35,46 +27,48 @@ func (d *typedDesc) mustNewConstMetric(value float64, labels ...string) promethe
 	return prometheus.MustNewConstMetric(d.desc, d.valueType, value, labels...)
 }
 
-type CollectorName string
+// Name key type for accessing CollectorsFactory
+type Name string
 
 var (
-	PrometheusNetNetstat CollectorName = "prometheus.proc.net.netstat_linux"
-	PrometheusNetARP     CollectorName = "prometheus.proc.net.arp_linux"
-	PrometheusStat       CollectorName = "prometheus.proc.stat_linux"
-	PrometheusConntrack  CollectorName = "prometheus.proc.conntrack_linux"
-	PrometheusCPU        CollectorName = "prometheus.proc.cpu"
-	PrometheusDiskStats  CollectorName = "prometheus.proc.diskstats"
-	PrometheusEntropy    CollectorName = "prometheus.proc.entropy"
-	PrometheusFileFD     CollectorName = "prometheus.proc.filefd"
-	PrometheusFilesystem CollectorName = "prometheus.proc.filesystem"
-	PrometheusLoadAvg    CollectorName = "prometheus.proc.loadavg"
-	PrometheusMemInfo    CollectorName = "prometheus.proc.meminfo"
-	PrometheusNetClass   CollectorName = "prometheus.proc.netclass"
-	PrometheusNetDev     CollectorName = "prometheus.proc.netdev"
-	PrometheusSockStat   CollectorName = "prometheus.proc.sockstat"
-	PrometheusTextfile   CollectorName = "prometheus.proc.textfile"
-	PrometheusTime       CollectorName = "prometheus.time"
-	PrometheusUname      CollectorName = "prometheus.uname"
-	PrometheusVMStat     CollectorName = "prometheus.vmstat"
+	prometheusNetNetstat Name = "prometheus.proc.net.netstat_linux"
+	prometheusNetARP     Name = "prometheus.proc.net.arp_linux"
+	prometheusStat       Name = "prometheus.proc.stat_linux"
+	prometheusConntrack  Name = "prometheus.proc.conntrack_linux"
+	prometheusCPU        Name = "prometheus.proc.cpu"
+	prometheusDiskStats  Name = "prometheus.proc.diskstats"
+	prometheusEntropy    Name = "prometheus.proc.entropy"
+	prometheusFileFD     Name = "prometheus.proc.filefd"
+	prometheusFilesystem Name = "prometheus.proc.filesystem"
+	prometheusLoadAvg    Name = "prometheus.proc.loadavg"
+	prometheusMemInfo    Name = "prometheus.proc.meminfo"
+	prometheusNetClass   Name = "prometheus.proc.netclass"
+	prometheusNetDev     Name = "prometheus.proc.netdev"
+	prometheusSockStat   Name = "prometheus.proc.sockstat"
+	prometheusTextfile   Name = "prometheus.proc.textfile"
+	prometheusTime       Name = "prometheus.time"
+	prometheusUname      Name = "prometheus.uname"
+	prometheusVMStat     Name = "prometheus.vmstat"
 
-	CollectorsFactory = map[string]func() (prometheus.Collector, error){
-		string(PrometheusNetNetstat): NewNetStatCollector,
-		string(PrometheusNetARP):     NewARPCollector,
-		string(PrometheusStat):       NewStatCollector,
-		string(PrometheusConntrack):  NewConntrackCollector,
-		string(PrometheusCPU):        NewCPUCollector,
-		string(PrometheusDiskStats):  NewDiskstatsCollector,
-		string(PrometheusEntropy):    NewEntropyCollector,
-		string(PrometheusFileFD):     NewFileFDStatCollector,
-		string(PrometheusFilesystem): NewFilesystemCollector,
-		string(PrometheusLoadAvg):    NewLoadavgCollector,
-		string(PrometheusMemInfo):    NewMeminfoCollector,
-		string(PrometheusNetClass):   NewNetClassCollector,
-		string(PrometheusNetDev):     NewNetDevCollector,
-		string(PrometheusSockStat):   NewSockStatCollector,
-		string(PrometheusTextfile):   NewTextFileCollector,
-		string(PrometheusTime):       NewTimeCollector,
-		string(PrometheusUname):      NewUnameCollector,
-		string(PrometheusVMStat):     NewvmStatCollector,
+	// CollectorsFactory map of contrustors per node exporter collector
+	CollectorsFactory = map[Name]func() (prometheus.Collector, error){
+		prometheusNetNetstat: NewNetStatCollector,
+		prometheusNetARP:     NewARPCollector,
+		prometheusStat:       NewStatCollector,
+		prometheusConntrack:  NewConntrackCollector,
+		prometheusCPU:        NewCPUCollector,
+		prometheusDiskStats:  NewDiskstatsCollector,
+		prometheusEntropy:    NewEntropyCollector,
+		prometheusFileFD:     NewFileFDStatCollector,
+		prometheusFilesystem: NewFilesystemCollector,
+		prometheusLoadAvg:    NewLoadavgCollector,
+		prometheusMemInfo:    NewMeminfoCollector,
+		prometheusNetClass:   NewNetClassCollector,
+		prometheusNetDev:     NewNetDevCollector,
+		prometheusSockStat:   NewSockStatCollector,
+		prometheusTextfile:   NewTextFileCollector,
+		prometheusTime:       NewTimeCollector,
+		prometheusUname:      NewUnameCollector,
+		prometheusVMStat:     NewvmStatCollector,
 	}
 )

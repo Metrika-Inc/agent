@@ -114,7 +114,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(PublisherConf{}, bufCtrl)
+	pub := NewPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -204,7 +204,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(PublisherConf{}, bufCtrl)
+	pub := NewPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -297,7 +297,7 @@ func TestPublisher_Error(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(PublisherConf{}, bufCtrl)
+	pub := NewPublisher(Config{}, bufCtrl)
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -379,7 +379,7 @@ func TestPublisher_Stop(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(PublisherConf{}, bufCtrl)
+	pub := NewPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
@@ -462,7 +462,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(PublisherConf{}, bufCtrl)
+	pub := NewPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()

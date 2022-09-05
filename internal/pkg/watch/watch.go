@@ -14,21 +14,28 @@
 package watch
 
 import (
-	"agent/internal/pkg/buf"
 	"strings"
 	"sync"
+
+	"agent/internal/pkg/buf"
 
 	"go.uber.org/zap"
 )
 
+// PrometheusWatchPrefix prefix used for tagging model.Message by
+// all node exporter watches.
 var PrometheusWatchPrefix = "prometheus"
 
-type WatchType string
+// Type used for determining is data originates by
+// a node exporter watch.
+type Type string
 
-func (w WatchType) IsPrometheus() bool {
+// IsPrometheus returns true if watch collects data from node exporter
+func (w Type) IsPrometheus() bool {
 	return strings.HasPrefix(string(w), PrometheusWatchPrefix)
 }
 
+// Watcher is an interface for implementing metric collection.
 type Watcher interface {
 	StartUnsafe()
 	Stop()
@@ -39,10 +46,14 @@ type Watcher interface {
 	once() *sync.Once
 }
 
+// Start starts a watcher once.
 func Start(watcher Watcher) {
 	watcher.once().Do(watcher.StartUnsafe)
 }
 
+// Watch is the base Watch implementation used by all implemented
+// watchers by the agent and can push data to all watcher's subscribed
+// channels.
 type Watch struct {
 	Running bool
 
@@ -54,6 +65,7 @@ type Watch struct {
 	Log       *zap.SugaredLogger
 }
 
+// NewWatch base watch constructor
 func NewWatch() Watch {
 	return Watch{
 		Running:   false,
@@ -64,14 +76,17 @@ func NewWatch() Watch {
 	}
 }
 
+// StartUnsafe sets watch running state to true
 func (w *Watch) StartUnsafe() {
 	w.Running = true
 }
 
+// Wait blocks waiting for watch goroutine to finish.
 func (w *Watch) Wait() {
 	w.wg.Wait()
 }
 
+// Stop stops the watch
 func (w *Watch) Stop() {
 	if !w.Running {
 		return
@@ -87,10 +102,12 @@ func (w *Watch) once() *sync.Once {
 
 // Subscription mechanism
 
+// Subscribe adds a channel to the subscribed listeners slice.
 func (w *Watch) Subscribe(handler chan<- interface{}) {
 	w.listeners = append(w.listeners, handler)
 }
 
+// Emit sends a message to all subscribed channels (i.e publisher, exporter)
 func (w *Watch) Emit(message interface{}) {
 	for i, handler := range w.listeners {
 		select {
@@ -99,6 +116,5 @@ func (w *Watch) Emit(message interface{}) {
 			zap.S().Warnw("handler channel blocked a metric, discarding it", "handler_no", i)
 			buf.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
 		}
-
 	}
 }

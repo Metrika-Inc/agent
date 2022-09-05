@@ -13,10 +13,9 @@ func TestMain(m *testing.M) {
 	global.ConfigFilePriority = []string{"../../configs/agent.yml"}
 	defer func() {
 		global.ConfigFilePriority = defaultConfigPathWas
-
 	}()
 
-	if err := global.LoadDefaultConfig(); err != nil {
+	if err := global.LoadAgentConfig(); err != nil {
 		fmt.Printf("failed to load config: %v\n", err)
 
 		os.Exit(1)

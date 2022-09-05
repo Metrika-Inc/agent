@@ -38,6 +38,10 @@ func TestPriorityQueuePop(t *testing.T) {
 	require.IsType(t, Item{}, got)
 	require.Equal(t, len(q.items), 0)
 	require.Equal(t, Item{0, 0, model.Message{}}, got)
+
+	got = q.Pop()
+	require.Nil(t, got)
+	require.Nil(t, q.items)
 }
 
 func TestPriorityQueuePush(t *testing.T) {

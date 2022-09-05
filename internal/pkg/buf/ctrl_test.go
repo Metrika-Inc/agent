@@ -250,5 +250,5 @@ func TestController_HeapAllocLimitError(t *testing.T) {
 	// re-insert should be rejected
 	err = ctrl.BufInsert(m[0])
 	require.Error(t, err)
-	require.IsType(t, HeapAllocLimitError, err)
+	require.IsType(t, ErrHeapAllocLimit, err)
 }

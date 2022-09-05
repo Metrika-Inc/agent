@@ -33,10 +33,15 @@ const (
 	defaultPublishTimeout = 5 * time.Second
 )
 
-type PublisherConf struct{}
+// Config Publisher configuration struct
+type Config struct{}
 
+// Publisher implements a handler for processing
+// new data coming from agent watchers and places
+// them in a buffer for publishing. It will
+// periodically emit agent.up events.
 type Publisher struct {
-	conf    PublisherConf
+	conf    Config
 	closeCh chan interface{}
 
 	log     *zap.SugaredLogger
@@ -49,7 +54,8 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewPublisher(conf PublisherConf, bufCtrl *buf.Controller) *Publisher {
+// NewPublisher Publisher constructor.
+func NewPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
 		conf:    conf,
 		closeCh: make(chan interface{}),
@@ -85,6 +91,8 @@ func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 	})
 }
 
+// Start starts the goroutine for periodically publishing
+// agent.up events to the platform.
 func (t *Publisher) Start(wg *sync.WaitGroup) {
 	log := zap.S()
 
@@ -150,6 +158,7 @@ func (t *Publisher) HandleMessage(ctx context.Context, message *model.Message) {
 	t.lastErr = nil
 }
 
+// Stop stops the publisher.
 func (t *Publisher) Stop() {
 	close(t.closeCh)
 }

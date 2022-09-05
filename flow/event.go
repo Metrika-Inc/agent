@@ -65,18 +65,12 @@ var (
 	}
 
 	eventsFromContext = map[string]model.FromContext{
-		onFinalizedBlockName:       onFinalizedBlock,
-		onProposingBlockName:       onProposingBlock,
-		onReceiveProposalName:      onReceiveProposal,
-		onVotingName:               onVoting,
-		onBlockVoteReceivedFwdName: onBlockVoteReceivedFwd,
+		onFinalizedBlockName:       new(onFinalizedBlock),
+		onProposingBlockName:       new(onProposingBlock),
+		onReceiveProposalName:      new(onReceiveProposal),
+		onVotingName:               new(onVoting),
+		onBlockVoteReceivedFwdName: new(onBlockVoteReceivedFwd),
 	}
-
-	onFinalizedBlock       = new(OnFinalizedBlock)
-	onProposingBlock       = new(OnProposingBlock)
-	onReceiveProposal      = new(OnReceiveProposal)
-	onVoting               = new(OnVoting)
-	onBlockVoteReceivedFwd = new(OnBlockVoteReceivedFwd)
 )
 
 /* OnFinalizedBlock*
@@ -102,9 +96,9 @@ func isOnFinalizedBlock(v map[string]interface{}) bool {
 	return false
 }
 
-type OnFinalizedBlock struct{}
+type onFinalizedBlock struct{}
 
-func (o *OnFinalizedBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+func (o *onFinalizedBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnFinalizedBlock(v) {
 		return nil, nil
 	}
@@ -145,9 +139,9 @@ func isOnProposingBlock(v map[string]interface{}) bool {
 	return false
 }
 
-type OnProposingBlock struct{}
+type onProposingBlock struct{}
 
-func (o *OnProposingBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+func (o *onProposingBlock) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnProposingBlock(v) {
 		return nil, nil
 	}
@@ -188,9 +182,9 @@ func isOnReceiveProposal(v map[string]interface{}) bool {
 	return false
 }
 
-type OnReceiveProposal struct{}
+type onReceiveProposal struct{}
 
-func (o *OnReceiveProposal) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+func (o *onReceiveProposal) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnReceiveProposal(v) {
 		return nil, nil
 	}
@@ -228,9 +222,9 @@ func isOnVoting(v map[string]interface{}) bool {
 	return false
 }
 
-type OnVoting struct{}
+type onVoting struct{}
 
-func (o *OnVoting) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+func (o *onVoting) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnVoting(v) {
 		return nil, nil
 	}
@@ -258,7 +252,7 @@ func (o *OnVoting) New(v map[string]interface{}, t time.Time) (*model.Event, err
 }
 */
 
-type OnBlockVoteReceivedFwd struct{}
+type onBlockVoteReceivedFwd struct{}
 
 func isOnBlockVoteReceived(v map[string]interface{}) bool {
 	if val, ok := v["message"]; ok && val == onBlockVoteReceivedFwdName {
@@ -268,7 +262,7 @@ func isOnBlockVoteReceived(v map[string]interface{}) bool {
 	return false
 }
 
-func (o *OnBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+func (o *onBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
 	if !isOnBlockVoteReceived(v) {
 		return nil, nil
 	}

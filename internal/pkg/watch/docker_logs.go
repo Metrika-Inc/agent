@@ -36,12 +36,17 @@ const maxLineBytes = uint32(1024 * 1024)
 
 var defaultRetryIntv = 3 * time.Second
 
+// DockerLogWatchConf DockerLogWatch configuration struct.
 type DockerLogWatchConf struct {
 	Regex     []string
 	Events    map[string]model.FromContext
 	RetryIntv time.Duration
 }
 
+// DockerLogWatch uses the host docker daemon to discover a
+// container's log file based on list of regexes matched against
+// the container name. If discovery fails, watch will periodically
+// retry forever every RetryIntv until the container is back.
 type DockerLogWatch struct {
 	DockerLogWatchConf
 	Watch
@@ -49,6 +54,7 @@ type DockerLogWatch struct {
 	rc io.ReadCloser
 }
 
+// NewDockerLogWatch DockerLogWatch constructor
 func NewDockerLogWatch(conf DockerLogWatchConf) *DockerLogWatch {
 	w := new(DockerLogWatch)
 	w.DockerLogWatchConf = conf
@@ -63,7 +69,6 @@ func NewDockerLogWatch(conf DockerLogWatchConf) *DockerLogWatch {
 
 func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, error) {
 	options := types.ContainerLogsOptions{
-		// Timestamps: true,
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
@@ -85,7 +90,6 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 	}
 
 	return nil, fmt.Errorf("failed repairing the log stream, last error: %w", err)
-
 }
 
 func (w *DockerLogWatch) parseJSON(body []byte) (map[string]interface{}, error) {
@@ -125,6 +129,8 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 	}
 }
 
+// StartUnsafe starts the goroutine for discovering and tailing a
+// container's logs.
 func (w *DockerLogWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
@@ -312,6 +318,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 	}()
 }
 
+// Stop stops the watch.
 func (w *DockerLogWatch) Stop() {
 	w.Watch.Stop()
 }

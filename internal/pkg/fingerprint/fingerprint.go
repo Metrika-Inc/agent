@@ -22,6 +22,7 @@ import (
 
 var zerofp = Fingerprint{}
 
+// ValidationError fingerprint validation error
 type ValidationError struct {
 	err error
 }
@@ -39,15 +40,18 @@ type source interface {
 	bytes() ([]byte, error)
 }
 
+// Fingerprint computes a SHA256 hash and writes it to a configured writer.
 type Fingerprint struct {
 	out  io.Writer
 	hash string
 }
 
+// Hash returns the fingerprint value.
 func (f Fingerprint) Hash() string {
 	return f.hash
 }
 
+// Write writes the computed hash to a writer.
 func (f Fingerprint) Write() error {
 	n, err := f.out.Write([]byte(f.hash))
 	if err != nil {

@@ -36,12 +36,20 @@ import (
 )
 
 var (
+	// ErrContainerNotFound container not found
 	ErrContainerNotFound = errors.New("container not found")
-	ErrEmptyLogFile      = errors.New("log file is empty")
-	DefaultDockerHost    = ""
+
+	// ErrEmptyLogFile log file is empty
+	ErrEmptyLogFile = errors.New("log file is empty")
+
+	// DefaultDockerHost host docker daemon address to connect to
+	DefaultDockerHost = ""
+
+	// DefaultDockerAdapter default docker adapter for container discovery.
 	DefaultDockerAdapter = DockerAdapter(&DockerProductionAdapter{})
 )
 
+// DockerAdapter container discovery interface.
 type DockerAdapter interface {
 	// GetRunningContainers returns a slice of all
 	// currently running Docker containers
@@ -58,6 +66,7 @@ type DockerAdapter interface {
 		<-chan events.Message, <-chan error, error)
 }
 
+// DockerProductionAdapter adapter for accessing the host docker daemon
 type DockerProductionAdapter struct{}
 
 // GetRunningContainers returns a slice of all
@@ -107,6 +116,7 @@ func (a *DockerProductionAdapter) MatchContainer(containers []dt.Container, iden
 	return dt.Container{}, ErrContainerNotFound
 }
 
+// DockerLogs returns a container's logs
 func (a *DockerProductionAdapter) DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
 	cli, err := getDockerClient()
 	if err != nil {
@@ -116,6 +126,7 @@ func (a *DockerProductionAdapter) DockerLogs(ctx context.Context, container stri
 	return cli.ContainerLogs(ctx, container, options)
 }
 
+// DockerEvents gets channels for consuming docker events subscription messages and errors
 func (a *DockerProductionAdapter) DockerEvents(ctx context.Context, options types.EventsOptions) (
 	<-chan events.Message, <-chan error, error,
 ) {
@@ -128,18 +139,24 @@ func (a *DockerProductionAdapter) DockerEvents(ctx context.Context, options type
 	return msgchan, errchan, nil
 }
 
+// GetRunningContainers convenience wrapper to the default adapter for
+// getting running containers.
 func GetRunningContainers() ([]dt.Container, error) {
 	return DefaultDockerAdapter.GetRunningContainers()
 }
 
+// MatchContainer convenience wrapper for finding containers using the
+// default adapter.
 func MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	return DefaultDockerAdapter.MatchContainer(containers, identifiers)
 }
 
+// DockerLogs convenience wrapper for reading container logs.
 func DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
 	return DefaultDockerAdapter.DockerLogs(ctx, container, options)
 }
 
+// DockerEvents convenience wrapper for subscribing to docker events.
 func DockerEvents(ctx context.Context, options types.EventsOptions) (
 	<-chan events.Message, <-chan error, error,
 ) {

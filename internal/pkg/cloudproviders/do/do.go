@@ -26,6 +26,7 @@ func init() {
 	client = metadata.NewClient(metadata.WithHTTPClient(&http.Client{Transport: http.DefaultTransport}))
 }
 
+// IsRunningOn returns true if agent runs on AWS EC2.
 func IsRunningOn() bool {
 	mt, err := client.Metadata()
 	if err != nil {
@@ -39,6 +40,7 @@ func IsRunningOn() bool {
 	return true
 }
 
+// Hostname returns the hostname of the current instance.
 func Hostname() (string, error) {
 	mt, err := client.Metadata()
 	if err != nil {

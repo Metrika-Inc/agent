@@ -24,6 +24,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// PEFWatch implements a watch for collecting PEF metrics
+// from a configured HTTP endpoint (i.e. /metrics).
 type PEFWatch struct {
 	Watch
 	PEFWatchConf
@@ -32,10 +34,13 @@ type PEFWatch struct {
 	httpDataCh chan interface{}
 }
 
+// PEFWatchConf PEFWatch configuration struct.
 type PEFWatchConf struct {
+	// Filter to fetch subset of metrics.
 	Filter *openmetrics.PEFFilter
 }
 
+// NewPEFWatch PEFWatch constructor.
 func NewPEFWatch(conf PEFWatchConf, httpWatch Watcher) *PEFWatch {
 	p := &PEFWatch{
 		Watch:        NewWatch(),
@@ -47,6 +52,8 @@ func NewPEFWatch(conf PEFWatchConf, httpWatch Watcher) *PEFWatch {
 	return p
 }
 
+// StartUnsafe subscribes to and starts the http watch
+// and starts a goroutine for parsing metrics.
 func (p *PEFWatch) StartUnsafe() {
 	p.Watch.StartUnsafe()
 
@@ -97,6 +104,7 @@ func (p *PEFWatch) parseAndEmit() {
 	}
 }
 
+// Stop stops the watch
 func (p *PEFWatch) Stop() {
 	p.httpWatch.Stop()
 	p.Watch.Stop()

@@ -30,18 +30,22 @@ import (
 	"agent/internal/pkg/cloudproviders/gce"
 	"agent/internal/pkg/fingerprint"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/docker/docker/api/types"
 )
 
 var (
-	PrometheusRegistry prometheus.Registerer
-	PrometheusGatherer prometheus.Gatherer
-	BlockchainNode     Chain
+	// BlockchainNode global used by agent to bind
+	// implementations of the Chain interface (i.e. flow package)
+	BlockchainNode Chain
+
 	// Modified at runtime
-	Version    = "v0.0.0"
+
+	// Version agent version
+	Version = "v0.0.0"
+
+	// CommitHash commit hash computed at build time.
 	CommitHash = ""
 )
 
@@ -99,6 +103,7 @@ type PEFEndpoint struct {
 	Filters []string `json:"filters" yaml:"filters"`
 }
 
+// NewFingerprintWriter opens a file for writing fingerprint values.
 func NewFingerprintWriter(path string) *os.File {
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
@@ -108,6 +113,7 @@ func NewFingerprintWriter(path string) *os.File {
 	return file
 }
 
+// NewFingerprintReader returns a ReadCloser
 func NewFingerprintReader(path string) io.ReadCloser {
 	file, err := os.OpenFile(path, os.O_RDONLY, 0o644)
 	if err != nil {
@@ -117,6 +123,10 @@ func NewFingerprintReader(path string) io.ReadCloser {
 	return file
 }
 
+// FingerprintSetup sets up a new fingerpint and validates it against
+// cached fingerpint, if any. If a fingerpint has not been previously
+// cached (or removed by the user), writes the fingerpint to disk under
+// the user's cache directory.
 func FingerprintSetup() (string, error) {
 	_, err := os.Stat(AgentCacheDir)
 
@@ -154,11 +164,6 @@ func FingerprintSetup() (string, error) {
 	zap.S().Info("fingerprint ", fp.Hash())
 
 	return fp.Hash(), nil
-}
-
-func init() {
-	PrometheusRegistry = prometheus.NewPedanticRegistry()
-	PrometheusGatherer = PrometheusRegistry.(prometheus.Gatherer)
 }
 
 func setAgentHostname() error {
@@ -220,6 +225,7 @@ func setAgentHostname() error {
 	return err
 }
 
+// AgentPrepareStartup sets up cache directory, agent hostname and fingerpint.
 func AgentPrepareStartup() error {
 	var err error
 

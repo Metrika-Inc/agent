@@ -20,15 +20,24 @@ type (
 	discoveryState int32
 )
 
+// AgentRuntimeState agent state as determined by the agent.
 var AgentRuntimeState *AgentState
 
 const (
-	PlatformStateUnknown platformState = iota
-	PlatformStateUp      platformState = iota
-	PlatformStateDown    platformState = iota
+	// PlatformStateUnknown platform publishing state is uknown.
+	PlatformStateUnknown int32 = iota
 
-	NodeDiscoveryError   discoveryState = iota
-	NodeDiscoverySuccess discoveryState = iota
+	// PlatformStateUp platform publishing state is healthy.
+	PlatformStateUp int32 = iota
+
+	// PlatformStateDown platform publishing state is unhealthy.
+	PlatformStateDown int32 = iota
+
+	// NodeDiscoveryError there was an error during the node discovery process.
+	NodeDiscoveryError int32 = iota
+
+	// NodeDiscoverySuccess node discovery succesfull.
+	NodeDiscoverySuccess int32 = iota
 )
 
 func init() {
@@ -36,28 +45,34 @@ func init() {
 	AgentRuntimeState.Reset()
 }
 
+// AgentState maintains available state.
 type AgentState struct {
-	platState platformState
-	discState discoveryState
+	platState int32
+	discState int32
 }
 
-func (a *AgentState) PublishState() platformState {
-	return platformState(atomic.LoadInt32((*int32)(&a.platState)))
+// PublishState returns current platform publish state.
+func (a *AgentState) PublishState() int32 {
+	return atomic.LoadInt32((*int32)(&a.platState))
 }
 
-func (a *AgentState) SetPublishState(st platformState) {
+// SetPublishState sets the platform publish state.
+func (a *AgentState) SetPublishState(st int32) {
 	atomic.StoreInt32((*int32)(&a.platState), int32(st))
 }
 
-func (a *AgentState) DiscoveryState() discoveryState {
-	return discoveryState(atomic.LoadInt32((*int32)(&a.discState)))
+// DiscoveryState returns the current node discovery state.
+func (a *AgentState) DiscoveryState() int32 {
+	return atomic.LoadInt32((*int32)(&a.discState))
 }
 
-func (a *AgentState) SetDiscoveryState(st discoveryState) {
+// SetDiscoveryState sets node discovery state.
+func (a *AgentState) SetDiscoveryState(st int32) {
 	atomic.StoreInt32((*int32)(&a.discState), int32(st))
 }
 
+// Reset sets default values for all maintained state values.
 func (a *AgentState) Reset() {
-	atomic.StoreInt32((*int32)(&a.platState), int32(PlatformStateUp))
-	atomic.StoreInt32((*int32)(&a.discState), int32(NodeDiscoveryError))
+	atomic.StoreInt32((*int32)(&a.platState), PlatformStateUp)
+	atomic.StoreInt32((*int32)(&a.discState), NodeDiscoveryError)
 }

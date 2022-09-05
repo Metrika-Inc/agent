@@ -21,9 +21,14 @@ import (
 )
 
 var (
-	AgentUUIDContextKey    = "agentUUID"
+	// AgentUUIDContextKey GRPC metadata key for agent UUID.
+	AgentUUIDContextKey = "agentUUID"
+
+	// PlatformAddrContextKey context key for platform address.
 	PlatformAddrContextKey = "platformAddr"
-	StateContextKey        = "agentState"
+
+	// StateContextKey context key for agent state.
+	StateContextKey = "agentState"
 )
 
 func stateFromContext(ctx context.Context) (*global.AgentState, error) {
