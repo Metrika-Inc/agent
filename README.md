@@ -1,12 +1,12 @@
 # Metrika Agent
-[![CI Tests](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml/badge.svg?branch=v0%2Fmaster)](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml)
+[![CI Tests](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml)
 
 Metrika Agent is a configurable software that regularly collects metrics and events from host's machine and the blockchain node running on it. This data is then exported to one or more external sources via [Exporter API](#exporter-api), default being Metrika Platform.
 
 ## Installation
 Metrika Agent is intended to be installed with a one-line command from the Metrika Platform that downloads and runs the [Installation Script](install.sh):
 ```bash
-MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/v0/master/install.sh)"
+MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/master/install.sh)"
 ```
 The script serves as installer by default, but can also be used with flags `--upgrade` or `--uninstall`. In it's default mode it does the following:
 * Downloads the latest stable release of Metrika Agent for `{blockchain}`
