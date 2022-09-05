@@ -9,13 +9,13 @@ Metrika Agent is intended to be installed with a one-line command from the Metri
 MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/master/install.sh)"
 ```
 The script serves as installer by default, but can also be used with flags `--upgrade` or `--uninstall`. In it's default mode it does the following:
-* Downloads the latest stable release of Metrika Agent for `{blockchain}`
-* Sets up Metrika Agent as `systemd` service
+* Downloads the latest stable release of Metrika Agent for `{blockchain}`.
+* Sets up Metrika Agent as `systemd` service.
 * Creates and populates `/etc/metrikad`:
-  * [agent.yml](configs/agent.yml) - agent's main configuration file. API key inserted from environment variable `MA_API_KEY`
-  * `{blockchain}.yml` - blockchain node specific configuration file. Rendered from .template files under [configs](configs/)
-* Creates and populates `/opt/metrikad` with Metrika Agent binary
-* Starts Metrika Agent
+  * [agent.yml](configs/agent.yml) - agent's main configuration file. API key inserted from environment variable `MA_API_KEY`.
+  * `{blockchain}.yml` - blockchain node specific configuration file. Rendered from .template files under [configs](configs/).
+* Creates and populates `/opt/metrikad` with Metrika Agent binary.
+* Starts Metrika Agent.
 
 Metrika agent can run as a standalone binary, as long as configuration files are set up correctly.
 
@@ -29,13 +29,13 @@ The agent's configuration is set to sane defaults out of the box - in most use c
 Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation.
 
 ### Parameter details
-This covers a subset of configurations 
+This covers a subset of configuration options that are most likely to be changed:
 * `platform.api_key` - configured during install, an API key used for communicating with Metrika Platform. It maps the agent with your account.
-* `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`
+* `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`.
 * `runtime.logging.outputs` - where Metrika outputs logs, can specify multiple sources. Default: `stdout` (journalctl). **Warning**: Metrika Agent does not take care of rotating the logs.
 * `runtime.logging.level` - verbosity of the logs. Default - `warning`. Recommended to increase to `debug` when troubleshooting.
 * `runtime.use_exporters` **(work in progress)* - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
-* `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers)
+* `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
 ## Agent internals
 ### Watchers
 A watcher is responsible for collecting metrics or events from a single source at regular intervals. Watchers are composable - a watcher can collect data from another watcher to do additional transformations on data.
