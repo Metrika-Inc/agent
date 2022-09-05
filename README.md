@@ -49,11 +49,8 @@ _Be advised that the Exporter API is work in progress and may change without not
 All the data points collected by the enabled watchers are passed to one or more exporters, as defined by the `Exporter` interface in [exporter_registry.go](internal/pkg/global/exporter_registry.go).
 
 By default, the only enabled exporter is Metrika Platform exporter, which encodes the data as protocol buffers ([proto definition](api/v1/proto/agent.proto)) and transmits them to Metrika Platform. 
-#### Implementing Exporters
-Exporters can be implemented to encode the data in any desirable format and produce it anywhere.
 
-`exporter.HandleMessage()` method will be called for every Message (metric or event) arriving from the Agent watchers. If the exporter implementation cannot keep up with the data flow, newly collected Messages will be dropped. As such, it's recommended to implement buffering in the exporter implementation.
-
+More on exporter implementations can be found in [CONTRIBUTING.md](CONTRIBUTING.md#implementing-exporters)
 ## Troubleshooting
 
 ### Logs
@@ -71,6 +68,9 @@ Please note that for containerized blockchain nodes, the agent needs to either:
 
 ### Other issues
 For issues pertaining to the agent itself, feel free to open up an Issue here on Github and we will try and help you reach a resolution. If you are experiencing issues with the Metrika Platform please use [this form](https://metrika.atlassian.net/servicedesk/customer/portal/1/group/1/create/19).
+
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Community
 Reach out to us via [Discord](https://discord.gg/3tczKjK3ST)!
