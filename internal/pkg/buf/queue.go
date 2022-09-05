@@ -66,6 +66,10 @@ func (pq *priorityQueue) Pop() interface{} {
 	itemQ := old[n-1]
 	pq.items = old[0 : n-1]
 
+	if len(pq.items) == 0 {
+		pq.items = nil
+	}
+
 	return itemQ
 }
 
