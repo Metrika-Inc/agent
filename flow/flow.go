@@ -182,7 +182,12 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 		flowConf = &d.config
 	}
 
-	return d.container, errs.ErrIfAny()
+	err = errs.ErrIfAny()
+	if err == nil {
+		log.Info("flow node discovery successful")
+	}
+
+	return d.container, err
 }
 
 // NodeID returns the discovered node id.
