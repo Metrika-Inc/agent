@@ -1,0 +1,48 @@
+---
+name: "Repository Events Issues"
+on:
+  issues:
+    types: [opened, edited, milestoned, reopened, labeled]
+
+jobs:
+  issues:
+    name: Issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Notification Issues
+        id: issues_event
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "test"
+          SLACK_TITLE: GitHub Issues Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub Repository Events from Metrika Agent repo"
+
+---
+name: "Repository Events PRs"
+on:
+  pull_request:
+    types: [opened, reopened, closed, labeled review_requested]
+
+jobs:
+  prs:
+    name: PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Notification PRs
+        id: pr_event
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "test"
+          SLACK_TITLE: GitHub PRs Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub Repository Events from Metrika Agent repo"
+
