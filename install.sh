@@ -10,7 +10,7 @@ APP_INSTALL_DIR="/opt/$APP_NAME"
 KNOWN_DISTRIBUTION="(Scientific Linux|Linux Mint|openSUSE|CentOS|Arch|Debian|Ubuntu|Pop\!_OS|Fedora|Red Hat)"
 AGENT_CONFIG_NAME="agent.yml"
 INSTALLER_VERSION="0.1"
-SUPPORTED_BLOCKCHAINS=("flow algorand")
+SUPPORTED_BLOCKCHAINS=("flow")
 SUPPORTED_ARCHS=("arm64 x86_64")
 LOGFILE="metrikad-install.log"
 LATEST_RELEASE="0.0.0"
@@ -56,8 +56,7 @@ options:
 EOF
 }
 
-# TODO: switch to prod
-PLATFORM_ADDR="agent.sandboxes.aws.metrika.co:443"
+PLATFORM_ADDR=""
 
 ###lib start##
 
