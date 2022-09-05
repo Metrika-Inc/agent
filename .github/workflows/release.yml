@@ -51,7 +51,7 @@ jobs:
         id: git_release_changelog
         if: success()
         run: |
-          export RELEASE_BODY=$(git log --no-merges ${{ steps.git_describe.outputs.previous_tag }}..${{ github.ref }} --format='* [%h] %s (%an)')
+          export RELEASE_BODY=$(git log --no-merges ${{ steps.git_last_tag.outputs.previous_tag }}..${{ github.ref }} --format='* [%h] %s (%an)')
           RELEASE_BODY="${RELEASE_BODY//'%'/'%25'}"
           RELEASE_BODY="${RELEASE_BODY//$'\n'/'%0A'}"
           RELEASE_BODY="${RELEASE_BODY//$'\r'/'%0D'}"
