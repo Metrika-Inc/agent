@@ -51,7 +51,7 @@ func (c *timeCollector) updateDesc(ch chan<- *prometheus.Desc) error {
 		return fmt.Errorf("failed to open procfs: %w", err)
 	}
 
-	clocksources, err := fs.ClockSources()
+	_, err = fs.ClockSources()
 	if err != nil {
 		return fmt.Errorf("couldn't get clocksources: %w", err)
 	}
