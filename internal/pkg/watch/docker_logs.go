@@ -86,9 +86,8 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 			return rc, nil
 		}
 
-		zap.S().Warnw("failed getting docker logs", "container_regex", regex, zap.Error(err))
 	}
-
+	zap.S().Warnw("failed getting docker logs", "container_regex_list", w.Regex)
 	return nil, fmt.Errorf("failed repairing the log stream, last error: %w", err)
 }
 
