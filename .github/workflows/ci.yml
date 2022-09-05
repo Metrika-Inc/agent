@@ -37,7 +37,7 @@ jobs:
         id: status
         uses: rtCamp/action-slack-notify@master
         env:
-          SLACK_MESSAGE: "Linting ${{ job.status  }}"
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent running golint
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -87,7 +87,7 @@ jobs:
         id: status
         uses: rtCamp/action-slack-notify@master
         env:
-          SLACK_MESSAGE: "Make test: ${{ job.status  }}"
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent tests
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -105,7 +105,7 @@ jobs:
         if: success()
         uses: rtCamp/action-slack-notify@master
         env:
-          SLACK_MESSAGE: "CI Finished with ${{ job.status  }}"
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48

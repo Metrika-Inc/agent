@@ -123,7 +123,7 @@ jobs:
         id: status
         uses: rtCamp/action-slack-notify@master
         env:
-          SLACK_MESSAGE: "Agent release finished with ${{ job.status  }}"
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub Release Metrika Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -136,7 +136,7 @@ jobs:
         if: success()
         uses: rtCamp/action-slack-notify@master
         env:
-          SLACK_MESSAGE: "Agent release finished with ${{ job.status  }}"
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub Release Metrika Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
