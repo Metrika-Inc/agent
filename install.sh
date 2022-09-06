@@ -202,7 +202,7 @@ function sanity_check {
        # TODO: remove MA_PLATFORM dependency.
        # MA_PLATFORM envvar
        if [[ -z "${MA_PLATFORM}" ]] && [[ -z "${PLATFORM_ADDR}" ]]; then
-           goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 2
+           goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
        fi
        PLATFORM_ADDR=${MA_PLATFORM}
 
