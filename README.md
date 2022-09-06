@@ -24,6 +24,27 @@ The agent can run as a standalone binary, as long as configuration files are set
 This is the list of all currently supported blockchains (several coming soon and we welcome contributions!):
 * [flow](https://flow.com/)
 
+### Local Development
+
+Requirements
+
+* golang v1.18+
+* make
+
+To build the agent manually, issue the follwoing commands
+
+For **Linux/amd64**
+
+```bash
+make build-linux-amd64
+```
+
+For **Linux/arm64**
+
+```bash
+make build-linux-arm64
+```
+
 ## Configuration
 The agent's configuration is set to sane defaults out of the box - in most use cases tinkering the configuration is unnecessary. 
 
