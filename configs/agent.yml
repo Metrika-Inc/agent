@@ -47,7 +47,7 @@ runtime:
     # level: logging level for runtime logs.
     #
     # Possible values are: info, warning (recommended), debug, error.
-    level: debug
+    level: warning
 
     # disable_fingerprint_validation: disables fingerprint validation on startup.
     #
