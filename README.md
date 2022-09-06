@@ -1,6 +1,8 @@
 # Metrika Agent
 [![CI Tests](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml)
 
+[![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/Metrika-Inc/agent)](https://github.com/Metrika-Inc/agent) [![Linux](https://svgshare.com/i/Zhy.svg)](https://github.com/Metrika-Inc/agent)
+
 The Metrika Agent is a configurable software agent that regularly collects metrics and events from the host system as well as the blockchain node running on it. This data is then exported to one or more external sources via an [Exporter API](#exporter-api). By default the Metrika Agent sends data to the Metrika Platform for Blockchain Operational Intelligence. Find out more and [create an account for free](https://www.metrika.co).
 
 ## Installation
