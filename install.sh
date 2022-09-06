@@ -199,6 +199,13 @@ function sanity_check {
 		;;
 	esac
 
+       # TODO: remove MA_PLATFORM dependency.
+       # MA_PLATFORM envvar
+       if [[ -z "${MA_PLATFORM}" ]] && [[ -z "${PLATFORM_ADDR}" ]]; then
+           goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 2
+       fi
+       PLATFORM_ADDR=${MA_PLATFORM}
+
 	# MA_BLOCKCHAIN envvar
 	if [[ -z "${MA_BLOCKCHAIN}" ]]; then
 		goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'. Goodbye." 2
