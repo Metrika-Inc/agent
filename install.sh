@@ -12,6 +12,7 @@ AGENT_CONFIG_NAME="agent.yml"
 INSTALLER_VERSION="0.1"
 SUPPORTED_BLOCKCHAINS=("flow")
 SUPPORTED_ARCHS=("arm64 x86_64")
+HOST_ARCH=""
 LOGFILE="metrikad-install.log"
 LATEST_RELEASE="0.0.0"
 IS_UPDATABLE=-1
@@ -140,13 +141,10 @@ function download_agent {
 		case $IS_UPDATABLE in
 		1)
 			# TODO(cosmix): add the architecture here when we add multiarch support.
-			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | xargs)
+			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | xargs)
 			log_info "Downloading the latest version (${LATEST_RELEASE}) of the Metrika Agent for ${MA_BLOCKCHAIN} from GitHub ${download_url}"
-			if ! curl -s --output "metrika_agent_${MA_BLOCKCHAIN}_latest.tar.gz" -f -L -H "Accept: application/octet-stream" $download_url; then
+			if ! curl -s -f -L -O -J -H"Accept: application/octet-stream" $download_url; then
 				goodbye "Failed downloading the latest version of the Metrika agent." 60
-			fi
-			if ! tar -xvf "metrika_agent_${MA_BLOCKCHAIN}_latest.tar.gz"; then
-				goodbye "Failed extracting the new version of the agent." 70
 			fi
 
 			if [ $UPGRADE_REQUESTED -ne 1 ]; then
@@ -187,9 +185,11 @@ function sanity_check {
 	# SYSTEM ARCHITECTURE
 	case $arch in
 	"x86_64")
+		HOST_ARCH="amd64"
 		true
 		;;
 	"arm64")
+		HOST_ARCH="arm64"
 		true
 		;;
 	"*")
