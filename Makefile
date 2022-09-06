@@ -129,10 +129,10 @@ build-all-debug:
 	echo "protogen $(PROTOBIND) $(foreach o,$(OSAR),$(foreach a,$($(o)_GOARCHAR),$(foreach p,$(PROTOS),$(shell echo $(o) | tr A-Z a-z)-$(a)-env build-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p) checksum-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p))))"
 
 .PHONY: build-linux-amd64
-build-linux-amd64: protogen $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
 
 .PHONY: build-linux-arm64
-build-linux-arm64: protogen $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
 
 .PHONY: build
 build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))
