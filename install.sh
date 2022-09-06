@@ -141,11 +141,14 @@ function download_agent {
 		case $IS_UPDATABLE in
 		1)
 			# TODO(cosmix): add the architecture here when we add multiarch support.
-			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | xargs)
+			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
+			
 			log_info "Downloading the latest version (${LATEST_RELEASE}) of the Metrika Agent for ${MA_BLOCKCHAIN} from GitHub ${download_url}"
-			if ! curl -s -f -L -O -J -H"Accept: application/octet-stream" $download_url; then
+			if ! curl -s --output "${BIN_NAME}" -f -L -H "Accept: application/octet-stream" $download_url; then
 				goodbye "Failed downloading the latest version of the Metrika agent." 60
 			fi
+
+
 
 			if [ $UPGRADE_REQUESTED -ne 1 ]; then
 				log_info "Downloading additional configuration for the Metrika agent."
@@ -319,9 +322,10 @@ EOF
 
 function install_agent {
 	log_info "Installing agent..."
-	$sudo_cmd cp -t $APP_INSTALL_DIR "$BIN_NAME"
+	$sudo_cmd install -t $APP_INSTALL_DIR "$BIN_NAME"
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
-
+	# ls -l
+	# exit $?
 	# do not download configuration when upgrading. The config upgrade path has to be handled
 	# by the agent itself.
 	if [ $UPGRADE_REQUESTED -ne 1 ]; then
