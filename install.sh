@@ -56,8 +56,6 @@ options:
 EOF
 }
 
-PLATFORM_ADDR=""
-
 ###lib start##
 
 logo=$(echo "${logo_gz}" | base64 -d 2>/dev/null | gzip -d 2>/dev/null)
