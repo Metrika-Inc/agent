@@ -324,8 +324,7 @@ function install_agent {
 	log_info "Installing agent..."
 	$sudo_cmd install -t $APP_INSTALL_DIR "$BIN_NAME"
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
-	# ls -l
-	# exit $?
+
 	# do not download configuration when upgrading. The config upgrade path has to be handled
 	# by the agent itself.
 	if [ $UPGRADE_REQUESTED -ne 1 ]; then
