@@ -132,7 +132,7 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 	}
 
 	conf := ControllerConf{
-		BufDrainFreq:        1 * time.Millisecond,
+		BufDrainFreq:        75 * time.Millisecond,
 		BufLenLimit:         n,
 		OnBufRemoveCallback: onDrain,
 	}
