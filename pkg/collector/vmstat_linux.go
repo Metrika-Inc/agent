@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 const (
@@ -52,7 +51,6 @@ func NewvmStatCollector() (prometheus.Collector, error) {
 func (c *vmStatCollector) Collect(ch chan<- prometheus.Metric) {
 	file, err := os.Open(procFilePath("vmstat"))
 	if err != nil {
-		zap.S().Error(err)
 
 		return
 	}
@@ -63,7 +61,6 @@ func (c *vmStatCollector) Collect(ch chan<- prometheus.Metric) {
 		parts := strings.Fields(scanner.Text())
 		value, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			zap.S().Error(err)
 
 			return
 		}
@@ -81,7 +78,6 @@ func (c *vmStatCollector) Collect(ch chan<- prometheus.Metric) {
 		)
 	}
 	if err := scanner.Err(); err != nil {
-		zap.S().Error(err)
 
 		return
 	}
@@ -90,7 +86,6 @@ func (c *vmStatCollector) Collect(ch chan<- prometheus.Metric) {
 func (c *vmStatCollector) Describe(ch chan<- *prometheus.Desc) {
 	file, err := os.Open(procFilePath("vmstat"))
 	if err != nil {
-		zap.S().Error(err)
 
 		return
 	}
@@ -101,7 +96,6 @@ func (c *vmStatCollector) Describe(ch chan<- *prometheus.Desc) {
 		parts := strings.Fields(scanner.Text())
 		_, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			zap.S().Error(err)
 
 			return
 		}
@@ -115,7 +109,6 @@ func (c *vmStatCollector) Describe(ch chan<- *prometheus.Desc) {
 			nil, nil)
 	}
 	if err := scanner.Err(); err != nil {
-		zap.S().Error(err)
 
 		return
 	}

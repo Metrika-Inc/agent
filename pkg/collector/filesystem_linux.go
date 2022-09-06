@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -61,7 +60,6 @@ func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
 				labels:      labels,
 				deviceError: 1,
 			})
-			zap.S().Debugw("Mount point is in an unresponsive state", "mountpoint", labels.mountPoint)
 			stuckMountsMtx.Unlock()
 			continue
 		}
@@ -78,7 +76,6 @@ func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
 		close(success)
 		// If the mount has been marked as stuck, unmark it and log it's recovery.
 		if _, ok := stuckMounts[labels.mountPoint]; ok {
-			zap.S().Debugw("Mount point has recovered, monitoring will resume", "mountpoint", labels.mountPoint)
 			delete(stuckMounts, labels.mountPoint)
 		}
 		stuckMountsMtx.Unlock()
@@ -89,7 +86,6 @@ func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
 				deviceError: 1,
 			})
 
-			zap.S().Debugw("Error on statfs() system call", "rootfs", rootfsFilePath(labels.mountPoint), "err", err)
 			continue
 		}
 
@@ -130,7 +126,6 @@ func stuckMountWatcher(mountPoint string, success chan struct{}) {
 		case <-success:
 			// Success came in just after the timeout was reached, don't label the mount as stuck
 		default:
-			zap.S().Debugw("Mount point timed out, it is being labeled as stuck and will not be monitored", "mountpoint", mountPoint)
 			stuckMounts[mountPoint] = struct{}{}
 		}
 		stuckMountsMtx.Unlock()
@@ -141,7 +136,6 @@ func mountPointDetails() ([]filesystemLabels, error) {
 	file, err := os.Open(procFilePath("1/mounts"))
 	if errors.Is(err, os.ErrNotExist) {
 		// Fallback to `/proc/mounts` if `/proc/1/mounts` is missing due hidepid.
-		zap.S().Debugw("Reading root mounts failed, falling back to system mounts", "err", err)
 		file, err = os.Open(procFilePath("mounts"))
 	}
 	if err != nil {

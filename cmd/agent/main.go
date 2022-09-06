@@ -76,10 +76,10 @@ func setupZapLogger() {
 	if len(cfg.OutputPaths) == 0 {
 		cfg.OutputPaths = []string{"stdout"}
 	}
-	cfg.EncoderConfig.EncodeTime = logTimestampMSEncoder
+	cfg.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
 	opts := []zap.Option{
-		zap.AddStacktrace(zapcore.ErrorLevel),
+		zap.AddStacktrace(zapcore.FatalLevel),
 		zap.WithClock(timesync.Default),
 	}
 	http.Handle("/loglvl", cfg.Level)
@@ -90,11 +90,6 @@ func setupZapLogger() {
 
 	// set newly configured logger as default (access via zap.L() // zap.S())
 	zap.ReplaceGlobals(l)
-}
-
-// logTimestampMSEncoder encodes the log timestamp as an int64 from Time.UnixMilli()
-func logTimestampMSEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendInt64(t.UnixMilli())
 }
 
 func defaultWatchers() []watch.Watcher {

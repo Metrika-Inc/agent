@@ -19,7 +19,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs/blockdevice"
-	"go.uber.org/zap"
 )
 
 const (
@@ -179,7 +178,6 @@ func (c *diskstatsCollector) Collect(ch chan<- prometheus.Metric) {
 	diskStats, err := c.fs.ProcDiskstats()
 	if err != nil {
 		err = fmt.Errorf("couldn't get diskstats: %w", err)
-		zap.S().Error(err)
 
 		return
 	}
@@ -192,9 +190,7 @@ func (c *diskstatsCollector) Collect(ch chan<- prometheus.Metric) {
 
 		diskSectorSize := 512.0
 		blockQueue, err := c.fs.SysBlockDeviceQueueStats(dev)
-		if err != nil {
-			zap.S().Debugw("Error getting queue stats", "device", dev, "err", err)
-		} else {
+		if err == nil {
 			diskSectorSize = float64(blockQueue.LogicalBlockSize)
 		}
 

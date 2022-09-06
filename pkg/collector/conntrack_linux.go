@@ -17,13 +17,10 @@
 package collector
 
 import (
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	"go.uber.org/zap"
 )
 
 type conntrackCollector struct {
@@ -109,7 +106,6 @@ func NewConntrackCollector() (prometheus.Collector, error) {
 func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 	value, err := readUintFromFile(procFilePath("sys/net/netfilter/nf_conntrack_count"))
 	if err != nil {
-		zap.S().Error(c.handleErr(err))
 
 		return
 	}
@@ -118,7 +114,6 @@ func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 
 	value, err = readUintFromFile(procFilePath("sys/net/netfilter/nf_conntrack_max"))
 	if err != nil {
-		zap.S().Error(c.handleErr(err))
 
 		return
 	}
@@ -127,7 +122,6 @@ func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 
 	conntrackStats, err := getConntrackStatistics()
 	if err != nil {
-		zap.S().Error(c.handleErr(err))
 
 		return
 	}
@@ -148,15 +142,6 @@ func (c *conntrackCollector) Collect(ch chan<- prometheus.Metric) {
 		c.earlyDrop, prometheus.GaugeValue, float64(conntrackStats.earlyDrop))
 	ch <- prometheus.MustNewConstMetric(
 		c.searchRestart, prometheus.GaugeValue, float64(conntrackStats.searchRestart))
-	return
-}
-
-func (c *conntrackCollector) handleErr(err error) error {
-	if errors.Is(err, os.ErrNotExist) {
-		zap.S().Debugw("conntrack probably not loaded")
-		return ErrNoData
-	}
-	return fmt.Errorf("failed to retrieve conntrack stats: %w", err)
 }
 
 func getConntrackStatistics() (*conntrackStatistics, error) {

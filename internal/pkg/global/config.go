@@ -106,13 +106,10 @@ type LogConfig struct {
 }
 
 var zapLevelMapper = map[string]zapcore.Level{
-	"debug":  zapcore.DebugLevel,
-	"info":   zapcore.InfoLevel,
-	"warn":   zapcore.WarnLevel,
-	"error":  zapcore.ErrorLevel,
-	"dpanic": zapcore.DPanicLevel,
-	"panic":  zapcore.PanicLevel,
-	"fatal":  zapcore.FatalLevel,
+	"debug":   zapcore.DebugLevel,
+	"info":    zapcore.InfoLevel,
+	"warning": zapcore.WarnLevel,
+	"error":   zapcore.ErrorLevel,
 }
 
 // Level returns the current zap logging level
