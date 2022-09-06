@@ -201,10 +201,12 @@ function sanity_check {
 
        # TODO: remove MA_PLATFORM dependency.
        # MA_PLATFORM envvar
-       if [[ -z "${MA_PLATFORM}" ]] && [[ -z "${PLATFORM_ADDR}" ]]; then
-           goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
+       if [[ -z "${PLATFORM_ADDR}" ]]; then
+           if [[ -z "${MA_PLATFORM}" ]]; then
+               goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
+           fi
+           PLATFORM_ADDR=${MA_PLATFORM}
        fi
-       PLATFORM_ADDR=${MA_PLATFORM}
 
 	# MA_BLOCKCHAIN envvar
 	if [[ -z "${MA_BLOCKCHAIN}" ]]; then
