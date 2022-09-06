@@ -56,9 +56,6 @@ options:
 EOF
 }
 
-# TODO: switch to prod
-PLATFORM_ADDR="agent.sandboxes.aws.metrika.co:443"
-
 ###lib start##
 
 logo=$(echo "${logo_gz}" | base64 -d 2>/dev/null | gzip -d 2>/dev/null)
@@ -200,6 +197,15 @@ function sanity_check {
 		;;
 	esac
 
+       # TODO: remove MA_PLATFORM dependency.
+       # MA_PLATFORM envvar
+       if [[ -z "${PLATFORM_ADDR}" ]]; then
+           if [[ -z "${MA_PLATFORM}" ]]; then
+               goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
+           fi
+           PLATFORM_ADDR=${MA_PLATFORM}
+       fi
+
 	# MA_BLOCKCHAIN envvar
 	if [[ -z "${MA_BLOCKCHAIN}" ]]; then
 		goodbye "MA_BLOCKCHAIN environment variable must be set to one of: '${SUPPORTED_BLOCKCHAINS[*]}'. Goodbye." 2
@@ -329,7 +335,7 @@ function install_agent {
 
 function create_directories {
 	log_info "Preparing agent installation directories: $APP_INSTALL_DIR, $APP_METADATA_DIR"
-	$sudo_cmd mkdir -p $APP_METADATA_DIR/configs
+	$sudo_cmd mkdir –m 0755 -p $APP_METADATA_DIR/configs
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_METADATA_DIR
 	$sudo_cmd mkdir -p $APP_INSTALL_DIR
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
