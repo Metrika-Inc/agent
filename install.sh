@@ -183,7 +183,7 @@ function sanity_check {
 
 	# CURL
 	test -x "$(which curl)" || goodbye "curl is missing from your system. Please install it and try again." 10
-	arch=$(uname -i)
+	arch=$(uname -m)
 
 	# SYSTEM ARCHITECTURE
 	case $arch in
