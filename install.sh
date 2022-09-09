@@ -338,7 +338,7 @@ function install_agent {
 
 function create_directories {
 	log_info "Preparing agent installation directories: $APP_INSTALL_DIR, $APP_METADATA_DIR"
-	$sudo_cmd mkdir –m 0755 -p $APP_METADATA_DIR/configs
+	$sudo_cmd mkdir -m 0755 -p $APP_METADATA_DIR/configs
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_METADATA_DIR
 	$sudo_cmd mkdir -p $APP_INSTALL_DIR
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
