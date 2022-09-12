@@ -329,6 +329,7 @@ function install_agent {
 	# by the agent itself.
 	if [ $UPGRADE_REQUESTED -ne 1 ]; then
 		log_warn "This is a new installation. Configuration files will be reset to defaults."
+		$sudo_cmd chmod -R 0755 ${APP_METADATA_DIR}
 		$sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$AGENT_CONFIG_NAME
 		$sudo_cmd sed -i "s/<api_key>/$PLATFORM_API_KEY/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
 		$sudo_cmd sed -i "s/<platform_addr>/$PLATFORM_ADDR/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
@@ -338,7 +339,17 @@ function install_agent {
 
 function create_directories {
 	log_info "Preparing agent installation directories: $APP_INSTALL_DIR, $APP_METADATA_DIR"
-	$sudo_cmd mkdir -m 0755 -p $APP_METADATA_DIR/configs
+	if [[ -e ${APP_METADATA_DIR}/configs ]]; then
+		if [[ ! -d ${APP_METADATA_DIR}/configs ]]; then
+			Goodbye "${APP_METADATA_DIR}/configs exists and is not a directory. Exiting installation ..."
+		fi
+
+		# Set 0755 mod recursively in case the directory was created manually or changed by some external action
+		$sudo_cmd chmod -R 0755 ${APP_METADATA_DIR}
+	else
+		$sudo_cmd mkdir -m 0755 -p $APP_METADATA_DIR/configs
+	fi
+
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_METADATA_DIR
 	$sudo_cmd mkdir -p $APP_INSTALL_DIR
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
