@@ -58,7 +58,7 @@ runtime:
 
   # metrics_addr: string, network address to get Prometheus metrics about the
   # agent's runtime.
-  metrics_addr: :9000
+  metrics_addr: 127.0.0.1:9000
 
   # sampling_interval: duration, default interval used by Watchers that use
   # polling for collecting metrics/events.
