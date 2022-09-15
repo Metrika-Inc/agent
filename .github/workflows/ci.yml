@@ -96,8 +96,111 @@ jobs:
           SLACK_COLOR: ${{ job.status }}
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
 
-  reports:
+  agent_install_tests:
+    name: Agent Install Tests
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.18
+        if: success()
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Checkout code
+        if: success()
+        uses: actions/checkout@v3
+
+      - name: "Get tag data"
+        if: success()
+        id: git_tags
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --prune --unshallow
+
+      - name: Download module dependencies
+        if: success()
+        env:
+          GOPROXY: "https://proxy.golang.org"
+        run: |
+          go clean -modcache
+          go mod download
+
+      - name: Get latest release tag
+        if: success()
+        id: git_last_tag
+        run: |
+          echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+$"| tail -n1)'
+
+      - name: Run Agent Install Tests
+        if: success()
+        id: run_agent_install_tests
+        env:
+          MA_PLATFORM: amd64
+          MA_BLOCKCHAIN: flow
+          MA_API_KEY: someKey
+          INSTALLER_STATUS: ""
+        run: |
+          if ! MA_PLATFORM=$MA_PLATFORM MA_BLOCKCHAIN=$MA_BLOCKCHAIN MA_API_KEY=$MA_API_KEY ./install.sh >installer.log 2>&1; then
+            cat installer.log
+            echo "::set-output name=installer_status::Installer exited with error"
+            exit 1
+          fi
+
+          if ! grep -i 'Latest Release:' installer.log  | grep -i "$(echo ${{ steps.git_last_tag.outputs.previous_tag }} | cut -d 'v' -f2)"; then
+            expected_ver=$(echo ${{ steps.git_last_tag.outputs.previous_tag }} | cut -d 'v' -f2)
+            found_ver=$(grep -i 'Latest Release:' installer.log | cut -d ':' -f2)
+            echo "::set-output name=installer_status::Installer tag is not latest tag $found_ver - Expected $expected_ver"
+            exit 1
+          fi
+
+          cat /etc/passwd | grep -i metrikad
+          if ! grep -iq "metrikad" /etc/passwd; then
+            echo "::set-output name=installer_status::Metrikad user not found"
+            exit 1
+          fi
+
+          if [[ ! -e /etc/metrikad/configs || ! -d /etc/metrikad/configs ]]; then
+            echo "::set-output name=installer_status::/etc/metrikad/configs does not exist or it is not a directory"
+            exit 1
+          fi
+
+          if [[ ! -e /opt/metrikad || ! -d /opt/metrikad ]]; then
+            echo "::set-output name=installer_status::/opt/metrikad does not exist or it is not a directory"
+            exit 1
+          fi
+
+          if ! systemctl list-unit-files | grep -iE "^metrikad-flow"; then
+            echo "::set-output name=installer_status::metrikad systemd unit does not exist"
+            exit 1
+          fi
+
+          if ! systemctl is-active metrikad-flow.service >/dev/null; then
+            echo "::set-output name=installer_status::metrikad systemd unit is not running"
+            exit 1
+          fi
+
+          if ! systemctl is-enabled metrikad-flow.service >/dev/null; then
+            echo "::set-output name=installer_status::metrikad systemd unit is not enabled"
+            exit 1
+          fi
+
+      - name: Slack Notification Failure
+        if: failure()
+        id: status_failure
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: "${{ steps.run_agent_install_tests.outputs.installer_status }}"
+          SLACK_TITLE: GitHub CI Agent Install Tests
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
+  reports:
+    needs: agent_install_tests
     name: CI Report
     runs-on: ubuntu-latest
     steps:
