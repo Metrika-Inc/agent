@@ -1,0 +1,72 @@
+- name: Create Metrika agent group
+  group:
+    name: metrika-agent
+    state: present
+
+- name: Create Metrika agent user
+  user:
+    name: metrika-agent
+    comment: Metrika agent user
+    # TODO - After implementing the docker proxy, remove the docker group from this user
+    groups: "metrika-agent, docker"
+    shell: /sbin/nologin
+    create_home: yes
+    state: present
+
+- name: Create metrika directory in flow directory
+  file:
+    path: "{{ installation_path }}"
+    state: directory
+    owner: metrika-agent
+    group: metrika-agent
+
+###########################################################################
+# The agent expects the configs to be located in /etc/metrikad/configs/
+# This is not configurable and is hard coded into the agent
+###########################################################################
+- name: Create metrika directory in flow directory
+  file:
+    path: /etc/metrikad/configs/
+    state: directory
+    owner: metrika-agent
+    group: metrika-agent
+    recurse: yes
+
+###########################################################################
+# The agent expects the file to be located in /etc/metrikad/configs/agent.yml
+# This is not configurable and is hard coded into the agent
+###########################################################################
+- name: Create Metrika agent config
+  template:
+    src: agent.yml.j2
+    dest: '/etc/metrikad/configs/agent.yml'
+    owner: metrika-agent
+    group: metrika-agent
+    mode: 400
+
+###########################################################################
+# The agent expects the file to be located in /etc/metrikad/configs/flow.template
+# This is not configurable and is hard coded into the agent
+###########################################################################
+- name: Create flow.template config
+  copy:
+    src: flow.template
+    dest: '/etc/metrikad/configs/flow.template'
+    owner: metrika-agent
+    group: metrika-agent
+    mode: 400
+
+- name: Copy Metrika unit File
+  template:
+    src: metrika.service
+    dest: /etc/systemd/system/
+    owner: root
+    group: root
+  
+- name: Download Metrika agent
+  get_url:
+    url: "https://github.com/Metrika-Inc/agent/releases/download/{{ agent_version }}/metrikad-flow-linux-{{ arch }}"
+    dest: "{{ installation_path }}/metrika-agent"
+    mode: '0755'
+    owner: metrika-agent
+    group: metrika-agent
