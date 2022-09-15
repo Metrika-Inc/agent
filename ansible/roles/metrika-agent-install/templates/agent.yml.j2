@@ -1,0 +1,92 @@
+---
+platform:
+
+  # api_key: authentication key for the Metrika platform
+  api_key: {{ metrika_agent_api_key }}
+
+  # batch_n: integer, the maximum number of metrics/events to be emitted at
+  # each publish operation to the platform.
+  batch_n: 1000
+
+  # max_publish_interval: duration, the maximum interval to wait between two
+  # consecutive publish operations to the platform.
+  max_publish_interval: 5s
+
+  # transport_timeout: duration, configures the timeout for publish
+  # operations to the platform.
+  transport_timeout: 10s
+
+  # addr: string, network address of the platform for publishing
+  addr: agent.sandboxes.aws.metrika.co:443
+
+  # uri: string, platform publishing endpoint
+  uri: /
+
+buffer:
+
+  # max_heap_alloc: integer, the maximum bytes of allocated heap objects as reported
+  # by Go's runtime memstats, that are allowed by the agent before it starts
+  # dropping metrics (default: 50MB).
+  max_heap_alloc: 52428800
+
+  # ttl: duration, a Time-To-Live for any buffered data. Data will never expire
+  # for zero TTL values and stay in the buffer until they are evicted for publishing.
+  ttl: 0s
+
+runtime:
+
+  logging:
+
+    # outputs: list of outputs for runtime logs.
+    #
+    # Possible values are one of the standard I/O streams # (i.e stdout, stderr)
+    # or a full/relative path to a filename (i.e logs/agent.log).
+    outputs:
+      - stdout
+
+    # level: logging level for runtime logs.
+    #
+    # Possible values are: info, warning (recommended), debug, error.
+    level: warning
+
+    # disable_fingerprint_validation: disables fingerprint validation on startup.
+    #
+    # Fingerprint validation is enabled by default and the agent will exit
+    # immediately if checksums of the newly retrieved hostname and the cached do
+    # not match. Checksum is cached under /Users/sjonpaul.brown/.cache/metrikad/fingerprint.
+    disable_fingerprint_validation: false
+
+  # metrics_addr: string, network address to get Prometheus metrics about the
+  # agent's runtime.
+  metrics_addr: :9000
+
+  # sampling_interval: duration, default interval used by Watchers that use
+  # polling for collecting metrics/events.
+  sampling_interval: 5s
+
+  # use_exporters: boolean, enables exporter implementations under
+  # pkg/contrib. Used to process and/or send data to other sources than
+  # Metrika Platform. Default value is false.
+  use_exporters: false
+
+  # watchers: list[object], list of watchers to be enabled on agent startup.
+  # The watcher constructor name must be registered first in the pkg/collector.
+  watchers:
+    - type: prometheus.proc.cpu
+    - type: prometheus.proc.net.netstat_linux
+    - type: prometheus.proc.net.arp_linux
+    - type: prometheus.proc.stat_linux
+    - type: prometheus.proc.conntrack_linux
+    - type: prometheus.proc.diskstats
+    - type: prometheus.proc.entropy
+    - type: prometheus.proc.filefd
+    - type: prometheus.proc.filesystem
+    - type: prometheus.proc.loadavg
+    - type: prometheus.proc.meminfo
+    - type: prometheus.proc.netclass
+    - type: prometheus.proc.netdev
+    - type: prometheus.proc.sockstat
+    - type: prometheus.proc.textfile
+    - type: prometheus.time
+    - type: prometheus.uname
+    - type: prometheus.vmstat

@@ -1,0 +1,13 @@
+[Unit]
+Description=Metrika Agent FLOW
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Restart=always
+RestartSec=5
+User=metrika-agent
+ExecStart={{ installation_path }}/metrika-agent
+
+[Install]
+WantedBy=multi-user.target
