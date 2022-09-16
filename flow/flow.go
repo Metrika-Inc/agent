@@ -128,7 +128,8 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 	errs := &utils.AutoConfigError{}
 	containers, err := utils.GetRunningContainers()
 	if err != nil {
-		log.Warnw("cannot access docker daemon, will attempt to auto-configure anyway", zap.Error(err))
+		log.Warnw("cannot access docker daemon, discovery failed", zap.Error(err))
+		errs.Append(err)
 	} else {
 		container, err := utils.MatchContainer(containers, d.config.ContainerRegex)
 		if err != nil {

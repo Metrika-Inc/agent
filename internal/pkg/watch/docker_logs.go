@@ -196,34 +196,37 @@ func (w *DockerLogWatch) StartUnsafe() {
 			n, err := rc.Read(hdr)
 			if err != nil {
 				lastErr = err
-				if err == io.EOF {
-					w.Log.Error("EOF reached (hdr), resetting stream")
-					time.Sleep(5 * time.Second)
-					ctx := map[string]interface{}{
-						model.NodeIDKey:      global.BlockchainNode.NodeID(),
-						model.NodeTypeKey:    global.BlockchainNode.NodeType(),
-						model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-					}
+				if err != io.EOF && err != io.ErrUnexpectedEOF {
+					w.Log.Errorw("error reading header", zap.Error(err), "reader", rc)
 
-					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
-					if err != nil {
-						w.Log.Errorw("error creating event: ", zap.Error(err))
-					} else {
-						if err := emit.Ev(w, ev); err != nil {
-							w.Log.Errorw("error emitting event: ", zap.Error(err))
-						}
-					}
+					continue
+				}
 
-					cancel()
-					if err := rc.Close(); err != nil {
-						w.Log.Errorw("error closing docker logs stream", zap.Error(err))
-					}
+				w.Log.Error("EOF error while reading header, will try to recover in 5s")
+				time.Sleep(5 * time.Second)
 
-					if stopped := newEventStream(); stopped {
-						return
-					}
+				ctx := map[string]interface{}{
+					model.NodeIDKey:      global.BlockchainNode.NodeID(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
+				}
+
+				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
+				if err != nil {
+					w.Log.Errorw("error creating event: ", zap.Error(err))
 				} else {
-					w.Log.Errorw("error reading header", zap.Error(err))
+					if err := emit.Ev(w, ev); err != nil {
+						w.Log.Errorw("error emitting event: ", zap.Error(err))
+					}
+				}
+
+				cancel()
+				if err := rc.Close(); err != nil {
+					w.Log.Errorw("error closing docker logs stream", zap.Error(err))
+				}
+
+				if stopped := newEventStream(); stopped {
+					return
 				}
 
 				continue
@@ -249,33 +252,35 @@ func (w *DockerLogWatch) StartUnsafe() {
 			n, err = rc.Read(buf)
 			if err != nil {
 				lastErr = err
-				if err == io.EOF {
-					w.Log.Error("EOF reached (data), resetting stream")
-					ctx := map[string]interface{}{
-						model.NodeIDKey:      global.BlockchainNode.NodeID(),
-						model.NodeTypeKey:    global.BlockchainNode.NodeType(),
-						model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-					}
+				if err != io.EOF && err != io.ErrUnexpectedEOF {
+					w.Log.Errorw("error reading data", zap.Error(err), "reader", rc)
 
-					ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
-					if err != nil {
-						w.Log.Errorw("error creating event: ", zap.Error(err))
-					} else {
-						if err := emit.Ev(w, ev); err != nil {
-							w.Log.Errorw("error emitting event: ", zap.Error(err))
-						}
-					}
+					continue
+				}
 
-					cancel()
-					if err := rc.Close(); err != nil {
-						w.Log.Errorw("error closing docker logs stream: ", zap.Error(err))
-					}
+				w.Log.Error("EOF error while reading log data, will try to recover log streaming immediately")
+				ctx := map[string]interface{}{
+					model.NodeIDKey:      global.BlockchainNode.NodeID(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
+				}
 
-					if stopped := newEventStream(); stopped {
-						return
-					}
+				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
+				if err != nil {
+					w.Log.Errorw("error creating event: ", zap.Error(err))
 				} else {
-					w.Log.Errorw("error reading data", zap.Error(err))
+					if err := emit.Ev(w, ev); err != nil {
+						w.Log.Errorw("error emitting event: ", zap.Error(err))
+					}
+				}
+
+				cancel()
+				if err := rc.Close(); err != nil {
+					w.Log.Errorw("error closing docker logs stream: ", zap.Error(err))
+				}
+
+				if stopped := newEventStream(); stopped {
+					return
 				}
 
 				continue
