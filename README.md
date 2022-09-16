@@ -6,7 +6,10 @@
 The Metrika Agent is a configurable software agent that regularly collects metrics and events from the host system as well as the blockchain node running on it. This data is then exported to one or more external sources via an [Exporter API](#exporter-api). By default the Metrika Agent sends data to the Metrika Platform for Blockchain Operational Intelligence. Find out more and [create an account for free](https://www.metrika.co).
 
 ## Installation
-The Metrika Agent is intended to be installed with a one-line command from the Metrika Platform that downloads and runs the [Installation Script](install.sh):
+The Metrika Agent can be installed either as a systemd service or as a Docker container.
+
+### Systemd
+To run the agent as a systemd service you can download and run the [Installation Script](install.sh) using this one-liner:
 ```bash
 MA_PLATFORM={platform_endpoint} MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)"
 ```
@@ -55,6 +58,13 @@ sudo -u metrikad docker -H tcp://127.0.0.1:2379 ps
 ```bash
 sudo -u metrikad docker ps
 ```
+### Docker
+To run the agent as a Docker container you can download the latest docker image from [hub.docker.com](http://hub.metrika.co/r/metrika/agent) and run the agent using this one-liner:
+```bash
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc:/host/proc:ro -v /sys:/host/sys:ro -e MA_PLATFORM={platform_endpoint} -e MA_API_KEY={api_key} --name metrikad-flow agent:<version>
+
+```
+
 ### Supported Blockchains
 This is the list of all currently supported blockchains (several coming soon and we welcome contributions!):
 * [flow](https://flow.com/)
