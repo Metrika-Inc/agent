@@ -214,106 +214,39 @@ func (c *netClassCollector) getNetClassInfo() (sysfs.NetClass, error) {
 }
 
 func (c *netClassCollector) Describe(ch chan<- *prometheus.Desc) {
-	netClass, err := c.getNetClassInfo()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+	upDesc := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, c.subsystem, "up"),
+		"Value is 1 if operstate is 'up', 0 otherwise.",
+		[]string{"device"},
+		nil,
+	)
 
-			return
-		}
-		err = fmt.Errorf("could not get net class info: %w", err)
+	ch <- upDesc
 
-		return
-	}
-	for _, ifaceInfo := range netClass {
-		upDesc := prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, c.subsystem, "up"),
-			"Value is 1 if operstate is 'up', 0 otherwise.",
-			[]string{"device"},
-			nil,
-		)
+	infoDesc := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, c.subsystem, "info"),
+		"Non-numeric data from /sys/class/net/<iface>, value is always 1.",
+		[]string{"device", "address", "broadcast", "duplex", "operstate", "ifalias"},
+		nil,
+	)
 
-		ch <- upDesc
+	ch <- infoDesc
 
-		infoDesc := prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, c.subsystem, "info"),
-			"Non-numeric data from /sys/class/net/<iface>, value is always 1.",
-			[]string{"device", "address", "broadcast", "duplex", "operstate", "ifalias"},
-			nil,
-		)
-
-		ch <- infoDesc
-
-		if ifaceInfo.AddrAssignType != nil {
-			pushDesc(ch, c.subsystem, "address_assign_type")
-		}
-
-		if ifaceInfo.Carrier != nil {
-			pushDesc(ch, c.subsystem, "carrier")
-		}
-
-		if ifaceInfo.CarrierChanges != nil {
-			pushDesc(ch, c.subsystem, "carrier_changes_total")
-		}
-
-		if ifaceInfo.CarrierUpCount != nil {
-			pushDesc(ch, c.subsystem, "carrier_up_changes_total")
-		}
-
-		if ifaceInfo.CarrierDownCount != nil {
-			pushDesc(ch, c.subsystem, "carrier_down_changes_total")
-		}
-
-		if ifaceInfo.DevID != nil {
-			pushDesc(ch, c.subsystem, "device_id")
-		}
-
-		if ifaceInfo.Dormant != nil {
-			pushDesc(ch, c.subsystem, "dormant")
-		}
-
-		if ifaceInfo.Flags != nil {
-			pushDesc(ch, c.subsystem, "flags")
-		}
-
-		if ifaceInfo.IfIndex != nil {
-			pushDesc(ch, c.subsystem, "iface_id")
-		}
-
-		if ifaceInfo.IfLink != nil {
-			pushDesc(ch, c.subsystem, "iface_link")
-		}
-
-		if ifaceInfo.LinkMode != nil {
-			pushDesc(ch, c.subsystem, "iface_link_mode")
-		}
-
-		if ifaceInfo.MTU != nil {
-			pushDesc(ch, c.subsystem, "mtu_bytes")
-		}
-
-		if ifaceInfo.NameAssignType != nil {
-			pushDesc(ch, c.subsystem, "name_assign_type")
-		}
-
-		if ifaceInfo.NetDevGroup != nil {
-			pushDesc(ch, c.subsystem, "net_dev_group")
-		}
-
-		if ifaceInfo.Speed != nil {
-			// Some devices return -1 if the speed is unknown.
-			if *ifaceInfo.Speed >= 0 || !netclassInvalidSpeed {
-				pushDesc(ch, c.subsystem, "speed_bytes")
-			}
-		}
-
-		if ifaceInfo.TxQueueLen != nil {
-			pushDesc(ch, c.subsystem, "transmit_queue_length")
-		}
-
-		if ifaceInfo.Type != nil {
-			pushDesc(ch, c.subsystem, "protocol_type")
-		}
-	}
-
-	return
+	pushDesc(ch, c.subsystem, "address_assign_type")
+	pushDesc(ch, c.subsystem, "carrier")
+	pushDesc(ch, c.subsystem, "carrier_changes_total")
+	pushDesc(ch, c.subsystem, "carrier_up_changes_total")
+	pushDesc(ch, c.subsystem, "carrier_down_changes_total")
+	pushDesc(ch, c.subsystem, "device_id")
+	pushDesc(ch, c.subsystem, "dormant")
+	pushDesc(ch, c.subsystem, "flags")
+	pushDesc(ch, c.subsystem, "iface_id")
+	pushDesc(ch, c.subsystem, "iface_link")
+	pushDesc(ch, c.subsystem, "iface_link_mode")
+	pushDesc(ch, c.subsystem, "mtu_bytes")
+	pushDesc(ch, c.subsystem, "name_assign_type")
+	pushDesc(ch, c.subsystem, "net_dev_group")
+	pushDesc(ch, c.subsystem, "speed_bytes")
+	pushDesc(ch, c.subsystem, "transmit_queue_length")
+	pushDesc(ch, c.subsystem, "protocol_type")
 }
