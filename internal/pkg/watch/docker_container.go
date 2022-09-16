@@ -126,10 +126,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		return nil, nil, err
 	}
 
-	if container == nil {
+	if container == nil || len(container.Names) == 0 {
 		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
-		return nil, nil, fmt.Errorf("got nil container without an error")
+		return nil, nil, fmt.Errorf("got nil container or container with empty names, without an error")
 	}
 
 	filter := filters.NewArgs()
@@ -138,7 +138,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("status", "stop")
 	filter.Add("status", "kill")
 	filter.Add("status", "die")
-	filter.Add("container", container.ID)
+	filter.Add("container", container.Names[0])
 	options := dt.EventsOptions{Filters: filter}
 
 	msgchan, errchan, err := utils.DockerEvents(ctx, options)

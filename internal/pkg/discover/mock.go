@@ -78,7 +78,7 @@ func (m *MockBlockchain) NodeVersion() string {
 
 // DiscoverContainer returns the container discovered or an error if any occurs
 func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
-	return &types.Container{}, nil
+	return &types.Container{Names: []string{"/flow-private-network_consensus_3_1"}}, nil
 }
 
 // Network ...
