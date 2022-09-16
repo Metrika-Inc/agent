@@ -298,6 +298,26 @@ function check_existing_install {
 
 function create_systemd_service {
 	log_info "Creating systemd service..."
+
+    # Setup DOCKER_HOST & DOCKER_API_VERSION if present
+    # to cover reverse-proxy enabled setup.
+    local dockerHostEnv=""
+    local dockerApiVersionEnv=""
+    if [ -n "$DOCKER_HOST" ]; then
+        dockerHostEnv="DOCKER_HOST=$DOCKER_HOST"
+        if [ -n "$DOCKER_API_VERSION" ]; then
+            dockerApiVersionEnv="DOCKER_API_VERSION=$DOCKER_API_VERSION"
+        fi
+
+        log_info "Systemd environment set to:\n"
+        log_info "$dockerHostEnv"
+        log_info "$dockerApiVersionEnv"
+    else
+        if [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
+            log_warn "Both metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
+        fi
+    fi
+
 	service=$(
 		envsubst <<EOF
 [Unit]
@@ -309,6 +329,8 @@ StartLimitIntervalSec=0
 Restart=always
 RestartSec=5
 User=$MA_USER
+Environment="$dockerHostEnv"
+Environment="$dockerApiVersionEnv"
 ExecStart=/usr/bin/env $APP_INSTALL_DIR/$BIN_NAME
 
 [Install]
@@ -368,7 +390,11 @@ function create_users_and_groups {
 	if [ $NO_DOCKER_GRP_REQUESTED -ne 1 ]; then
 		$sudo_cmd usermod -aG docker $MA_USER
 	else
-		log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data!"
+        if [ -z "$DOCKER_HOST" ]; then
+            log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data!"
+        else
+            log_info "Will configure the agent to use DOCKER_HOST=$DOCKER_HOST"
+        fi
 
 	fi
 }
