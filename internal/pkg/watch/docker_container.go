@@ -15,6 +15,7 @@ package watch
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"agent/api/v1/model"
@@ -123,6 +124,12 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 		return nil, nil, err
+	}
+
+	if container == nil {
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+
+		return nil, nil, fmt.Errorf("got nil container without an error")
 	}
 
 	filter := filters.NewArgs()
