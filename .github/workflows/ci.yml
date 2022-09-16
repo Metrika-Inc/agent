@@ -130,7 +130,7 @@ jobs:
         if: success()
         id: git_last_tag
         run: |
-          echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+$"| tail -n1)'
+          echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -E "v[0-9]+.[0-9]+.[0-9]+$" | tail -n1)'
 
       - name: Run Agent Install Tests
         if: success()
