@@ -1,0 +1,36 @@
+{
+	debug
+}
+
+http://127.0.0.1:2379 {
+	log {
+		level DEBUG
+	}
+
+    # Required by Metrika Agent for container discovery
+	@containersurl {
+		method GET
+		path_regexp /v1.(24|41)/containers/json
+	}
+
+    # Required by Metrika Agent to stream container logs
+	@containerlogsurl {
+		method GET
+		path_regexp /v1.(24|41)/containers/dapper-private-network-consensus_1-1/logs
+	}
+
+    # Required by Metrika Agent to track container state (i.e. restart, stop etc.)
+	@eventsurl {
+		method GET
+		path_regexp /v1.(24|41)/events
+	}
+
+	reverse_proxy @containersurl unix///var/run/docker.sock
+	reverse_proxy @containerlogsurl unix///var/run/docker.sock
+	reverse_proxy @eventsurl unix///var/run/docker.sock
+}
+
+127.0.0.1:2379 {
+    # Drop requests with non-whitelisted paths
+	respond "Request matched no routes in the caddy config." 404
+}
