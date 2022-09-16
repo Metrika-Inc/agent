@@ -1,7 +1,7 @@
 # Metrika Agent
 [![GitHub go.mod Go version of a Go module](https://img.shields.io/github/go-mod/go-version/Metrika-Inc/agent)](https://github.com/Metrika-Inc/agent) [![Linux](https://svgshare.com/i/Zhy.svg)](https://github.com/Metrika-Inc/agent) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Metrika-Inc/agent/blob/main/LICENSE)
 
-[![CI Tests](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml) 
+[![CI Tests](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Metrika-Inc/agent/actions/workflows/ci.yml)
 
 The Metrika Agent is a configurable software agent that regularly collects metrics and events from the host system as well as the blockchain node running on it. This data is then exported to one or more external sources via an [Exporter API](#exporter-api). By default the Metrika Agent sends data to the Metrika Platform for Blockchain Operational Intelligence. Find out more and [create an account for free](https://www.metrika.co).
 
@@ -22,12 +22,48 @@ The script serves as installer by default, but can also be used with flags `--up
 
 The agent can run as a standalone binary, as long as configuration files are set up correctly.
 
+### Using a Docker reverse proxy
+If you'd like to avoid adding `metrikad` user to the `docker` group you can alternatively use a reverse proxy to filter traffic before it reaches the non-networked Docker socket and avoid having the agent process speaking directly to it. With this setup, the reverse proxy must be still run by a user that belongs to the `docker` group, so that it can proxy requests to the UNIX socket.
+
+The following process assumes a Debian based host and describes the steps required to install the agent, using [Caddy](https://caddyserver.com/) as a reverse proxy to the Docker daemon. The `Caddyfile` used is the least required configuration needed by the agent to perform its container discovery operations.
+
+1. Install Caddy on your system by following these [instructions](https://caddyserver.com/docs/install).
+
+2. Add user `caddy` to `docker` group:
+```bash
+usermod --append --groups docker caddy
+```
+
+3. Copy the recommended [Caddyfile](https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile) to Caddy's default configuration location `/etc/caddy/Caddyfile`:
+```bash
+curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile | tee /etc/caddy/Caddyfile
+caddy reload --config /etc/caddy/Caddyfile
+```
+
+By default, the agent will configure its Docker client to send HTTP header `X-Ma-User` on every request it sends to the Docker Daemon with the username resolved by the agent process. Using this `Caddyfile`, the proxy filters requests to the Daemon based on username and the API paths needed by the agents.
+
+4. Restart Caddy:
+```bash
+systemctl restart caddy
+```
+5. Use the following one-liner to install the Metrika Agent bypassing adding `metrikad` user to `docker` group and configuring `DOCKER_HOST` environment variable.
+```bash
+DOCKER_HOST=tcp://127.0.0.1:2379 DOCKER_API_VERSION=1.24 MA_BLOCKCHAIN={protocol} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh) --no-docker-grp"
+```
+6. Test the proxy forwards requests to the Docker daemon for `metrikad` user:
+```bash
+sudo -u metrikad docker -H tcp://127.0.0.1:2379 ps
+```
+7. Test `metrikad` user cannot access the non-networked Docker Socket:
+```bash
+sudo -u metrikad docker ps
+```
 ### Supported Blockchains
 This is the list of all currently supported blockchains (several coming soon and we welcome contributions!):
 * [flow](https://flow.com/)
 
 ## Configuration
-The agent's configuration is set to sane defaults out of the box - in most use cases tinkering the configuration is unnecessary. 
+The agent's configuration is set to sane defaults out of the box - in most use cases tinkering the configuration is unnecessary.
 
 Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation.
 
@@ -50,7 +86,7 @@ _Be advised that the Exporter API is work in progress and may change without not
 
 All the data points collected by the enabled watchers are passed to one or more exporters, as defined by the `Exporter` interface in [exporter_registry.go](internal/pkg/global/exporter_registry.go).
 
-By default, the only enabled exporter is Metrika Platform exporter, which encodes the data as protocol buffers ([proto definition](api/v1/proto/agent.proto)) and transmits them to Metrika Platform. 
+By default, the only enabled exporter is Metrika Platform exporter, which encodes the data as protocol buffers ([proto definition](api/v1/proto/agent.proto)) and transmits them to Metrika Platform.
 
 More on exporter implementations can be found in [CONTRIBUTING.md](CONTRIBUTING.md#implementing-exporters)
 ## Troubleshooting
