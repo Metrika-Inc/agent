@@ -142,7 +142,7 @@ function download_agent {
 		1)
 			# TODO(cosmix): add the architecture here when we add multiarch support.
 			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
-			
+
 			log_info "Downloading the latest version (${LATEST_RELEASE}) of the Metrika Agent for ${MA_BLOCKCHAIN} from GitHub ${download_url}"
 			if ! curl -s --output "${BIN_NAME}" -f -L -H "Accept: application/octet-stream" $download_url; then
 				goodbye "Failed downloading the latest version of the Metrika agent." 60
@@ -285,6 +285,9 @@ function uninstall {
 }
 
 function check_existing_install {
+    # Ensure failed state of a previous installation is cleared before checking the status.
+    $sudo_cmd systemctl reset-failed || true
+
 	if $sudo_cmd systemctl --no-pager list-units --full -all | grep -F "$BIN_NAME".service; then
 		# agent is installed.
 		if [ $UPGRADE_REQUESTED -ne 1 ]; then
