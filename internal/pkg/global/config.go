@@ -124,6 +124,38 @@ var ConfigFilePriority = []string{
 	DefaultAgentConfigPath,
 }
 
+const (
+	// PlatformAPIKeyConfigPlaceholder config placeholder for dynamic api key configuration
+	PlatformAPIKeyConfigPlaceholder = "<api_key>"
+
+	// PlatformAddrConfigPlaceholder config placeholder for dynamic platform address configuration
+	PlatformAddrConfigPlaceholder = "<platform_addr>"
+
+	// PlatformAPIKeyEnvVar env var used to override platform.api_key
+	PlatformAPIKeyEnvVar = "MA_API_KEY"
+
+	// PlatformAddrEnvVar env var used to override platform.addr
+	PlatformAddrEnvVar = "MA_PLATFORM"
+)
+
+// loadPlatformAPIKeyFromEnv overrides platform.api_key if env var is set
+func loadPlatformAPIKeyFromEnv() {
+	apiKey := os.Getenv(PlatformAPIKeyEnvVar)
+	if len(apiKey) > 0 {
+		log.Printf("loaded MA_API_KEY from env: %s", apiKey)
+		AgentConf.Platform.APIKey = apiKey
+	}
+}
+
+// loadPlatformAddrFromEnv overrides platform.addr if env var is set
+func loadPlatformAddrFromEnv() {
+	addr := os.Getenv(PlatformAddrEnvVar)
+	if len(addr) > 0 {
+		log.Printf("loaded MA_PLATFORM from env: %s", addr)
+		AgentConf.Platform.Addr = addr
+	}
+}
+
 // LoadAgentConfig loads agent configuration.
 func LoadAgentConfig() error {
 	var (
@@ -139,7 +171,7 @@ func LoadAgentConfig() error {
 	}
 
 	if err != nil {
-		log.Printf("configuration file %s not found", DefaultAgentConfigName)
+		log.Printf("configuration not found in any of %v", ConfigFilePriority)
 
 		return err
 	}
@@ -157,6 +189,9 @@ func LoadAgentConfig() error {
 			watchConf.SamplingInterval = AgentConf.Runtime.SamplingInterval
 		}
 	}
+
+	loadPlatformAPIKeyFromEnv()
+	loadPlatformAddrFromEnv()
 
 	if len(AgentConf.Platform.APIKey) == 0 {
 		return fmt.Errorf("API key is missing from loaded config")

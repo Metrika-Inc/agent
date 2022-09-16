@@ -14,6 +14,7 @@
 package global
 
 import (
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -47,4 +48,33 @@ func TestCreateLogFolders(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+}
+
+func TestLoadConfig_EnvOverride(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	testConf := []byte(`
+---
+platform:
+  api_key: <api_key>
+  addr: <platform_addr>
+`)
+
+	_, err = f.Write(testConf)
+	require.NoError(t, err)
+
+	configFilePriorityWas := ConfigFilePriority
+	ConfigFilePriority = []string{f.Name()}
+	defer func() { ConfigFilePriority = configFilePriorityWas }()
+
+	err = os.Setenv("MA_API_KEY", "foobar")
+	err = os.Setenv("MA_PLATFORM", "foobar.addr:443")
+
+	err = LoadAgentConfig()
+	require.NoError(t, err)
+
+	require.Equal(t, "foobar", AgentConf.Platform.APIKey)
+	require.Equal(t, "foobar.addr:443", AgentConf.Platform.Addr)
 }
