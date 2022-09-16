@@ -1,3 +1,4 @@
+# Thanks to https://raesene.github.io/blog/2021/09/05/restricting-docker-access-with-a-proxy/
 {
 	debug
 }
@@ -7,22 +8,25 @@ http://127.0.0.1:2379 {
 		level DEBUG
 	}
 
-    # Required by Metrika Agent for container discovery
+	# Required by Metrika Agent for container discovery
 	@containersurl {
 		method GET
-		path_regexp /v1.(24|41)/containers/json
+        header X-Ma-User metrikad
+		path_regexp /v1.24/containers/json
 	}
 
-    # Required by Metrika Agent to stream container logs
+	# Required by Metrika Agent to stream container logs
 	@containerlogsurl {
 		method GET
-		path_regexp /v1.(24|41)/containers/dapper-private-network-consensus_1-1/logs
+        header X-Ma-User metrikad
+		path_regexp /v1.24/containers/dapper-private-network-consensus_1-1/logs
 	}
 
-    # Required by Metrika Agent to track container state (i.e. restart, stop etc.)
+	# Required by Metrika Agent to track container state (i.e. restart, stop etc.)
 	@eventsurl {
 		method GET
-		path_regexp /v1.(24|41)/events
+        header X-Ma-User metrikad
+		path_regexp /v1.24/events
 	}
 
 	reverse_proxy @containersurl unix///var/run/docker.sock
@@ -31,6 +35,6 @@ http://127.0.0.1:2379 {
 }
 
 127.0.0.1:2379 {
-    # Drop requests with non-whitelisted paths
+	# Drop requests with non-whitelisted paths
 	respond "Request matched no routes in the caddy config." 404
 }
