@@ -193,8 +193,6 @@ func (w *DockerLogWatch) StartUnsafe() {
 			default:
 			}
 
-			if err != nil {
-			}
 			n, err := rc.Read(hdr)
 			if err != nil {
 				lastErr = err
