@@ -23,7 +23,7 @@ The script serves as installer by default, but can also be used with flags `--up
 The agent can run as a standalone binary, as long as configuration files are set up correctly.
 
 ### Using a Docker reverse proxy
-If you'd like to avoid adding `metrikad` user to the `docker` group you can alternatively use a reverse proxy to filter traffic before it reaches the non-networked Docker socket and avoid having the agent process speaking directly to it. With this setup, the reverse proxy must be still run by a user that belongs to the `docker` group, so that it can proxy requests to the UNIX socket.
+To avoid adding the `metrikad` user to the `docker` group, you can use a reverse proxy. The reverse proxy filters traffic before it reaches the non-networked Docker socket, limiting the docker API calls the agent can make. Note that the reverse proxy still needs to be executed by a user that belongs to the docker group, so it can proxy requests to the UNIX socket.
 
 The following process assumes a Debian based host and describes the steps required to install the agent, using [Caddy](https://caddyserver.com/) as a reverse proxy to the Docker daemon. The `Caddyfile` used is the least required configuration needed by the agent to perform its container discovery operations.
 
@@ -33,14 +33,11 @@ The following process assumes a Debian based host and describes the steps requir
 ```bash
 usermod --append --groups docker caddy
 ```
-
-3. Copy the recommended [Caddyfile](https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile) to Caddy's default configuration location `/etc/caddy/Caddyfile`:
+3. Download the recommended [Caddyfile](https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile) and replace `<ma_container>` with the name of the blockchain node container. Finally move `Caddyfile` to `/etc/caddy/Caddyfile`:
 ```bash
-curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile | tee /etc/caddy/Caddyfile
-caddy reload --config /etc/caddy/Caddyfile
+curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/caddy/Caddyfile | sed 's/<ma_container>/example-name/g' | tee /etc/caddy/Caddyfile
 ```
-
-By default, the agent will configure its Docker client to send HTTP header `X-Ma-User` on every request it sends to the Docker Daemon with the username resolved by the agent process. Using this `Caddyfile`, the proxy filters requests to the Daemon based on username and the API paths needed by the agents.
+This `Caddyfile` filters requests to the Daemon based on the API paths needed by the agents.
 
 4. Restart Caddy:
 ```bash
