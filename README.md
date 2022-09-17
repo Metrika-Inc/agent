@@ -45,7 +45,7 @@ systemctl restart caddy
 ```
 5. Use the following one-liner to install the Metrika Agent bypassing adding `metrikad` user to `docker` group and configuring `DOCKER_HOST` environment variable.
 ```bash
-DOCKER_HOST=tcp://127.0.0.1:2379 DOCKER_API_VERSION=1.24 MA_BLOCKCHAIN={protocol} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh) --no-docker-grp"
+DOCKER_HOST=tcp://127.0.0.1:2379 DOCKER_API_VERSION=1.41 MA_BLOCKCHAIN={protocol} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh) --no-docker-grp"
 ```
 6. Test the proxy forwards requests to the Docker daemon for `metrikad` user:
 ```bash
@@ -70,7 +70,7 @@ This covers a subset of configuration options that are most likely to be changed
 * `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`.
 * `runtime.logging.outputs` - where Metrika outputs logs, can specify multiple sources. Default: `stdout` (journalctl). **Warning**: Metrika Agent does not take care of rotating the logs.
 * `runtime.logging.level` - verbosity of the logs. Default - `warning`. Recommended to increase to `debug` when troubleshooting.
-* `runtime.use_exporters` **(work in progress)* - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
+* `runtime.use_exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
 * `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
 ## Agent internals
 ### Watchers
