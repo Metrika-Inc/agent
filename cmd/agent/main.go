@@ -35,6 +35,7 @@ import (
 	"agent/internal/pkg/transport"
 	"agent/internal/pkg/watch"
 	"agent/internal/pkg/watch/factory"
+	"agent/pkg/collector"
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 
@@ -47,9 +48,10 @@ import (
 )
 
 var (
-	reset         = flag.Bool("reset", false, "Remove existing protocol-related configuration. Restarts the discovery process")
-	configureOnly = flag.Bool("configure-only", false, "Exit agent after automatic discovery and validation process")
-	showVersion   = flag.Bool("version", false, "Show the metrika agent version and exit")
+	reset         bool
+	configureOnly bool
+	showVersion   bool
+	flags         = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
 	ch            = newSubscriptionChan()
 	subscriptions = []chan<- interface{}{ch}
@@ -66,7 +68,19 @@ func newSubscriptionChan() chan interface{} {
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-	flag.Parse()
+}
+
+func parseFlags(args []string) error {
+	flags.BoolVar(&reset, "reset", false, "Remove existing protocol-related configuration. Restarts the discovery process.")
+	flags.BoolVar(&configureOnly, "configure-only", false, "Exit agent after automatic discovery and validation process.")
+	flags.BoolVar(&showVersion, "version", false, "Show the metrika agent version and exit.")
+	collector.DefineFsPathFlags(flags)
+
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func setupZapLogger() {
@@ -154,7 +168,14 @@ func registerWatchers() error {
 }
 
 func main() {
-	if *showVersion {
+	if err := parseFlags(os.Args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			os.Exit(2)
+		}
+		os.Exit(1)
+	}
+
+	if showVersion {
 		fmt.Print(global.Version)
 		os.Exit(0)
 	}
@@ -173,8 +194,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	global.BlockchainNode = discover.AutoConfig(*reset)
-	if *configureOnly {
+	global.BlockchainNode = discover.AutoConfig(reset)
+	if configureOnly {
 		zap.S().Info("configure only mode on, exiting")
 
 		os.Exit(0)
