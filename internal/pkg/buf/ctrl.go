@@ -314,7 +314,7 @@ func (c *Controller) EmitEvent(ctx map[string]interface{}, name string) error {
 	}
 
 	if err := c.BufInsert(item); err != nil {
-		zap.S().Errorw("buffer insert error", err)
+		zap.S().Errorw("buffer insert error", zap.Error(err))
 
 		return err
 	}
