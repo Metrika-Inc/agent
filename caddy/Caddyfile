@@ -11,22 +11,19 @@ http://127.0.0.1:2379 {
 	# Required by Metrika Agent for container discovery
 	@containersurl {
 		method GET
-        header X-Ma-User metrikad
-		path_regexp /v1.24/containers/json
+		path /v1.24/containers/json
 	}
 
 	# Required by Metrika Agent to stream container logs
 	@containerlogsurl {
 		method GET
-        header X-Ma-User metrikad
-		path_regexp /v1.24/containers/dapper-private-network-consensus_1-1/logs
+		path /v1.24/containers/<ma_container>/logs
 	}
 
 	# Required by Metrika Agent to track container state (i.e. restart, stop etc.)
 	@eventsurl {
 		method GET
-        header X-Ma-User metrikad
-		path_regexp /v1.24/events
+		path /v1.24/events
 	}
 
 	reverse_proxy @containersurl unix///var/run/docker.sock
