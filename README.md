@@ -9,7 +9,7 @@ The Metrika Agent is a configurable software agent that regularly collects metri
 The Metrika Agent can be installed either as a systemd service or as a Docker container.
 
 ### Systemd
-To run the agent as a systemd service you can download and run the [Installation Script](install.sh) using this one-liner:
+To install and run the agent as a systemd service you can download and run the [Installation Script](install.sh) using this one-liner:
 ```bash
 MA_PLATFORM={platform_endpoint} MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)"
 ```
@@ -25,8 +25,50 @@ The script serves as installer by default, but can also be used with flags `--up
 
 The agent can run as a standalone binary, as long as configuration files are set up correctly.
 
+### Systemd (non-root)
+These instructions require running Caddyserver as Docker proxy. Before proceeding, make sure a proxy is listening on a `DOCKER_HOST` address and forwards requests to the host Docker daemon non-networked socket. You can find instructions about a recommended setup [here](#using-a-docker-reverse-proxy).
+
+To install and run the agent as a systemd service without adding `metrikad` user to `docker` group, use the following one-liner:
+```bash
+MA_PLATFORM={platform_endpoint} DOCKER_HOST=tcp://127.0.0.1:2379 DOCKER_API_VERSION=1.41 MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)" -- --no-docker-grp
+```
+
+### Docker
+To run the agent in a Docker container using the latest image use this one-liner:
+```bash
+docker run --rm \
+    -d \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v /proc:/host/proc:ro \
+    -v /sys:/host/sys:ro \
+    -e MA_PLATFORM={platform_endpoint} \
+    -e MA_API_KEY={api_key} \
+    --name metrikad-{blockchain} \
+    --network host \
+    ghcr.io/Metrika-Inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
+```
+
+### Docker (non-root)
+Similarly to the corresponding systemd section, these instructions require setting up a docker proxy. You can find more about a recommended setup [here](#using-a-docker-reverse-proxy).
+
+To run the agent in a Docker container with a user that has no elevated permissions use this one-liner:
+```bash
+docker run --rm \
+    -d \
+    -v /proc:/host/proc:ro \
+    -v /sys:/host/sys:ro \
+    -e MA_PLATFORM={platform_endpoint} \
+    -e MA_API_KEY={api_key} \
+    -e DOCKER_HOST=$DOCKER_HOST \
+    -e DOCKER_API_VERSION=1.41 \
+    --name metrikad-{blockchain} \
+    --network host \
+    --user metrikad \
+    ghcr.io/Metrika-Inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
+```
+
 ### Using a Docker reverse proxy
-To avoid adding the `metrikad` user to the `docker` group, you can use a reverse proxy. The reverse proxy filters traffic before it reaches the non-networked Docker socket, limiting the docker API calls the agent can make. Note that the reverse proxy still needs to be executed by a user that belongs to the docker group, so it can proxy requests to the UNIX socket.
+To avoid adding the metrikad user to the docker group, you can use a reverse proxy. The reverse proxy filters traffic before it reaches the non-networked Docker socket, preventing the agent process from speaking directly to it. The reverse proxy still needs a user that belongs to the docker group to run it so it can proxy requests to the UNIX socket.
 
 The following process assumes a Debian based host and describes the steps required to install the agent, using [Caddy](https://caddyserver.com/) as a reverse proxy to the Docker daemon. The `Caddyfile` used is the least required configuration needed by the agent to perform its container discovery operations.
 
@@ -58,21 +100,18 @@ sudo -u metrikad docker -H tcp://127.0.0.1:2379 ps
 ```bash
 sudo -u metrikad docker ps
 ```
-### Docker
-To run the agent as a Docker container you can download the latest docker image from [hub.docker.com](http://hub.metrika.co/r/metrika/agent) and run the agent using this one-liner:
-```bash
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc:/host/proc:ro -v /sys:/host/sys:ro -e MA_PLATFORM={platform_endpoint} -e MA_API_KEY={api_key} --name metrikad-flow agent:<version>
-
-```
-
 ### Supported Blockchains
 This is the list of all currently supported blockchains (several coming soon and we welcome contributions!):
 * [flow](https://flow.com/)
 
 ## Configuration
-The agent's configuration is set to sane defaults out of the box - in most use cases tinkering the configuration is unnecessary.
+The agent loads its configuration by looking at the following sources in order:
+1. Load configuration `agent.yml` from `./configs` or current directory. The first to be found takes effect. If no files exist, proceed to step 2.
+2. Load configuration from environment variables and overload any parameter set.
+3. Ensure sane defaults are set for configuration parameters that has not been set by a configuration file or an environment variable.
+4. Ensure loaded configuration has all required parameters set.
 
-Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation.
+Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation. All configuration parameters can be overloaded by environment variables prefixed by `MA`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
 
 ### Parameter details
 This covers a subset of configuration options that are most likely to be changed:
@@ -82,6 +121,7 @@ This covers a subset of configuration options that are most likely to be changed
 * `runtime.logging.level` - verbosity of the logs. Default - `warning`. Recommended to increase to `debug` when troubleshooting.
 * `runtime.use_exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
 * `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
+
 ## Agent internals
 ### Watchers
 A watcher is responsible for collecting metrics or events from a single source at regular intervals. Watchers are composable - a watcher can collect data from another watcher to do additional transformations on data.

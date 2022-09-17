@@ -15,7 +15,7 @@ MAKEFLAGS += --warn-undefined-variables
 
 # This version-strategy uses git tags to set the version string
 VERSION ?= $(shell git describe --tags --always --dirty)
-VERSION ?= v0.0.1
+VERSION ?= v0.0.1unknown
 
 HASH := $(shell git rev-parse --short HEAD)
 
@@ -39,6 +39,10 @@ LINUX_GOARCHAR = amd64 arm64
 DARWIN_GOARCHAR = amd64 arm64
 
 OSAR = LINUX DARWIN
+
+# Docker
+DOCKER = $(shell which docker)
+DOCKERFILE := ./docker/Dockerfile
 
 PROTOBIND = protobind
 
@@ -78,7 +82,7 @@ cover-%: test-%
 
 .PHONY: $(PROTOBIND)
 $(PROTOBIND):
-	@cd $(PROTOBIND) && $(MAKE) install 
+	@cd $(PROTOBIND) && $(MAKE) install
 
 .PHONY: generate-%
 generate-%: $(PROTOBIND)
@@ -109,12 +113,21 @@ build-%-strip: generate-%
 checksum-%:
 	sha256sum metrikad-${*}-$(GOOS)-$(GOARCH) > metrikad-${*}-$(GOOS)-$(GOARCH).sha256
 
+.PHONY: docker-build-%
+docker-build-%: generate-%
+	echo "Building Metrikad Docker agent"
+	$(DOCKER) build -f $(DOCKERFILE) \
+		-t metrikad-${*}:${VERSION} \
+		--build-arg MA_PROTOCOL=${*} \
+		--build-arg MA_VERSION=${VERSION} \
+		--build-arg MA_OS_ARCH=$(GOARCH) .
+
 .PHONY: protogen
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
 	rm -rf $(PWD)/tmp/include/google $(PWD)/tmp/go/io
 	mkdir -p tmp/include tmp/go tmp/bin tmp/openmetrics api/v1/proto/openmetrics
-	
+
 	cd $(PROTOC_TMP); curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_VERSION)-$(PROTOC_OS)-$(PROTOC_ARCH).zip -o protoc.zip
 	cd $(PROTOC_TMP); unzip protoc.zip && mv include/google $(PWD)/tmp/include/
 	cd $(PROTOC_TMP); git clone https://github.com/prometheus/client_model.git && mv client_model/io/ $(PWD)/tmp/go/
@@ -153,6 +166,9 @@ build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-strip)
 
 .PHONY: build-dbg
 build-dbg: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-dbg)
+
+.PHONY: docker-build
+docker-build: $(PROTOBIND) $(foreach b,$(PROTOS),docker-build-$(b))
 
 .PHONY: clean-%
 clean-%:
