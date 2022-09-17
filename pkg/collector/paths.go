@@ -14,6 +14,7 @@
 package collector
 
 import (
+	"flag"
 	"path/filepath"
 	"strings"
 
@@ -27,6 +28,15 @@ var (
 	sysPath    = sysfs.DefaultMountPoint
 	rootfsPath = "/"
 )
+
+// DefineFsPathFlags will use flag.Parse to override paths
+// for procfs, sysfs and rootfs. Useful when agent runs inside a container
+// where the host filesystem is mounted as ro.
+func DefineFsPathFlags(flags *flag.FlagSet) {
+	flags.StringVar(&procPath, "procfs", procfs.DefaultMountPoint, "procfs mountpoint used by Prometheus node exporter collectors.")
+	flags.StringVar(&sysPath, "sysfs", sysfs.DefaultMountPoint, "sysfs mountpoint used by Prometheus node exporter collectors.")
+	flags.StringVar(&rootfsPath, "rootfs", "/", "rootfs mountpoint used by Prometheus node exporter collectors.")
+}
 
 func procFilePath(name string) string {
 	return filepath.Join(procPath, name)
