@@ -86,18 +86,20 @@ func (h *HTTPWatch) StartUnsafe() {
 				}
 
 				resp, err := h.client.Do(req)
-				cancel()
 				if err != nil {
+					cancel()
 					h.Log.Errorw("http request failed", zap.Error(err))
 					continue
 				}
 				if resp.StatusCode > 299 {
+					cancel()
 					h.Log.Errorw("http request failed", "status_code", resp.StatusCode)
 					resp.Body.Close()
 					continue
 				}
 
 				out, err := io.ReadAll(resp.Body)
+				cancel()
 				if err != nil {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
 					resp.Body.Close()
