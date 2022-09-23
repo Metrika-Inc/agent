@@ -74,9 +74,9 @@ func (h *HTTPWatch) StartUnsafe() {
 			select {
 			case <-time.After(h.Interval):
 				ctx, cancel := context.WithTimeout(context.Background(), h.Timeout)
-				defer cancel()
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.URL, nil)
 				if err != nil {
+					cancel()
 					h.Log.Errorw("invalid http request", zap.Error(err))
 					continue
 				}
@@ -87,16 +87,19 @@ func (h *HTTPWatch) StartUnsafe() {
 
 				resp, err := h.client.Do(req)
 				if err != nil {
+					cancel()
 					h.Log.Errorw("http request failed", zap.Error(err))
 					continue
 				}
 				if resp.StatusCode > 299 {
+					cancel()
 					h.Log.Errorw("http request failed", "status_code", resp.StatusCode)
 					resp.Body.Close()
 					continue
 				}
 
 				out, err := io.ReadAll(resp.Body)
+				cancel()
 				if err != nil {
 					h.Log.Errorw("failed to read PEF body", zap.Error(err))
 					resp.Body.Close()

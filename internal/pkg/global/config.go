@@ -73,6 +73,7 @@ type PlatformConfig struct {
 // BufferConfig used for configuring data buffering by the agent.
 type BufferConfig struct {
 	MaxHeapAlloc uint64        `yaml:"max_heap_alloc"`
+	MinBufSize   int           `yaml:"min_buffer_size"`
 	TTL          time.Duration `yaml:"ttl"`
 }
 
