@@ -23,9 +23,10 @@ import (
 )
 
 // TestControllerDrainBatch uses:
-// - a controller with a priority buffer of size bufSz,
-//   n pre inserted metrics and batch size 1.
-// - a goroutine to run the controller
+//   - a controller with a priority buffer of size bufSz,
+//     n pre inserted metrics and batch size 1.
+//   - a goroutine to run the controller
+//
 // and after stopping the controller checks:
 // - drain callback batch size is equal to MaxDrainBatchLen
 func TestControllerDrainBatch(t *testing.T) {
@@ -152,9 +153,10 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 }
 
 // TestControllerDrain uses:
-// - a controller with a priority buffer of size bufSz,
-//   n pre inserted metrics and batch size 2*n.
-// - a goroutine to run the controller
+//   - a controller with a priority buffer of size bufSz,
+//     n pre inserted metrics and batch size 2*n.
+//   - a goroutine to run the controller
+//
 // and checks:
 // - batch smaller than MaxDrainBatchLen is evicted periodically
 func TestControllerDrain(t *testing.T) {
@@ -251,4 +253,44 @@ func TestController_HeapAllocLimitError(t *testing.T) {
 	err = ctrl.BufInsert(m[0])
 	require.Error(t, err)
 	require.IsType(t, ErrHeapAllocLimit, err)
+}
+
+func TestController_HeapAllocLimitMinBytes(t *testing.T) {
+	n := 5
+	onDrain := func(b ItemBatch) error {
+		return nil
+	}
+
+	conf := ControllerConf{
+		BufDrainFreq:         1 * time.Millisecond,
+		BufLenLimit:          1,
+		OnBufRemoveCallback:  onDrain,
+		MinBufSize:           8,
+		MemStatsCacheTimeout: time.Hour,
+	}
+
+	pb := NewPriorityBuffer(time.Duration(0))
+	m := newTestItemBatch(n)
+
+	err := pb.Insert(m...)
+	require.NoError(t, err)
+
+	ctrl := NewController(conf, pb)
+	// update cached memstats to mimic the limit error
+	ctrl.ControllerConf.MaxHeapAllocBytes = 100
+	ctrl.memstats.HeapAlloc = 200
+	ctrl.memstatsUpdatedAt = time.Now()
+
+	// since minBufSize is 8, expect 3 more items to insert successfully
+	for i := 0; i < n; i++ {
+		err = ctrl.BufInsert(m[i])
+		if i+1 > 3 {
+			require.Error(t, err, "insertion #%d", i)
+			require.IsType(t, ErrHeapAllocLimit, err)
+		} else {
+			require.NoError(t, err, "insertion #%d", i)
+		}
+
+	}
+
 }

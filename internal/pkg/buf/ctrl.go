@@ -57,6 +57,10 @@ type ControllerConf struct {
 	// MaxHeapAlloc max allowed heap allocated bytes before the controller
 	// starts dropping metrics
 	MaxHeapAllocBytes uint64
+
+	// MinBufSize minimum number of items buffer will accept regardless of
+	// current memstats & MaxHeapAllocBytes interaction.
+	MinBufSize int
 }
 
 // Controller starts a goroutine to perform periodic buffer cleanup. It also exposes
@@ -172,8 +176,8 @@ func (c *Controller) checkMemStats() error {
 		c.memstatsUpdatedAt = time.Now()
 		zap.S().Debugw("memstats refreshed", "max_heap_alloc_bytes", c.memstats.HeapAlloc, "max_heap_alloc", c.MaxHeapAllocBytes)
 	}
-
-	if c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
+	l := c.B.Len()
+	if l >= c.MinBufSize && c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
 		return ErrHeapAllocLimit
 	}
 
