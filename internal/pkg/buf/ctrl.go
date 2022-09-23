@@ -176,8 +176,8 @@ func (c *Controller) checkMemStats() error {
 		c.memstatsUpdatedAt = time.Now()
 		zap.S().Debugw("memstats refreshed", "max_heap_alloc_bytes", c.memstats.HeapAlloc, "max_heap_alloc", c.MaxHeapAllocBytes)
 	}
-	l := c.B.Len()
-	if l >= c.MinBufSize && c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
+
+	if c.B.Len() >= c.MinBufSize && c.memstats.HeapAlloc > c.MaxHeapAllocBytes {
 		return ErrHeapAllocLimit
 	}
 
