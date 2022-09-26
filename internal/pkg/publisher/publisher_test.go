@@ -287,6 +287,10 @@ func TestPublisher_Error(t *testing.T) {
 
 	tr, err := transport.NewPlatformGRPC(transportConf)
 	require.Nil(t, err)
+	tr.GrpcErrHandler = func() error {
+		tr.AgentService = nil
+		return nil
+	}
 
 	bufCtrlConf := buf.ControllerConf{
 		BufLenLimit:         conf.MaxBatchLen,

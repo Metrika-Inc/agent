@@ -68,6 +68,10 @@ type PlatformGRPCConf struct {
 
 	// Dialer
 	Dialer func(context.Context, string) (net.Conn, error)
+
+	// GrpcErrHandler is called if a transmit to the platform fails.
+	// Clean up connection here.
+	GrpcErrHandler func() error
 }
 
 // PlatformGRPC implements a GRPC client for publishing data to the
@@ -97,7 +101,11 @@ func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 		conf.TransmitTimeout = defaultTransmitTimeout
 	}
 
-	return &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}, nil
+	p := &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}
+
+	p.GrpcErrHandler = p.grpcErrorHandler
+
+	return p, nil
 }
 
 // Publish publishes a slice of messages to the platform by invoking
@@ -130,13 +138,19 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 		zap.S().Errorw("failed to transmit to the platform", zap.Error(err), "addr", t.URL)
 
 		// mark service for repair
-		t.AgentService = nil
-		t.grpcConn.Close()
+		if err := t.GrpcErrHandler(); err != nil {
+			zap.S().Errorw("grpc error handler function failed", zap.Error(err))
+		}
 
 		return 0, err
 	}
 
 	return resp.Timestamp, nil
+}
+
+func (t *PlatformGRPC) grpcErrorHandler() error {
+	t.AgentService = nil
+	return t.grpcConn.Close()
 }
 
 func (t *PlatformGRPC) connect() error {
