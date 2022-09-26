@@ -68,6 +68,10 @@ type PlatformGRPCConf struct {
 
 	// Dialer
 	Dialer func(context.Context, string) (net.Conn, error)
+
+	// GrpcErrHandler is called if a transmit to the platform fails.
+	// Clean up connection here.
+	GrpcErrHandler func() error
 }
 
 // PlatformGRPC implements a GRPC client for publishing data to the
@@ -97,7 +101,11 @@ func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 		conf.TransmitTimeout = defaultTransmitTimeout
 	}
 
-	return &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}, nil
+	p := &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}
+
+	p.GrpcErrHandler = p.grpcErrorHandler
+
+	return p, nil
 }
 
 // Publish publishes a slice of messages to the platform by invoking
@@ -106,7 +114,7 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*t.TransmitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), t.TransmitTimeout)
 	defer cancel()
 
 	metrikaMsg := model.PlatformMessage{
@@ -130,12 +138,19 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 		zap.S().Errorw("failed to transmit to the platform", zap.Error(err), "addr", t.URL)
 
 		// mark service for repair
-		t.AgentService = nil
+		if err := t.GrpcErrHandler(); err != nil {
+			zap.S().Errorw("grpc error handler function failed", zap.Error(err))
+		}
 
 		return 0, err
 	}
 
 	return resp.Timestamp, nil
+}
+
+func (t *PlatformGRPC) grpcErrorHandler() error {
+	t.AgentService = nil
+	return t.grpcConn.Close()
 }
 
 func (t *PlatformGRPC) connect() error {
@@ -176,7 +191,7 @@ func (t *PlatformGRPC) PublishFunc(b buf.ItemBatch) error {
 		batch = append(batch, m)
 	}
 
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		timestamp, err := t.Publish(batch)
 		if err != nil {

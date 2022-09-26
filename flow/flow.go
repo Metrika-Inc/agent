@@ -273,6 +273,7 @@ func (d *Flow) configurePEFEndpoints() error {
 		if err != nil {
 			continue
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode <= 204 {
 			zap.S().Infow("found PEF metrics", "endpoint", endpoint)
 			// MetricEndpoints[0].URL is hardcoded as "" in template
