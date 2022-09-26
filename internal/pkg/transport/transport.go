@@ -106,7 +106,7 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*t.TransmitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), t.TransmitTimeout)
 	defer cancel()
 
 	metrikaMsg := model.PlatformMessage{
