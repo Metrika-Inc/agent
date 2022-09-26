@@ -177,7 +177,7 @@ func (t *PlatformGRPC) PublishFunc(b buf.ItemBatch) error {
 		batch = append(batch, m)
 	}
 
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		timestamp, err := t.Publish(batch)
 		if err != nil {
