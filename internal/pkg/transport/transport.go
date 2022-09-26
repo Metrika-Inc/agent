@@ -131,6 +131,7 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 
 		// mark service for repair
 		t.AgentService = nil
+		t.grpcConn.Close()
 
 		return 0, err
 	}
