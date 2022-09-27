@@ -235,7 +235,7 @@ func TestController_HeapAllocLimitError(t *testing.T) {
 		BufDrainFreq:        1 * time.Millisecond,
 		BufLenLimit:         1,
 		OnBufRemoveCallback: onDrain,
-		MinBufSize:          1,
+		MinBufSize:          2500,
 	}
 
 	pb := NewPriorityBuffer(time.Duration(0))
