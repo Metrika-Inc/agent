@@ -40,7 +40,7 @@ const (
 	defaultMemStatsCacheTimeout = 15 * time.Second
 
 	// defaultMinBufSize min number of items to be buffered regardless of memstats
-	defaultMinBufSize = 25000
+	defaultMinBufSize = 2500
 )
 
 // ControllerConf controller configuration
