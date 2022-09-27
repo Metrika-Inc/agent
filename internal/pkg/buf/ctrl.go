@@ -38,6 +38,9 @@ const (
 
 	// defaultMemStatsCacheTimeout default timeout for runtime.MemStats()
 	defaultMemStatsCacheTimeout = 15 * time.Second
+
+	// defaultMinBufSize min number of items to be buffered regardless of memstats
+	defaultMinBufSize = 25000
 )
 
 // ControllerConf controller configuration
@@ -94,6 +97,10 @@ func NewController(conf ControllerConf, b Buffer) *Controller {
 
 	if conf.MaxHeapAllocBytes == 0 {
 		conf.MaxHeapAllocBytes = defaultMaxHeapAllocBytes
+	}
+
+	if conf.MinBufSize == 0 {
+		conf.MinBufSize = defaultMinBufSize
 	}
 
 	var memstats runtime.MemStats
