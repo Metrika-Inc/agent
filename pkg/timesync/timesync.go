@@ -171,7 +171,6 @@ func (t *TimeSync) QueryNTP() error {
 		if err == nil {
 			break
 		}
-		log.Warnw("error querying NTP server", "attempt", i+1, zap.Error(err))
 	}
 	if err != nil {
 		return err
