@@ -1,13 +1,5 @@
 # Thanks to https://raesene.github.io/blog/2021/09/05/restricting-docker-access-with-a-proxy/
-{
-	debug
-}
-
 http://127.0.0.1:2379 {
-	log {
-		level DEBUG
-	}
-
 	# Required by Metrika Agent for container discovery
 	@containersurl {
 		method GET
