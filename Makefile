@@ -85,8 +85,17 @@ generate-%: $(PROTOBIND)
 	MA_SRC_PATH=$(dir $(abspath $(lastword $(MAKEFILE_LIST)))) \
 		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go generate -tags=$* ./...
 
-.PHONY: build-%
-build-%: generate-%
+.PHONY: build-%-dbg
+build-%-dbg: generate-%
+	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH)-dbg -tags=${*} -ldflags=" \
+	-X 'agent/internal/pkg/global.Version=${VERSION}' \
+	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
+	-X 'agent/internal/pkg/global.Blockchain=${*}' \
+	" cmd/agent/main.go
+
+.PHONY: build-%-strip
+build-%-strip: generate-%
 	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
 	-s \
@@ -96,9 +105,11 @@ build-%: generate-%
 	-X 'agent/internal/pkg/global.Blockchain=${*}' \
 	" cmd/agent/main.go
 
+.PHONY: checksum-%
 checksum-%:
 	sha256sum metrikad-${*}-$(GOOS)-$(GOARCH) > metrikad-${*}-$(GOOS)-$(GOARCH).sha256
 
+.PHONY: protogen
 protogen:
 	$(eval PROTOC_TMP := $(shell mktemp -d))
 	rm -rf $(PWD)/tmp/include/google $(PWD)/tmp/go/io
@@ -127,17 +138,21 @@ fmt:
 	go fmt ./...
 
 
-build-all-debug:
+.PHONY: build-all-echo
+build-all-echo:
 	echo "protogen $(PROTOBIND) $(foreach o,$(OSAR),$(foreach a,$($(o)_GOARCHAR),$(foreach p,$(PROTOS),$(shell echo $(o) | tr A-Z a-z)-$(a)-env build-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p) checksum-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p))))"
 
 .PHONY: build-linux-amd64
-build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b)-strip checksum-$(b))
 
 .PHONY: build-linux-arm64
-build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b) checksum-$(b))
+build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b)-strip checksum-$(b))
 
 .PHONY: build
-build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b))
+build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-strip)
+
+.PHONY: build-dbg
+build-dbg: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-dbg)
 
 .PHONY: clean-%
 clean-%:
