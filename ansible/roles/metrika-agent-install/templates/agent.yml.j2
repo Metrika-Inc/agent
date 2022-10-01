@@ -29,6 +29,10 @@ buffer:
   # dropping metrics (default: 50MB).
   max_heap_alloc: 52428800
 
+  # min_buffer_size: integer, the number of messages accepted into the buffer
+  # regardless of max_heap_alloc value.
+  min_buffer_size: 2500
+
   # ttl: duration, a Time-To-Live for any buffered data. Data will never expire
   # for zero TTL values and stay in the buffer until they are evicted for publishing.
   ttl: 0s
@@ -58,7 +62,7 @@ runtime:
 
   # metrics_addr: string, network address to get Prometheus metrics about the
   # agent's runtime.
-  metrics_addr: :9000
+  metrics_addr: 127.0.0.1:9000
 
   # sampling_interval: duration, default interval used by Watchers that use
   # polling for collecting metrics/events.
