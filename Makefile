@@ -89,6 +89,8 @@ generate-%: $(PROTOBIND)
 build-%: generate-%
 	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
+	-s \
+	-w \
 	-X 'agent/internal/pkg/global.Version=${VERSION}' \
 	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
 	-X 'agent/internal/pkg/global.Blockchain=${*}' \
