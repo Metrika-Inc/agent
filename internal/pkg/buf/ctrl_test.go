@@ -14,7 +14,9 @@
 package buf
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -52,10 +54,14 @@ func TestControllerDrainBatch(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start()
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
+	cancelFunc()
+	wg.Wait()
 
 	select {
 	case b := <-drainCh:
@@ -72,10 +78,15 @@ func TestControllerDrainBatch(t *testing.T) {
 
 	conf.BufLenLimit = 1
 	ctrl = NewController(conf, pb)
-	go ctrl.Start()
+
+	wg = &sync.WaitGroup{}
+	ctx, cancelFunc = context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
+	cancelFunc()
+
 	require.Equal(t, 0, pb.Len())
 
 	for i := 0; i < n; i++ {
@@ -112,10 +123,14 @@ func TestControllerDrainCallback(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start()
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
+
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
+	cancelFunc()
 
 	select {
 	case b := <-drainCh:
@@ -128,7 +143,10 @@ func TestControllerDrainCallback(t *testing.T) {
 
 func TestControllerDrainCallbackErr(t *testing.T) {
 	n := 5
+
+	onDrainCh := make(chan bool, n)
 	onDrain := func(b ItemBatch) error {
+		onDrainCh <- true
 		return fmt.Errorf("drain test error")
 	}
 
@@ -145,11 +163,20 @@ func TestControllerDrainCallbackErr(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start()
+
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
-	require.Equal(t, n+1, pb.Len()) // +1 to compensate for agent.net.error event
+	cancelFunc()
+	wg.Wait()
+
+	// n+2 to compensate for two agent.net.error events:
+	// first emitted during the scheduled BufDrain() call and
+	// second during the BufDrain() call by cancelFunc()
+	require.Equalf(t, n+2, pb.Len(), "%+v", pb.q[0].items)
 }
 
 // TestControllerDrain uses:
@@ -182,10 +209,13 @@ func TestControllerDrain(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start()
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
+	cancelFunc()
 
 	select {
 	case b := <-drainCh:
@@ -216,10 +246,13 @@ func TestControllerClose(t *testing.T) {
 	require.NoError(t, err)
 
 	ctrl := NewController(conf, pb)
-	go ctrl.Start()
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wg.Add(1)
+	go ctrl.Start(ctx, wg)
 	<-time.After(100 * time.Millisecond)
 
-	ctrl.Stop()
+	cancelFunc()
 
 	assert.Equal(t, 0, pb.Len())
 }
