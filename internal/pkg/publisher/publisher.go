@@ -104,12 +104,10 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 	t.forceSendAgentUp(agentUppedTime)
 
 	// start buffer controller
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
-		t.bufCtrl.Start()
-	}()
+	wg.Add(1)
+	go t.bufCtrl.Start(ctx, wg)
 
 	// start goroutine for metric ingestion
 	wg.Add(1)
@@ -130,7 +128,7 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 				}
 			case <-t.closeCh:
 				log.Debug("stopping buf controller, ingestion goroutine exiting")
-				t.bufCtrl.Stop()
+				cancelFunc()
 
 				return
 			}

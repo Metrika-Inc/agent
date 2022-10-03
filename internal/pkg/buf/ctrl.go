@@ -14,7 +14,9 @@
 package buf
 
 import (
+	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	"agent/api/v1/model"
@@ -122,7 +124,9 @@ var ErrHeapAllocLimit = errors.New("heap allocated bytes limit reached")
 // on two timers: by default periodically and falls back to exponential
 // backoff if an error occurs while draining. When it recovers, the
 // goroutine switches back to periodic drains.
-func (c *Controller) Start() {
+func (c *Controller) Start(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	log := zap.S()
 	log.Debug("starting buffer controller")
 
@@ -132,7 +136,7 @@ func (c *Controller) Start() {
 	select {
 	case <-time.After(c.BufDrainFreq):
 		backof.Reset()
-	case <-c.closeCh:
+	case <-ctx.Done():
 		c.BufDrain()
 
 		return
@@ -148,7 +152,7 @@ func (c *Controller) Start() {
 			select {
 			case <-time.After(nextBo):
 				continue
-			case <-c.closeCh:
+			case <-ctx.Done():
 				c.BufDrain()
 
 				return
@@ -159,7 +163,7 @@ func (c *Controller) Start() {
 		select {
 		case <-time.After(c.BufDrainFreq):
 			backof.Reset()
-		case <-c.closeCh:
+		case <-ctx.Done():
 			c.BufDrain()
 
 			return
@@ -168,11 +172,6 @@ func (c *Controller) Start() {
 		log.Debug("scheduled drain ok")
 		log.Debugw("buffer stats", "buffer_length", c.B.Len())
 	}
-}
-
-// Stop stops the controller
-func (c *Controller) Stop() {
-	close(c.closeCh)
 }
 
 // checkMemStats refreshes memstats if they expired and checks
