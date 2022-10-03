@@ -1,0 +1,52 @@
+name: "PR Notify"
+on:
+  pull_request:
+    types: [opened, reopened, edited, closed]
+
+jobs:
+  pr_notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "PR Notify"
+        if: success()
+        id: pr_notify
+        run: |
+          echo "Title: ${{ github.event.pull_request.title }}"
+          echo "Body: ${{ github.event.pull_request.body }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "Status: ${{ github.event.status }}"
+          echo "Opened: ${{ github.event.opened }}"
+          echo "Closed: ${{ github.event.closed }}"
+          echo "Merged: ${{ github.event.merged }}"
+          echo "Number: ${{ github.event.number }}"
+          echo "Changed: ${{ github.event.changes }}"
+          echo "Reason: ${{ github.event.reason }}"
+          echo "Sender: ${{ github.event.sender }}"
+          echo "Event Name: ${{ github.event_name }}"
+      - name: PR Notify Edited
+        if: ${{ github.event.action == 'edited'}}
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: ${{ github.event.pull_request.body }}
+          SLACK_TITLE:  PR edited - ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          # SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+      - name: PR Notify Closed
+        if: ${{ github.event.action == 'closed'}}
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_MESSAGE: Reason - ${{ github.event.reason }}
+          SLACK_TITLE: PR closed - ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          # SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: "#FF0000"
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+
