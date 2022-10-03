@@ -1,0 +1,58 @@
+name: "PR Notify"
+on:
+  pull_request:
+    types: [opened, reopened, closed, edited]
+
+jobs:
+  pr_notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR Notify Closed
+        if: ${{ github.event.action == 'closed'}}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_TITLE: ${{ github.event.pull_request.user.login }} Closed PR ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: "#FF0000"
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+      - name: PR Notify Opened
+        if: ${{ github.event.action == 'opened'}}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_TITLE: ${{ github.event.pull_request.user.login }} Opened PR ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+      - name: PR Notify Reopened
+        if: ${{ github.event.action == 'reopened'}}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_TITLE: ${{ github.event.pull_request.user.login }} Reopened PR ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: "#FFA500"
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+      - name: PR Notify Merged
+        if: github.event.pull_request.merged == true
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_TITLE: ${{ github.event.pull_request.user.login }} Merged PR ${{ github.event.pull_request.title }}
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: "#4B0082"
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+

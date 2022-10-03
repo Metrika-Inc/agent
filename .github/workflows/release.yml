@@ -121,7 +121,7 @@ jobs:
       - name: Slack Notification Failure
         if: failure()
         id: status
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub Release Metrika Agent
@@ -134,7 +134,7 @@ jobs:
 
       - name: Slack Notification Success
         if: success()
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub Release Metrika Agent
