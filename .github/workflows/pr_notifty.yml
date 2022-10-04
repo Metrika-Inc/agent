@@ -11,7 +11,7 @@ jobs:
         if: ${{ github.event.action == 'closed' && github.event.pull_request.merged != true }}
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.html_url }} ${{ github.event.pull_request.body }}
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Closed PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -23,7 +23,7 @@ jobs:
         if: ${{ github.event.action == 'opened'}}
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.html_url }} ${{ github.event.pull_request.body }}
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Opened PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -35,7 +35,7 @@ jobs:
         if: ${{ github.event.action == 'reopened'}}
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.html_url }} ${{ github.event.pull_request.body }}
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Reopened PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
@@ -47,7 +47,7 @@ jobs:
         if: github.event.pull_request.merged == true
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
+          SLACK_MESSAGE: Link ${{ github.event.pull_request.html_url }} ${{ github.event.pull_request.body }}
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Merged PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
