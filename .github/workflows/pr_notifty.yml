@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: PR Notify Closed
-        if: ${{ github.event.action == 'closed'}}
+        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged != true }}
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: Link ${{ github.event.pull_request.url }} ${{ github.event.pull_request.body }}
