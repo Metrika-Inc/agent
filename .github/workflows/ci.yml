@@ -35,7 +35,7 @@ jobs:
       - name: Slack Notification Failure
         if: failure()
         id: status
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent running golint
@@ -85,7 +85,7 @@ jobs:
       - name: Slack Notification Failure
         if: failure()
         id: status
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent tests
@@ -188,7 +188,7 @@ jobs:
       - name: Slack Notification Failure
         if: failure()
         id: status_failure
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ steps.run_agent_install_tests.outputs.installer_status }}"
           SLACK_TITLE: GitHub CI Agent Install Tests
@@ -206,12 +206,12 @@ jobs:
     steps:
       - name: Slack Notification Success
         if: success()
-        uses: rtCamp/action-slack-notify@master
+        uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
           SLACK_TITLE: GitHub CI Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
-          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_ICON: https://avatars.githubusercontent.com/u/72256945?s=400&u=69542ec14c7e72b8e1c203782d63e653d6853f0e&v=4&size=48
           SLACK_CHANNEL: "metrika-platform-deploy-staging"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: ${{ job.status }}
