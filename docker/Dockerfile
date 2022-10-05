@@ -8,13 +8,13 @@ ARG MA_VERSION
 ARG MA_PROTOCOL
 
 # Note: git clone is not required when building locally.
-# RUN git clone --depth=1 --branch ${MA_VERSION} --single-branch https://github.com/iogakos/agent.git
+RUN git clone --depth=1 --branch ${MA_VERSION} --single-branch https://github.com/Metrika-Inc/agent.git
 
 # Note: uncomment to build from local source.
-COPY . ./agent
+# COPY . ./agent
 
 WORKDIR /build/agent
-RUN make build-${MA_PROTOCOL}-dbg
+RUN make build-${MA_PROTOCOL}-strip
 
 FROM bitnami/minideb:bullseye
 
@@ -30,8 +30,10 @@ RUN apt-get update && \
 # This user is required when agent is run by a non-root user, for example
 # when the host docker daemon is accessed by a docker proxy.
 RUN adduser --system --home /opt/metrikad --disabled-password metrikad
-RUN mkdir /etc/metrikad
+RUN mkdir -p /etc/metrikad/configs
+RUN mkdir -p /opt/metrikad/.cache
 RUN chown -R metrikad: /etc/metrikad /opt/metrikad
+RUN chmod u+rw /etc/metrikad/configs /opt/metrikad/.cache
 
 # Copy agent binary and configuration
 COPY --from=builder "/build/agent/metrikad-${MA_PROTOCOL}-linux-${MA_OS_ARCH}" "/opt/metrikad/metrikad-${MA_PROTOCOL}"
