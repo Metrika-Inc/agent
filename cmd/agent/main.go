@@ -188,6 +188,8 @@ func main() {
 
 	setupZapLogger()
 
+	zap.S().Debugw("loaded agent config", "config", global.AgentConf)
+
 	if err := global.AgentPrepareStartup(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 
@@ -239,7 +241,7 @@ func main() {
 		BufDrainFreq:        global.AgentConf.Platform.MaxPublishInterval,
 		OnBufRemoveCallback: platform.PublishFunc,
 		MaxHeapAllocBytes:   global.AgentConf.Buffer.MaxHeapAlloc,
-		MinBufSize:          global.AgentConf.Buffer.MinBufSize,
+		MinBufSize:          global.AgentConf.Buffer.MinBufferSize,
 	}
 
 	buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.TTL)

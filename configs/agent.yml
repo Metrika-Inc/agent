@@ -53,12 +53,12 @@ runtime:
     # Possible values are: info, warning (recommended), debug, error.
     level: warning
 
-    # disable_fingerprint_validation: disables fingerprint validation on startup.
-    #
-    # Fingerprint validation is enabled by default and the agent will exit
-    # immediately if checksums of the newly retrieved hostname and the cached do
-    # not match. Checksum is cached under $HOME/.cache/metrikad/fingerprint.
-    disable_fingerprint_validation: false
+  # disable_fingerprint_validation: disables fingerprint validation on startup.
+  #
+  # Fingerprint validation is enabled by default and the agent will exit
+  # immediately if checksums of the newly retrieved hostname and the cached do
+  # not match. Checksum is cached under $HOME/.cache/metrikad/fingerprint.
+  disable_fingerprint_validation: false
 
   # metrics_addr: string, network address to get Prometheus metrics about the
   # agent's runtime.

@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -71,10 +72,38 @@ platform:
 
 	err = os.Setenv("MA_API_KEY", "foobar")
 	err = os.Setenv("MA_PLATFORM", "foobar.addr:443")
+	err = os.Setenv("MA_PLATFORM_BATCH_N", "100")
+	err = os.Setenv("MA_PLATFORM_MAX_PUBLISH_INTERVAL", "1s")
+	err = os.Setenv("MA_PLATFORM_TRANSPORT_TIMEOUT", "2s")
+	err = os.Setenv("MA_PLATFORM_URI", "/")
+	err = os.Setenv("MA_BUFFER_MAX_HEAP_ALLOC", "10000")
+	err = os.Setenv("MA_BUFFER_MIN_BUFFER_SIZE", "100")
+	err = os.Setenv("MA_BUFFER_TTL", "5s")
+	err = os.Setenv("MA_RUNTIME_LOGGING_OUTPUTS", "stdout,stderr")
+	err = os.Setenv("MA_RUNTIME_LOGGING_LEVEL", "info")
+	err = os.Setenv("MA_RUNTIME_DISABLE_FINGERPRINT_VALIDATION", "true")
+	err = os.Setenv("MA_RUNTIME_METRICS_ADDR", "foobar:9000")
+	err = os.Setenv("MA_RUNTIME_SAMPLING_INTERVAL", "5s")
+	err = os.Setenv("MA_RUNTIME_USE_EXPORTERS", "true")
+	err = os.Setenv("MA_RUNTIME_WATCHERS", "foo,bar")
 
 	err = LoadAgentConfig()
 	require.NoError(t, err)
 
 	require.Equal(t, "foobar", AgentConf.Platform.APIKey)
 	require.Equal(t, "foobar.addr:443", AgentConf.Platform.Addr)
+	require.Equal(t, 100, AgentConf.Platform.BatchN)
+	require.Equal(t, 1*time.Second, AgentConf.Platform.MaxPublishInterval)
+	require.Equal(t, 2*time.Second, AgentConf.Platform.TransportTimeout)
+	require.Equal(t, "/", AgentConf.Platform.URI)
+	require.Equal(t, uint64(10000), AgentConf.Buffer.MaxHeapAlloc)
+	require.Equal(t, 100, AgentConf.Buffer.MinBufferSize)
+	require.Equal(t, 5*time.Second, AgentConf.Buffer.TTL)
+	require.Equal(t, []string{"stdout", "stderr"}, AgentConf.Runtime.Log.Outputs)
+	require.Equal(t, "info", AgentConf.Runtime.Log.Lvl)
+	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
+	require.Equal(t, "foobar:9000", AgentConf.Runtime.MetricsAddr)
+	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
+	require.Equal(t, true, AgentConf.Runtime.UseExporters)
+	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
 }
