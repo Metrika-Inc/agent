@@ -66,6 +66,19 @@ func NewPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	return publisher
 }
 
+func NewMetrikaPlatformExporter(conf Config, bufCtrl *buf.Controller) func() (global.Exporter, error) {
+	return func() (global.Exporter, error) {
+		publisher := &Publisher{
+			conf:    conf,
+			closeCh: make(chan interface{}),
+			log:     zap.S().With("publisher", "transport"),
+			bufCtrl: bufCtrl,
+		}
+
+		return publisher, nil
+	}
+}
+
 func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 	log := zap.S()
 
@@ -93,7 +106,7 @@ func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 
 // Start starts the goroutine for periodically publishing
 // agent.up events to the platform.
-func (t *Publisher) Start(wg *sync.WaitGroup) {
+func (t *Publisher) Start(ctx context.Context, wg *sync.WaitGroup) {
 	log := zap.S()
 
 	agentUpCtx := make(map[string]interface{}, 1)
@@ -102,9 +115,6 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 
 	// send agent.up immediately bypassing all buffers
 	t.forceSendAgentUp(agentUppedTime)
-
-	// start buffer controller
-	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	wg.Add(1)
 	go t.bufCtrl.Start(ctx, wg)
@@ -126,9 +136,8 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 				if err := t.bufCtrl.EmitEvent(agentUpCtx, model.AgentUpName); err != nil {
 					log.Warnw("error emitting event", "event", model.AgentUpName, zap.Error(err))
 				}
-			case <-t.closeCh:
+			case <-ctx.Done():
 				log.Debug("stopping buf controller, ingestion goroutine exiting")
-				cancelFunc()
 
 				return
 			}

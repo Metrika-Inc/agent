@@ -118,7 +118,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	pub.Start(context.Background(), pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -208,7 +208,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	pub.Start(context.Background(), pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -305,7 +305,7 @@ func TestPublisher_Error(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(wg)
+	pub.Start(context.Background(), wg)
 	go func() {
 		for i := 0; i < n; i++ {
 			m := &model.Message{
@@ -387,7 +387,8 @@ func TestPublisher_Stop(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -408,7 +409,7 @@ func TestPublisher_Stop(t *testing.T) {
 	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.bufCtrl.B.Len())
 
-	pub.Stop()
+	cancel()
 	pubWg.Wait()
 
 	select {
@@ -470,7 +471,7 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	pub.Start(context.Background(), pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)

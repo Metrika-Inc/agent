@@ -1,27 +1,4 @@
 ---
-platform:
-
-  # api_key: authentication key for the Metrika platform
-  api_key: <api_key>
-
-  # batch_n: integer, the maximum number of metrics/events to be emitted at
-  # each publish operation to the platform.
-  batch_n: 1000
-
-  # max_publish_interval: duration, the maximum interval to wait between two
-  # consecutive publish operations to the platform.
-  max_publish_interval: 5s
-  
-  # transport_timeout: duration, configures the timeout for publish
-  # operations to the platform.
-  transport_timeout: 10s
-
-  # addr: string, network address of the platform for publishing
-  addr: <platform_addr>
-
-  # uri: string, platform publishing endpoint
-  uri: /
-
 buffer:
 
   # max_heap_alloc: integer, the maximum bytes of allocated heap objects as reported
@@ -68,10 +45,35 @@ runtime:
   # polling for collecting metrics/events.
   sampling_interval: 5s
 
-  # use_exporters: boolean, enables exporter implementations under
-  # pkg/contrib. Used to process and/or send data to other sources than
-  # Metrika Platform. Default value is false.
-  use_exporters: false
+  # sampling_timeout: duration, default timeout duration for sample collections
+  sampling_timeout: 10s
+
+  # # use_exporters: boolean, enables exporter implementations under
+  # # pkg/contrib. Used to process and/or send data to other sources than
+  # # Metrika Platform. Default value is false.
+  # use_exporters: false
+  exporters:
+    metrika_platform:
+      # api_key: authentication key for the Metrika platform
+      api_key: <api_key>
+
+      # batch_n: integer, the maximum number of metrics/events to be emitted at
+      # each publish operation to the platform.
+      batch_n: 1000
+
+      # max_publish_interval: duration, the maximum interval to wait between two
+      # consecutive publish operations to the platform.
+      max_publish_interval: 5s
+      
+      # transport_timeout: duration, configures the timeout for publish
+      # operations to the platform.
+      transport_timeout: 10s
+
+      # addr: string, network address of the platform for publishing
+      addr: <platform_addr>
+
+      # uri: string, platform publishing endpoint
+      uri: /
 
   # watchers: list[object], list of watchers to be enabled on agent startup.
   # The watcher constructor name must be registered first in the pkg/collector.

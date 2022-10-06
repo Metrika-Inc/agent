@@ -163,12 +163,18 @@ type WatchConfig struct {
 
 // RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
-	MetricsAddr                  string         `yaml:"metrics_addr"`
-	Log                          LogConfig      `yaml:"logging"`
-	SamplingInterval             time.Duration  `yaml:"sampling_interval"`
-	UseExporters                 bool           `yaml:"use_exporters"`
-	Watchers                     []*WatchConfig `yaml:"watchers"`
-	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
+	MetricsAddr                  string                 `yaml:"metrics_addr"`
+	Log                          LogConfig              `yaml:"logging"`
+	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
+	SamplingTimeout              time.Duration          `yaml:"sampling_timeout"`
+	UseExporters                 bool                   `yaml:"use_exporters"`
+	Watchers                     []*WatchConfig         `yaml:"watchers"`
+	DisableFingerprintValidation bool                   `yaml:"disable_fingerprint_validation"`
+	ExportersRaw                 map[string]interface{} `yaml:"exporters"`
+}
+
+type Exporters struct {
+	MetrikaPlatform *PlatformConfig `yaml:"metrika_platform"`
 }
 
 // AgentConfig wraps all config used by the agent
