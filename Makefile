@@ -167,6 +167,12 @@ build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-strip)
 .PHONY: build-dbg
 build-dbg: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-dbg)
 
+.PHONY: docker-build-linux-amd64
+docker-build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),docker-build-$(b))
+
+.PHONY: docker-build-linux-arm64
+docker-build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),docker-build-$(b))
+
 .PHONY: docker-build
 docker-build: $(PROTOBIND) $(foreach b,$(PROTOS),docker-build-$(b))
 
