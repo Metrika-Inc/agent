@@ -4,6 +4,8 @@ envFile: {{ or .EnvFilePath "/etc/flow/runtime-conf.env" }}
 containerRegex:{{ range .ContainerRegex }}
   - {{ . }}{{else}}
   - flow-go
+  - dapper-private-network-consensus_1-1
+  - flow-private-network-consensus_1-1
   - dapper-private-network_consensus_1_1
   - flow-private-network_consensus_1_1{{end}}
 pefEndpoints:{{ range .PEFEndpoints }}

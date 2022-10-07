@@ -28,9 +28,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
+      - name: Sanitize repo slug
+        uses: actions/github-script@v6
+        id: repo_slug
+        with:
+          result-encoding: string
+          script: return 'ghcr.io/${{ github.repository }}'.toLowerCase()
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v2
+        with:
+          images: ${{ steps.repo_slug.outputs.result }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          buildkitd-flags: --debug
+
+      - name: Build and push Docker Flow images
+        uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: Metrika-Inc/agent:nightly
+          file: docker/Dockerfile
+          # FIXME: Investigate Dockerfile problems with linux/arm64
+          platforms: linux/amd64
+          build-args: |
+            MA_PROTOCOL=flow
+            MA_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
