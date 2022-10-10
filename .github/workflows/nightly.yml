@@ -52,8 +52,7 @@ jobs:
           context: .
           push: true
           file: docker/Dockerfile
-          # FIXME: Investigate Dockerfile problems with linux/arm64
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           build-args: |
             MA_PROTOCOL=flow
             MA_VERSION=${{ steps.meta.outputs.version }}
