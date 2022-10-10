@@ -146,7 +146,7 @@ type PlatformConfig struct {
 	Addr               string        `yaml:"addr"`
 	URI                string        `yaml:"uri"`
 	RetryCount         int           `yaml:"retry_count"`
-	IsEnabled          *bool         `yaml:"enabled`
+	IsEnabled          *bool         `yaml:"enabled"`
 }
 
 // BufferConfig used for configuring data buffering by the agent.
@@ -172,10 +172,6 @@ type RuntimeConfig struct {
 	Watchers                     []*WatchConfig         `yaml:"watchers"`
 	DisableFingerprintValidation bool                   `yaml:"disable_fingerprint_validation"`
 	ExportersRaw                 map[string]interface{} `yaml:"exporters"`
-}
-
-type Exporters struct {
-	MetrikaPlatform *PlatformConfig `yaml:"metrika_platform"`
 }
 
 // AgentConfig wraps all config used by the agent
@@ -484,6 +480,9 @@ func GenerateConfigFromTemplate(templatePath, configPath string, config interfac
 	return t.Execute(configFile, config)
 }
 
+// Enabled checks if exporting to the metrika platform is Enabled
+// in agent's configuration.
+// Default: true.
 func (p *PlatformConfig) Enabled() bool {
 	if p.IsEnabled == nil {
 		return true

@@ -66,19 +66,6 @@ func NewPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	return publisher
 }
 
-func NewMetrikaPlatformExporter(conf Config, bufCtrl *buf.Controller) func() (global.Exporter, error) {
-	return func() (global.Exporter, error) {
-		publisher := &Publisher{
-			conf:    conf,
-			closeCh: make(chan interface{}),
-			log:     zap.S().With("publisher", "transport"),
-			bufCtrl: bufCtrl,
-		}
-
-		return publisher, nil
-	}
-}
-
 func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 	log := zap.S()
 

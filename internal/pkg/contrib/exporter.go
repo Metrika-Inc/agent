@@ -17,21 +17,9 @@ import (
 	"agent/internal/pkg/global"
 )
 
+// ExportersMap is mapping between an exporter name and its constructor.
+// Exporter's constructor takes in one argument of type "any" for its configuration.
+// See example: example.go
 var ExportersMap = map[string]func(any) (global.Exporter, error){
 	"file_stream_exporter": newFileStream,
 }
-
-// // GetExporters get enabled exporters.
-// func GetExporters() ([]global.Exporter, error) {
-// 	exporters := []global.Exporter{}
-// 	for name, exporterSetup := range enabledExporters {
-// 		exporter, err := exporterSetup()
-// 		if err != nil {
-// 			zap.S().Errorw("failed initializing exporter", "exporter_name", name)
-// 			return nil, err
-// 		}
-// 		exporters = append(exporters, exporter)
-// 	}
-
-// 	return exporters, nil
-// }

@@ -1,4 +1,27 @@
 ---
+platform:
+
+  # api_key: authentication key for the Metrika platform
+  api_key: <api_key>
+
+  # batch_n: integer, the maximum number of metrics/events to be emitted at
+  # each publish operation to the platform.
+  batch_n: 1000
+
+  # max_publish_interval: duration, the maximum interval to wait between two
+  # consecutive publish operations to the platform.
+  max_publish_interval: 5s
+  
+  # transport_timeout: duration, configures the timeout for publish
+  # operations to the platform.
+  transport_timeout: 10s
+
+  # addr: string, network address of the platform for publishing
+  addr: <platform_addr>
+
+  # uri: string, platform publishing endpoint
+  uri: /
+
 buffer:
 
   # max_heap_alloc: integer, the maximum bytes of allocated heap objects as reported
@@ -30,12 +53,12 @@ runtime:
     # Possible values are: info, warning (recommended), debug, error.
     level: warning
 
-  # disable_fingerprint_validation: disables fingerprint validation on startup.
-  #
-  # Fingerprint validation is enabled by default and the agent will exit
-  # immediately if checksums of the newly retrieved hostname and the cached do
-  # not match. Checksum is cached under $HOME/.cache/metrikad/fingerprint.
-  disable_fingerprint_validation: false
+    # disable_fingerprint_validation: disables fingerprint validation on startup.
+    #
+    # Fingerprint validation is enabled by default and the agent will exit
+    # immediately if checksums of the newly retrieved hostname and the cached do
+    # not match. Checksum is cached under $HOME/.cache/metrikad/fingerprint.
+    disable_fingerprint_validation: false
 
   # metrics_addr: string, network address to get Prometheus metrics about the
   # agent's runtime.
@@ -45,35 +68,14 @@ runtime:
   # polling for collecting metrics/events.
   sampling_interval: 5s
 
-  # sampling_timeout: duration, default timeout duration for sample collections
-  sampling_timeout: 10s
+  # use_exporters: boolean, enables exporter implementations under
+  # pkg/contrib. Used to process and/or send data to other sources than
+  # Metrika Platform. Default value is false.
+  use_exporters: false
 
-  # # use_exporters: boolean, enables exporter implementations under
-  # # pkg/contrib. Used to process and/or send data to other sources than
-  # # Metrika Platform. Default value is false.
-  # use_exporters: false
-  exporters:
-    metrika_platform:
-      # api_key: authentication key for the Metrika platform
-      api_key: <api_key>
-
-      # batch_n: integer, the maximum number of metrics/events to be emitted at
-      # each publish operation to the platform.
-      batch_n: 1000
-
-      # max_publish_interval: duration, the maximum interval to wait between two
-      # consecutive publish operations to the platform.
-      max_publish_interval: 5s
-      
-      # transport_timeout: duration, configures the timeout for publish
-      # operations to the platform.
-      transport_timeout: 10s
-
-      # addr: string, network address of the platform for publishing
-      addr: <platform_addr>
-
-      # uri: string, platform publishing endpoint
-      uri: /
+  # exporters: map[string]object, list of exporters to be enabled on agent startup.
+  # The exporter constructor must be registered first in internal/pkg/contrib.
+  exporters: {}
 
   # watchers: list[object], list of watchers to be enabled on agent startup.
   # The watcher constructor name must be registered first in the pkg/collector.
