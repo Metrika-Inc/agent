@@ -72,6 +72,9 @@ var (
 	// DefaultRuntimeSamplingInterval default sampling interval
 	DefaultRuntimeSamplingInterval = 5 * time.Second
 
+	// DefaultPlatformIsEnabled default platform exporter's enabled state
+	DefaultPlatformIsEnabled = true
+
 	// DefaultPlatformBatchN default number of metrics+events to batch per publish
 	DefaultPlatformBatchN = 1000
 
@@ -217,6 +220,15 @@ func overloadFromEnv() error {
 		AgentConf.Platform.Addr = v
 	}
 
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "enabled"))
+	if v != "" {
+		vBool, err := strconv.ParseBool(v)
+		if err != nil {
+			return errors.Wrapf(err, "platform_enabled env parse error")
+		}
+		AgentConf.Platform.IsEnabled = &vBool
+	}
+
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_batch_n"))
 	if v != "" {
 		vInt, err := strconv.ParseInt(v, 10, 64)
@@ -346,6 +358,10 @@ func ensureDefaults() {
 		}
 	}
 
+	if AgentConf.Platform.IsEnabled == nil {
+		AgentConf.Platform.IsEnabled = &DefaultPlatformIsEnabled
+	}
+
 	if AgentConf.Platform.BatchN == 0 {
 		AgentConf.Platform.BatchN = DefaultPlatformBatchN
 	}
@@ -397,12 +413,15 @@ func ensureDefaults() {
 
 // ensureRequired ensures global agent configuration has loaded required configuration
 func ensureRequired() error {
-	if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
-		return fmt.Errorf("platform.addr is missing from loaded config")
-	}
+	// Platform variables are only required if Platform Exporter is enabled
+	if AgentConf.Platform.Enabled() {
+		if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
+			return fmt.Errorf("platform.addr is missing from loaded config")
+		}
 
-	if AgentConf.Platform.APIKey == "" || AgentConf.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
-		return fmt.Errorf("platform.api_key is missing from loaded config")
+		if AgentConf.Platform.APIKey == "" || AgentConf.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
+			return fmt.Errorf("platform.api_key is missing from loaded config")
+		}
 	}
 
 	return nil
