@@ -18,30 +18,16 @@ RUN git clone --depth=1 --branch ${MA_VERSION} --single-branch https://github.co
 WORKDIR /build/agent
 RUN make build-$BUILDOS-$TARGETARCH
 
-FROM --platform=$BUILDPLATFORM bitnami/minideb:bullseye
+FROM --platform=$BUILDPLATFORM alpine:3
 
 # build-args
 ARG MA_PROTOCOL
 ARG TARGETARCH
 ARG BUILDOS
 
-RUN ln -s /usr/bin/dpkg-split /usr/sbin/dpkg-split
-RUN ln -s /usr/bin/dpkg-deb /usr/sbin/dpkg-deb
-RUN ln -s /bin/rm /usr/sbin/rm
-RUN ln -s /bin/tar /usr/sbin/tar
-RUN ln -s /bin/nscd /usr/sbin/nscd
-RUN ln -s /bin/sss_cache /usr/sbin/sss_cache
-
 # Enable TLS
-RUN apt-get update && \
-    apt-get install -y ca-certificates openssl
-
-RUN if [ "$TARGETARCH" = "arm64" ] ; then \
-    dpkg --add-architecture arm64 && \
-    apt-get install -y pkg-config && \
-    dpkg-configure -a && \
-    apt-get install -y qemu-user-static nscd sssd-tools;\
-fi
+RUN apk update && \
+    apk add ca-certificates openssl
 
 # Create metrikad and configure permissions for agent directories.
 # This user is required when agent is run by a non-root user, for example
