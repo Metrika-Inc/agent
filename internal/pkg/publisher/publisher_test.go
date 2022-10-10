@@ -118,7 +118,8 @@ func TestPublisher_EagerDrain(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(context.Background(), pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -151,6 +152,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
+	cancel()
 }
 
 // TestPublisher_EagerDrainRegression checks:
@@ -208,7 +210,8 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(context.Background(), pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -231,6 +234,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.bufCtrl.B.Len())
+	cancel()
 }
 
 // TestPublisher_Error checks:
@@ -305,7 +309,9 @@ func TestPublisher_Error(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(context.Background(), wg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, wg)
 	go func() {
 		for i := 0; i < n; i++ {
 			m := &model.Message{
@@ -327,6 +333,7 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	<-time.After(conf.PublishIntv)
+	cancel()
 	require.Equal(t, 1, pub.bufCtrl.B.Len())
 }
 
@@ -471,7 +478,8 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(context.Background(), pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -512,4 +520,5 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
+	cancel()
 }
