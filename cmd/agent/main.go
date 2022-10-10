@@ -39,7 +39,6 @@ import (
 	"agent/pkg/parse/openmetrics"
 	"agent/pkg/timesync"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -223,14 +222,7 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	for expName, exporterCfg := range global.AgentConf.Runtime.ExportersRaw {
-		log = log.With("exporter", expName)
-		var exporter global.Exporter
-		config := global.PlatformConfig{}
-		if err := mapstructure.Decode(exporterCfg, &config); err != nil {
-			log.Fatalw("failed to decode platform config", zap.Error(err))
-		}
-
+	if global.AgentConf.Platform.Enabled() {
 		if len(global.AgentConf.Platform.APIKey) == 0 {
 			log.Fatalw("API key is missing from loaded config")
 		}
@@ -264,30 +256,36 @@ func main() {
 		pub := publisher.NewPublisher(publisher.Config{}, bufCtrl)
 		pubCtx, pubCancel = context.WithCancel(context.Background())
 		pub.Start(pubCtx, wg)
-		exporter = pub
 		subCh := newSubscriptionChan()
 		subscriptions = append(subscriptions, subCh)
-		global.DefaultExporterRegisterer.Register(exporter, subCh)
+		global.DefaultExporterRegisterer.Register(pub, subCh)
+	}
+
+	for expName, exporterCfg := range global.AgentConf.Runtime.ExportersRaw {
+		log := log.With("exporter_name", expName)
+		var exporter global.Exporter
+		var err error
+
+		exporterInitFn, ok := contrib.ExportersMap[expName]
+		if !ok {
+			log.Errorw("unknown exporter specified in config")
+			continue
+		}
+
+		exporter, err = exporterInitFn(exporterCfg)
+		if err != nil {
+			log.Errorw("exporter returned an error when initializing", zap.Error(err))
+			continue
+		}
+		subCh := newSubscriptionChan()
+		subscriptions = append(subscriptions, subCh)
+		if err := global.DefaultExporterRegisterer.Register(exporter, subCh); err != nil {
+			log.Errorw("failed to register an exporter", zap.Error(err))
+			continue
+		}
 	}
 
 	ctx, cancel = context.WithCancel(context.Background())
-	// register Metrika Platform exporter
-	// TODO: make possible to disable in configuration
-
-	// register other exporters (if enabled)
-	if global.AgentConf.Runtime.UseExporters {
-		exporters, err := contrib.GetExporters()
-		if err != nil {
-			log.Fatalw("could not setup the exporters", zap.Error(err))
-		}
-		for _, exporter := range exporters {
-			subCh := newSubscriptionChan()
-			subscriptions = append(subscriptions, subCh)
-			global.DefaultExporterRegisterer.Register(exporter, subCh)
-
-		}
-
-	}
 
 	multiEmitter := emit.NewMultiEmitter(subscriptions)
 

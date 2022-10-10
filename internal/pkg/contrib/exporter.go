@@ -15,25 +15,23 @@ package contrib
 
 import (
 	"agent/internal/pkg/global"
-
-	"go.uber.org/zap"
 )
 
-var enabledExporters = map[string]func() (global.Exporter, error){
+var ExportersMap = map[string]func(any) (global.Exporter, error){
 	"file_stream_exporter": newFileStream,
 }
 
-// GetExporters get enabled exporters.
-func GetExporters() ([]global.Exporter, error) {
-	exporters := []global.Exporter{}
-	for name, exporterSetup := range enabledExporters {
-		exporter, err := exporterSetup()
-		if err != nil {
-			zap.S().Errorw("failed initializing exporter", "exporter_name", name)
-			return nil, err
-		}
-		exporters = append(exporters, exporter)
-	}
+// // GetExporters get enabled exporters.
+// func GetExporters() ([]global.Exporter, error) {
+// 	exporters := []global.Exporter{}
+// 	for name, exporterSetup := range enabledExporters {
+// 		exporter, err := exporterSetup()
+// 		if err != nil {
+// 			zap.S().Errorw("failed initializing exporter", "exporter_name", name)
+// 			return nil, err
+// 		}
+// 		exporters = append(exporters, exporter)
+// 	}
 
-	return exporters, nil
-}
+// 	return exporters, nil
+// }

@@ -146,6 +146,7 @@ type PlatformConfig struct {
 	Addr               string        `yaml:"addr"`
 	URI                string        `yaml:"uri"`
 	RetryCount         int           `yaml:"retry_count"`
+	IsEnabled          *bool         `yaml:"enabled`
 }
 
 // BufferConfig used for configuring data buffering by the agent.
@@ -481,4 +482,11 @@ func GenerateConfigFromTemplate(templatePath, configPath string, config interfac
 	}
 
 	return t.Execute(configFile, config)
+}
+
+func (p *PlatformConfig) Enabled() bool {
+	if p.IsEnabled == nil {
+		return true
+	}
+	return *p.IsEnabled
 }

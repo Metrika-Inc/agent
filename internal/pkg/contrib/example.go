@@ -22,6 +22,7 @@ import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/global"
 
+	"github.com/mitchellh/mapstructure"
 	"go.uber.org/zap"
 )
 
@@ -61,21 +62,34 @@ func (m *jsonProcessor) Process(msg *model.Message) ([]byte, error) {
 }
 
 type fileStream struct {
+	fileStreamConfig
 	*jsonProcessor
 
-	ch chan interface{}
-	f  *os.File
+	file  *os.File
 }
 
-func newFileStream() (global.Exporter, error) {
-	outPath := filepath.Join(global.AgentCacheDir, "agent_stream.log")
+type fileStreamConfig struct {
+	OutPath string `mapstructure:"output_path"`
+}
 
-	f, err := os.OpenFile(outPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o755)
+func newFileStream(config any) (global.Exporter, error) {
+	var cfg fileStreamConfig
+
+	if err := mapstructure.Decode(config, &cfg); err != nil {
+		return nil, err
+	}
+
+	// set defaults if not set
+	if len(cfg.OutPath) == 0 {
+		cfg.OutPath = filepath.Join(global.AgentCacheDir, "agent_stream.log")
+	}
+
+	file, err := os.OpenFile(cfg.OutPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o755)
 	if err != nil {
 		return nil, err
 	}
 
-	return &fileStream{jsonProcessor: &jsonProcessor{}, f: f}, nil
+	return &fileStream{fileStreamConfig: cfg, jsonProcessor: &jsonProcessor{}, file: file}, nil
 }
 
 func (m *fileStream) HandleMessage(ctx context.Context, msg *model.Message) {
@@ -83,7 +97,7 @@ func (m *fileStream) HandleMessage(ctx context.Context, msg *model.Message) {
 
 	select {
 	case <-ctx.Done():
-		if err := m.f.Close(); err != nil {
+		if err := m.file.Close(); err != nil {
 			log.Warnw("close error", zap.Error(err))
 		}
 
@@ -95,7 +109,7 @@ func (m *fileStream) HandleMessage(ctx context.Context, msg *model.Message) {
 		log.Errorw("file stream handle error", zap.Error(err))
 	}
 
-	if _, err := m.f.Write(append(body, '\n')); err != nil {
+	if _, err := m.file.Write(append(body, '\n')); err != nil {
 		log.Errorw("write error", zap.Error(err))
 	}
 }
