@@ -222,11 +222,7 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	if global.AgentConf.Platform.Enabled() {
-		if len(global.AgentConf.Platform.APIKey) == 0 {
-			log.Fatalw("API key is missing from loaded config")
-		}
-
+	if global.AgentConf.Platform.IsEnabled() {
 		transportConf := transport.PlatformGRPCConf{
 			UUID:            global.AgentHostname,
 			APIKey:          global.AgentConf.Platform.APIKey,

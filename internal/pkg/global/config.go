@@ -72,8 +72,8 @@ var (
 	// DefaultRuntimeSamplingInterval default sampling interval
 	DefaultRuntimeSamplingInterval = 5 * time.Second
 
-	// DefaultPlatformIsEnabled default platform exporter's enabled state
-	DefaultPlatformIsEnabled = true
+	// DefaultPlatformEnabled default platform exporter's enabled state
+	DefaultPlatformEnabled = true
 
 	// DefaultPlatformBatchN default number of metrics+events to batch per publish
 	DefaultPlatformBatchN = 1000
@@ -149,7 +149,7 @@ type PlatformConfig struct {
 	Addr               string        `yaml:"addr"`
 	URI                string        `yaml:"uri"`
 	RetryCount         int           `yaml:"retry_count"`
-	IsEnabled          *bool         `yaml:"enabled"`
+	Enabled            *bool         `yaml:"enabled"`
 }
 
 // BufferConfig used for configuring data buffering by the agent.
@@ -220,13 +220,13 @@ func overloadFromEnv() error {
 		AgentConf.Platform.Addr = v
 	}
 
-	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "enabled"))
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_enabled"))
 	if v != "" {
 		vBool, err := strconv.ParseBool(v)
 		if err != nil {
 			return errors.Wrapf(err, "platform_enabled env parse error")
 		}
-		AgentConf.Platform.IsEnabled = &vBool
+		AgentConf.Platform.Enabled = &vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_batch_n"))
@@ -358,8 +358,8 @@ func ensureDefaults() {
 		}
 	}
 
-	if AgentConf.Platform.IsEnabled == nil {
-		AgentConf.Platform.IsEnabled = &DefaultPlatformIsEnabled
+	if AgentConf.Platform.Enabled == nil {
+		AgentConf.Platform.Enabled = &DefaultPlatformEnabled
 	}
 
 	if AgentConf.Platform.BatchN == 0 {
@@ -414,7 +414,7 @@ func ensureDefaults() {
 // ensureRequired ensures global agent configuration has loaded required configuration
 func ensureRequired() error {
 	// Platform variables are only required if Platform Exporter is enabled
-	if AgentConf.Platform.Enabled() {
+	if AgentConf.Platform.IsEnabled() {
 		if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
 			return fmt.Errorf("platform.addr is missing from loaded config")
 		}
@@ -498,12 +498,12 @@ func GenerateConfigFromTemplate(templatePath, configPath string, config interfac
 	return t.Execute(configFile, config)
 }
 
-// Enabled checks if exporting to the metrika platform is Enabled
+// IsEnabled checks if exporting to the metrika platform is enabled
 // in agent's configuration.
 // Default: true.
-func (p *PlatformConfig) Enabled() bool {
-	if p.IsEnabled == nil {
+func (p *PlatformConfig) IsEnabled() bool {
+	if p.Enabled == nil {
 		return true
 	}
-	return *p.IsEnabled
+	return *p.Enabled
 }
