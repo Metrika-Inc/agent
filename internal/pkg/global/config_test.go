@@ -91,7 +91,7 @@ platform:
 	require.NoError(t, err)
 
 	require.Equal(t, "foobar", AgentConf.Platform.APIKey)
-	require.Equal(t, false, AgentConf.Platform.Enabled)
+	require.Equal(t, false, *AgentConf.Platform.Enabled)
 	require.Equal(t, "foobar.addr:443", AgentConf.Platform.Addr)
 	require.Equal(t, 100, AgentConf.Platform.BatchN)
 	require.Equal(t, 1*time.Second, AgentConf.Platform.MaxPublishInterval)
