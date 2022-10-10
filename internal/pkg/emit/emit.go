@@ -54,7 +54,12 @@ func (m *multiEmitter) Emit(message interface{}) {
 			zap.S().Error("channel misconfigured", "index", i)
 			continue
 		}
-		m.emitChs[i] <- message
+		select {
+		case m.emitChs[i] <- message:
+		default:
+			zap.S().Warnw("handler channel block an event, discarding it", "handler_no", i)
+		}
+
 	}
 }
 
