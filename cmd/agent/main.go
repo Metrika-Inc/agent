@@ -26,13 +26,11 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/buf"
 	"agent/internal/pkg/contrib"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
 	"agent/internal/pkg/publisher"
-	"agent/internal/pkg/transport"
 	"agent/internal/pkg/watch"
 	"agent/internal/pkg/watch/factory"
 	"agent/pkg/collector"
@@ -223,33 +221,10 @@ func main() {
 	defer log.Sync()
 
 	if global.AgentConf.Platform.IsEnabled() {
-		transportConf := transport.PlatformGRPCConf{
-			UUID:            global.AgentHostname,
-			APIKey:          global.AgentConf.Platform.APIKey,
-			TransmitTimeout: global.AgentConf.Platform.TransportTimeout,
-			URL:             global.AgentConf.Platform.Addr,
-		}
-
-		platform, err := transport.NewPlatformGRPC(transportConf)
+		pub, err := publisher.NewPlatformPublisher(global.AgentHostname, global.AgentConf.Platform, global.AgentConf.Buffer)
 		if err != nil {
-			log.Fatalw("transport initialize error", zap.Error(err))
+			log.Fatalw("failed to initialize metrika platform exporter", zap.Error(err))
 		}
-
-		// initialize the buffer for temporary in-memory caching of collected data
-		// and its controller for maintaining and accessing the buffer.
-		bufCtrlConf := buf.ControllerConf{
-			BufLenLimit:         global.AgentConf.Platform.BatchN,
-			BufDrainFreq:        global.AgentConf.Platform.MaxPublishInterval,
-			OnBufRemoveCallback: platform.PublishFunc,
-			MaxHeapAllocBytes:   global.AgentConf.Buffer.MaxHeapAlloc,
-			MinBufSize:          global.AgentConf.Buffer.MinBufferSize,
-		}
-
-		buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.TTL)
-		bufCtrl := buf.NewController(bufCtrlConf, buffer)
-
-		// attach the buffer controller to the publisher
-		pub := publisher.NewPublisher(publisher.Config{}, bufCtrl)
 		pubCtx, pubCancel = context.WithCancel(context.Background())
 		pub.Start(pubCtx, wg)
 		subCh := newSubscriptionChan()
