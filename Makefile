@@ -116,11 +116,10 @@ checksum-%:
 .PHONY: docker-build-%
 docker-build-%: generate-%
 	echo "Building Metrikad Docker agent"
-	$(DOCKER) build -f $(DOCKERFILE) \
+	$(DOCKER) build --platform $(GOOS)/$(GOARCH) -f $(DOCKERFILE) \
 		-t metrikad-${*}:${VERSION} \
 		--build-arg MA_PROTOCOL=${*} \
-		--build-arg MA_VERSION=${VERSION} \
-		--build-arg MA_OS_ARCH=$(GOARCH) .
+		--build-arg MA_VERSION=${VERSION} .
 
 .PHONY: protogen
 protogen:
@@ -172,9 +171,6 @@ docker-build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),doc
 
 .PHONY: docker-build-linux-arm64
 docker-build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),docker-build-$(b))
-
-.PHONY: docker-build
-docker-build: $(PROTOBIND) $(foreach b,$(PROTOS),docker-build-$(b))
 
 .PHONY: clean-%
 clean-%:
