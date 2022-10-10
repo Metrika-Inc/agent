@@ -15,6 +15,8 @@ package contrib
 
 import (
 	"agent/internal/pkg/global"
+
+	"go.uber.org/zap"
 )
 
 // ExportersMap is mapping between an exporter name and its constructor.
@@ -22,4 +24,32 @@ import (
 // See example: example.go
 var ExportersMap = map[string]func(any) (global.Exporter, error){
 	"file_stream_exporter": newFileStream,
+}
+
+// SetupEnabledExporters takes all exporter-related configurations and constructs
+// the relevant exporters. If an exporter constructor returns an error it is logged
+// and that exporter is ignored.
+// Exporter "A" is deemed enabled if exporterConfigMap["A"] is not nil.
+func SetupEnabledExporters(exporterConfigMap map[string]interface{}) []global.Exporter {
+	exporters := make([]global.Exporter, 0)
+	for expName, exporterCfg := range exporterConfigMap {
+		log := zap.S().With("exporter_name", expName)
+		var exporter global.Exporter
+		var err error
+
+		exporterInitFn, ok := ExportersMap[expName]
+		if !ok {
+			log.Errorw("unknown exporter specified in config")
+			continue
+		}
+
+		exporter, err = exporterInitFn(exporterCfg)
+		if err != nil {
+			log.Errorw("exporter returned an error when initializing", zap.Error(err))
+			continue
+		}
+		exporters = append(exporters, exporter)
+	}
+
+	return exporters
 }

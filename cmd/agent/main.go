@@ -232,27 +232,15 @@ func main() {
 		global.DefaultExporterRegisterer.Register(pub, subCh)
 	}
 
-	for expName, exporterCfg := range global.AgentConf.Runtime.ExportersRaw {
-		log := log.With("exporter_name", expName)
-		var exporter global.Exporter
-		var err error
-
-		exporterInitFn, ok := contrib.ExportersMap[expName]
-		if !ok {
-			log.Errorw("unknown exporter specified in config")
-			continue
-		}
-
-		exporter, err = exporterInitFn(exporterCfg)
-		if err != nil {
-			log.Errorw("exporter returned an error when initializing", zap.Error(err))
-			continue
-		}
-		subCh := newSubscriptionChan()
-		subscriptions = append(subscriptions, subCh)
-		if err := global.DefaultExporterRegisterer.Register(exporter, subCh); err != nil {
-			log.Errorw("failed to register an exporter", zap.Error(err))
-			continue
+	if len(global.AgentConf.Runtime.ExportersRaw) > 0 {
+		exporters := contrib.SetupEnabledExporters(global.AgentConf.Runtime.ExportersRaw)
+		for i := range exporters {
+			subCh := newSubscriptionChan()
+			subscriptions = append(subscriptions, subCh)
+			if err := global.DefaultExporterRegisterer.Register(exporters[i], subCh); err != nil {
+				log.Errorw("failed to register an exporter", zap.Error(err))
+				continue
+			}
 		}
 	}
 
