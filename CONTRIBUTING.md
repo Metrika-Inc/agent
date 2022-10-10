@@ -51,3 +51,5 @@ This section includes suggestions for contributing to specific parts of the Metr
 Exporters can be implemented to encode the data in any desirable format and produce it anywhere.
 
 `exporter.HandleMessage()` method will be called for every Message (Metric or Event) arriving from the Agent watchers. If the exporter implementation cannot keep up with the data flow, newly collected Messages will eventually be dropped. As such, it's recommended to implement buffering in the exporter implementation.
+
+Exporters are implemented under [contrib](internal/pkg/contrib) package, and an exporter constructor must be registered with `ExportersMap` variable in [exporter.go](internal/pkg/contrib/exporter.go).

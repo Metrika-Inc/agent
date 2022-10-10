@@ -71,6 +71,7 @@ platform:
 	defer func() { ConfigFilePriority = configFilePriorityWas }()
 
 	err = os.Setenv("MA_API_KEY", "foobar")
+	err = os.Setenv("MA_PLATFORM_ENABLED", "false")
 	err = os.Setenv("MA_PLATFORM", "foobar.addr:443")
 	err = os.Setenv("MA_PLATFORM_BATCH_N", "100")
 	err = os.Setenv("MA_PLATFORM_MAX_PUBLISH_INTERVAL", "1s")
@@ -84,13 +85,13 @@ platform:
 	err = os.Setenv("MA_RUNTIME_DISABLE_FINGERPRINT_VALIDATION", "true")
 	err = os.Setenv("MA_RUNTIME_METRICS_ADDR", "foobar:9000")
 	err = os.Setenv("MA_RUNTIME_SAMPLING_INTERVAL", "5s")
-	err = os.Setenv("MA_RUNTIME_USE_EXPORTERS", "true")
 	err = os.Setenv("MA_RUNTIME_WATCHERS", "foo,bar")
 
 	err = LoadAgentConfig()
 	require.NoError(t, err)
 
 	require.Equal(t, "foobar", AgentConf.Platform.APIKey)
+	require.Equal(t, false, *AgentConf.Platform.Enabled)
 	require.Equal(t, "foobar.addr:443", AgentConf.Platform.Addr)
 	require.Equal(t, 100, AgentConf.Platform.BatchN)
 	require.Equal(t, 1*time.Second, AgentConf.Platform.MaxPublishInterval)
@@ -104,6 +105,5 @@ platform:
 	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
 	require.Equal(t, "foobar:9000", AgentConf.Runtime.MetricsAddr)
 	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
-	require.Equal(t, true, AgentConf.Runtime.UseExporters)
 	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
 }

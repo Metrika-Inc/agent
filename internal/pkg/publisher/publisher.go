@@ -23,6 +23,7 @@ import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
 	"agent/internal/pkg/global"
+	"agent/internal/pkg/transport"
 	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
@@ -54,8 +55,8 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// NewPublisher Publisher constructor.
-func NewPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
+// newPublisher is the Publisher constructor.
+func newPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
 		conf:    conf,
 		closeCh: make(chan interface{}),
@@ -64,6 +65,39 @@ func NewPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	}
 
 	return publisher
+}
+
+// NewPlatformPublisher creates a new Metrika Platform Exporter instance.
+// It also instantiates its dependencies: GRPC connection handler and message buffer.
+func NewPlatformPublisher(hostname string, platformConfig global.PlatformConfig, bufferConfig global.BufferConfig) (*Publisher, error) {
+	grpcConfig := transport.PlatformGRPCConf{
+		UUID:            hostname,
+		APIKey:          platformConfig.APIKey,
+		TransmitTimeout: platformConfig.TransportTimeout,
+		URL:             platformConfig.Addr,
+	}
+
+	grpcHandler, err := transport.NewPlatformGRPC(grpcConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// initialize the buffer for temporary in-memory caching of collected data
+	// and its controller for maintaining and accessing the buffer.
+	bufCtrlConf := buf.ControllerConf{
+		BufLenLimit:         platformConfig.BatchN,
+		BufDrainFreq:        platformConfig.MaxPublishInterval,
+		OnBufRemoveCallback: grpcHandler.PublishFunc,
+		MaxHeapAllocBytes:   bufferConfig.MaxHeapAlloc,
+		MinBufSize:          bufferConfig.MinBufferSize,
+	}
+
+	buffer := buf.NewPriorityBuffer(bufferConfig.TTL)
+	bufCtrl := buf.NewController(bufCtrlConf, buffer)
+
+	publisher := newPublisher(Config{}, bufCtrl)
+
+	return publisher, nil
 }
 
 func (t *Publisher) forceSendAgentUp(uptime time.Time) {
@@ -93,7 +127,7 @@ func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 
 // Start starts the goroutine for periodically publishing
 // agent.up events to the platform.
-func (t *Publisher) Start(wg *sync.WaitGroup) {
+func (t *Publisher) Start(ctx context.Context, wg *sync.WaitGroup) {
 	log := zap.S()
 
 	agentUpCtx := make(map[string]interface{}, 1)
@@ -102,9 +136,6 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 
 	// send agent.up immediately bypassing all buffers
 	t.forceSendAgentUp(agentUppedTime)
-
-	// start buffer controller
-	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	wg.Add(1)
 	go t.bufCtrl.Start(ctx, wg)
@@ -126,9 +157,8 @@ func (t *Publisher) Start(wg *sync.WaitGroup) {
 				if err := t.bufCtrl.EmitEvent(agentUpCtx, model.AgentUpName); err != nil {
 					log.Warnw("error emitting event", "event", model.AgentUpName, zap.Error(err))
 				}
-			case <-t.closeCh:
+			case <-ctx.Done():
 				log.Debug("stopping buf controller, ingestion goroutine exiting")
-				cancelFunc()
 
 				return
 			}

@@ -39,10 +39,40 @@ func (s *simpleEmitter) Emit(message interface{}) {
 	s.emitch <- message
 }
 
+type multiEmitter struct {
+	emitChs []chan<- interface{}
+}
+
+// Emit emits messages to the configured list of channels.
+func (m *multiEmitter) Emit(message interface{}) {
+	if len(m.emitChs) == 0 {
+		zap.S().Error("emit channels empty")
+	}
+
+	for i := range m.emitChs {
+		if m.emitChs[i] == nil {
+			zap.S().Error("channel misconfigured", "index", i)
+			continue
+		}
+		select {
+		case m.emitChs[i] <- message:
+		default:
+			zap.S().Warnw("handler channel block an event, discarding it", "handler_no", i)
+		}
+
+	}
+}
+
 // NewSimpleEmitter returns an object that solely implements the
 // Emitter interface. Used to emit events independent of a watchers.
 func NewSimpleEmitter(emitch chan<- interface{}) Emitter {
 	return &simpleEmitter{emitch: emitch}
+}
+
+// NewMultiEmitter returns an object that implements the Emitter interface.
+// Use to inform all the exporters (event subscribers) about the ocurring events.
+func NewMultiEmitter(emitChs []chan<- interface{}) Emitter {
+	return &multiEmitter{emitChs: emitChs}
 }
 
 // Ev builds a new event message compatible for publishing and pushes

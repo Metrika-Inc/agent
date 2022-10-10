@@ -11,6 +11,7 @@ require (
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/joho/godotenv v1.4.0
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0

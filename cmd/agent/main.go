@@ -26,13 +26,11 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/buf"
 	"agent/internal/pkg/contrib"
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
 	"agent/internal/pkg/publisher"
-	"agent/internal/pkg/transport"
 	"agent/internal/pkg/watch"
 	"agent/internal/pkg/watch/factory"
 	"agent/pkg/collector"
@@ -54,12 +52,12 @@ var (
 	flags         = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
 	ch            = newSubscriptionChan()
-	subscriptions = []chan<- interface{}{ch}
-	simpleEmitter = emit.NewSimpleEmitter(ch)
+	subscriptions = []chan<- interface{}{}
 
-	wg     = &sync.WaitGroup{}
-	ctx    context.Context
-	cancel context.CancelFunc
+	wg = &sync.WaitGroup{}
+
+	ctx, pubCtx       context.Context
+	cancel, pubCancel context.CancelFunc
 )
 
 func newSubscriptionChan() chan interface{} {
@@ -222,54 +220,34 @@ func main() {
 	log := zap.S()
 	defer log.Sync()
 
-	transportConf := transport.PlatformGRPCConf{
-		UUID:            global.AgentHostname,
-		APIKey:          global.AgentConf.Platform.APIKey,
-		TransmitTimeout: global.AgentConf.Platform.TransportTimeout,
-		URL:             global.AgentConf.Platform.Addr,
-	}
-
-	platform, err := transport.NewPlatformGRPC(transportConf)
-	if err != nil {
-		log.Fatalw("transport initialize error", zap.Error(err))
-	}
-
-	// initialize the buffer for temporary in-memory caching of collected data
-	// and its controller for maintaining and accessing the buffer.
-	bufCtrlConf := buf.ControllerConf{
-		BufLenLimit:         global.AgentConf.Platform.BatchN,
-		BufDrainFreq:        global.AgentConf.Platform.MaxPublishInterval,
-		OnBufRemoveCallback: platform.PublishFunc,
-		MaxHeapAllocBytes:   global.AgentConf.Buffer.MaxHeapAlloc,
-		MinBufSize:          global.AgentConf.Buffer.MinBufferSize,
-	}
-
-	buffer := buf.NewPriorityBuffer(global.AgentConf.Buffer.TTL)
-	bufCtrl := buf.NewController(bufCtrlConf, buffer)
-
-	// attach the buffer controller to the publisher
-	pub := publisher.NewPublisher(publisher.Config{}, bufCtrl)
-	pub.Start(wg)
-
-	ctx, cancel = context.WithCancel(context.Background())
-	// register Metrika Platform exporter
-	// TODO: make possible to disable in configuration
-	global.DefaultExporterRegisterer.Register(pub, ch)
-
-	// register other exporters (if enabled)
-	if global.AgentConf.Runtime.UseExporters {
-		exporters, err := contrib.GetExporters()
+	if global.AgentConf.Platform.IsEnabled() {
+		pub, err := publisher.NewPlatformPublisher(global.AgentHostname, global.AgentConf.Platform, global.AgentConf.Buffer)
 		if err != nil {
-			log.Fatalw("could not setup the exporters", zap.Error(err))
+			log.Fatalw("failed to initialize metrika platform exporter", zap.Error(err))
 		}
-		for _, exporter := range exporters {
+		pubCtx, pubCancel = context.WithCancel(context.Background())
+		pub.Start(pubCtx, wg)
+		subCh := newSubscriptionChan()
+		subscriptions = append(subscriptions, subCh)
+		global.DefaultExporterRegisterer.Register(pub, subCh)
+	}
+
+	if len(global.AgentConf.Runtime.Exporters) > 0 {
+		exporters := contrib.SetupEnabledExporters(global.AgentConf.Runtime.Exporters)
+		for i := range exporters {
 			subCh := newSubscriptionChan()
 			subscriptions = append(subscriptions, subCh)
-			global.DefaultExporterRegisterer.Register(exporter, subCh)
-
+			if err := global.DefaultExporterRegisterer.Register(exporters[i], subCh); err != nil {
+				log.Errorw("failed to register an exporter", zap.Error(err))
+				continue
+			}
 		}
-
 	}
+
+	ctx, cancel = context.WithCancel(context.Background())
+
+	multiEmitter := emit.NewMultiEmitter(subscriptions)
+
 	global.DefaultExporterRegisterer.Start(ctx, wg)
 
 	// we should be (almost) ready to publish at this point
@@ -304,7 +282,7 @@ func main() {
 		log.Error("error creating event: ", err)
 	}
 
-	if err := emit.Ev(simpleEmitter, ev); err != nil {
+	if err := emit.Ev(multiEmitter, ev); err != nil {
 		log.Error("error emitting event: ", err)
 	}
 
@@ -312,9 +290,12 @@ func main() {
 	factory.DefaultWatchRegistry.Stop()
 	factory.DefaultWatchRegistry.Wait()
 
-	// stop platform publisher and other exporters &&
+	// stop platform publisher if running
+	if pubCancel != nil {
+		pubCancel()
+	}
+	// stop other exporters &&
 	// wait for buffers to drain
-	pub.Stop()
 	cancel()
 	wg.Wait()
 

@@ -72,6 +72,9 @@ var (
 	// DefaultRuntimeSamplingInterval default sampling interval
 	DefaultRuntimeSamplingInterval = 5 * time.Second
 
+	// DefaultPlatformEnabled default platform exporter's enabled state
+	DefaultPlatformEnabled = true
+
 	// DefaultPlatformBatchN default number of metrics+events to batch per publish
 	DefaultPlatformBatchN = 1000
 
@@ -102,9 +105,6 @@ var (
 
 	// DefaultRuntimeMetricsAddr default address to expose Prometheus metrics
 	DefaultRuntimeMetricsAddr = "127.0.0.1:9000"
-
-	// DefaultRuntimeUseExporters default exporter usage
-	DefaultRuntimeUseExporters = false
 
 	// ConfigEnvPrefix prefix used for agent specific env vars
 	ConfigEnvPrefix = "MA"
@@ -146,6 +146,7 @@ type PlatformConfig struct {
 	Addr               string        `yaml:"addr"`
 	URI                string        `yaml:"uri"`
 	RetryCount         int           `yaml:"retry_count"`
+	Enabled            *bool         `yaml:"enabled"`
 }
 
 // BufferConfig used for configuring data buffering by the agent.
@@ -163,12 +164,12 @@ type WatchConfig struct {
 
 // RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
-	MetricsAddr                  string         `yaml:"metrics_addr"`
-	Log                          LogConfig      `yaml:"logging"`
-	SamplingInterval             time.Duration  `yaml:"sampling_interval"`
-	UseExporters                 bool           `yaml:"use_exporters"`
-	Watchers                     []*WatchConfig `yaml:"watchers"`
-	DisableFingerprintValidation bool           `yaml:"disable_fingerprint_validation"`
+	MetricsAddr                  string                 `yaml:"metrics_addr"`
+	Log                          LogConfig              `yaml:"logging"`
+	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
+	Watchers                     []*WatchConfig         `yaml:"watchers"`
+	DisableFingerprintValidation bool                   `yaml:"disable_fingerprint_validation"`
+	Exporters                    map[string]interface{} `yaml:"exporters"`
 }
 
 // AgentConfig wraps all config used by the agent
@@ -213,6 +214,15 @@ func overloadFromEnv() error {
 	v = os.Getenv(PlatformAddrEnvVar)
 	if v != "" {
 		AgentConf.Platform.Addr = v
+	}
+
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_enabled"))
+	if v != "" {
+		vBool, err := strconv.ParseBool(v)
+		if err != nil {
+			return errors.Wrapf(err, "platform_enabled env parse error")
+		}
+		AgentConf.Platform.Enabled = &vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_batch_n"))
@@ -308,16 +318,6 @@ func overloadFromEnv() error {
 		AgentConf.Runtime.SamplingInterval = vDur
 	}
 
-	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_use_exporters"))
-	if v != "" {
-		vBool, err := strconv.ParseBool(v)
-		if err != nil {
-			return errors.Wrapf(err, "runtime_use_exporters env parse error")
-		}
-
-		AgentConf.Runtime.UseExporters = vBool
-	}
-
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_watchers"))
 	if v != "" {
 		watchers := []*WatchConfig{}
@@ -342,6 +342,10 @@ func ensureDefaults() {
 		if watchConf.SamplingInterval == 0*time.Second {
 			watchConf.SamplingInterval = AgentConf.Runtime.SamplingInterval
 		}
+	}
+
+	if AgentConf.Platform.Enabled == nil {
+		AgentConf.Platform.Enabled = &DefaultPlatformEnabled
 	}
 
 	if AgentConf.Platform.BatchN == 0 {
@@ -395,12 +399,15 @@ func ensureDefaults() {
 
 // ensureRequired ensures global agent configuration has loaded required configuration
 func ensureRequired() error {
-	if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
-		return fmt.Errorf("platform.addr is missing from loaded config")
-	}
+	// Platform variables are only required if Platform Exporter is enabled
+	if AgentConf.Platform.IsEnabled() {
+		if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
+			return fmt.Errorf("platform.addr is missing from loaded config")
+		}
 
-	if AgentConf.Platform.APIKey == "" || AgentConf.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
-		return fmt.Errorf("platform.api_key is missing from loaded config")
+		if AgentConf.Platform.APIKey == "" || AgentConf.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
+			return fmt.Errorf("platform.api_key is missing from loaded config")
+		}
 	}
 
 	return nil
@@ -475,4 +482,14 @@ func GenerateConfigFromTemplate(templatePath, configPath string, config interfac
 	}
 
 	return t.Execute(configFile, config)
+}
+
+// IsEnabled checks if exporting to the metrika platform is enabled
+// in agent's configuration.
+// Default: true.
+func (p *PlatformConfig) IsEnabled() bool {
+	if p.Enabled == nil {
+		return true
+	}
+	return *p.Enabled
 }

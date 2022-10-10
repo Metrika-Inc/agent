@@ -1,6 +1,10 @@
 ---
 platform:
 
+  # enabled: boolean, specifies if exporting data to Metrika Platform
+  # is enabled. Default: true.
+  enabled: true
+
   # api_key: authentication key for the Metrika platform
   api_key: <api_key>
 
@@ -68,10 +72,9 @@ runtime:
   # polling for collecting metrics/events.
   sampling_interval: 5s
 
-  # use_exporters: boolean, enables exporter implementations under
-  # pkg/contrib. Used to process and/or send data to other sources than
-  # Metrika Platform. Default value is false.
-  use_exporters: false
+  # exporters: map[string]object, list of exporters to be enabled on agent startup.
+  # The exporter constructor must be registered first in internal/pkg/contrib.
+  exporters: {}
 
   # watchers: list[object], list of watchers to be enabled on agent startup.
   # The watcher constructor name must be registered first in the pkg/collector.

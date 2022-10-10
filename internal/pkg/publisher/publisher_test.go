@@ -114,11 +114,12 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(Config{}, bufCtrl)
+	pub := newPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -151,6 +152,7 @@ func TestPublisher_EagerDrain(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
+	cancel()
 }
 
 // TestPublisher_EagerDrainRegression checks:
@@ -204,11 +206,12 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(Config{}, bufCtrl)
+	pub := newPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -231,6 +234,7 @@ func TestPublisher_EagerDrainRegression(t *testing.T) {
 
 	<-time.After(conf.PublishIntv)
 	require.Equal(t, 0, pub.bufCtrl.B.Len())
+	cancel()
 }
 
 // TestPublisher_Error checks:
@@ -301,11 +305,13 @@ func TestPublisher_Error(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(Config{}, bufCtrl)
+	pub := newPublisher(Config{}, bufCtrl)
 
 	wg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(wg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, wg)
 	go func() {
 		for i := 0; i < n; i++ {
 			m := &model.Message{
@@ -327,6 +333,7 @@ func TestPublisher_Error(t *testing.T) {
 	}
 
 	<-time.After(conf.PublishIntv)
+	cancel()
 	require.Equal(t, 1, pub.bufCtrl.B.Len())
 }
 
@@ -383,11 +390,12 @@ func TestPublisher_Stop(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(Config{}, bufCtrl)
+	pub := newPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -408,7 +416,7 @@ func TestPublisher_Stop(t *testing.T) {
 	<-time.After(200 * time.Millisecond)
 	require.Equal(t, n, pub.bufCtrl.B.Len())
 
-	pub.Stop()
+	cancel()
 	pubWg.Wait()
 
 	select {
@@ -466,11 +474,12 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	buffer := buf.NewPriorityBuffer(conf.BufferTTL)
 	bufCtrl := buf.NewController(bufCtrlConf, buffer)
 
-	pub := NewPublisher(Config{}, bufCtrl)
+	pub := newPublisher(Config{}, bufCtrl)
 
 	pubWg := new(sync.WaitGroup)
 	timesync.Listen()
-	pub.Start(pubWg)
+	ctx, cancel := context.WithCancel(context.Background())
+	pub.Start(ctx, pubWg)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -511,4 +520,5 @@ func TestPublisher_GRPCMetadata(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("timeout waiting for platform message")
 	}
+	cancel()
 }

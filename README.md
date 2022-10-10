@@ -107,11 +107,11 @@ This is the list of all currently supported blockchains (several coming soon and
 ## Configuration
 The agent loads its configuration by looking at the following sources in order:
 1. Load configuration `agent.yml` from `./configs` or current directory. The first to be found takes effect. If no files exist, proceed to step 2.
-2. Load configuration from environment variables and overload any parameter set.
+2. Load configuration from environment variables and overload any parameter set (except exporters).
 3. Ensure sane defaults are set for configuration parameters that has not been set by a configuration file or an environment variable.
 4. Ensure loaded configuration has all required parameters set.
 
-Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation. All configuration parameters can be overloaded by environment variables prefixed by `MA`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
+Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation. All configuration parameters (except `runtime.exporters`) can be overloaded by environment variables prefixed by `MA`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
 
 ### Parameter details
 This covers a subset of configuration options that are most likely to be changed:
@@ -119,7 +119,7 @@ This covers a subset of configuration options that are most likely to be changed
 * `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`.
 * `runtime.logging.outputs` - where Metrika outputs logs, can specify multiple sources. Default: `stdout` (journalctl). **Warning**: Metrika Agent does not take care of rotating the logs.
 * `runtime.logging.level` - verbosity of the logs. Default - `warning`. Recommended to increase to `debug` when troubleshooting.
-* `runtime.use_exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
+* `runtime.exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
 * `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
 
 ## Agent internals
@@ -134,6 +134,17 @@ _Be advised that the Exporter API is work in progress and may change without not
 All the data points collected by the enabled watchers are passed to one or more exporters, as defined by the `Exporter` interface in [exporter_registry.go](internal/pkg/global/exporter_registry.go).
 
 By default, the only enabled exporter is Metrika Platform exporter, which encodes the data as protocol buffers ([proto definition](api/v1/proto/agent.proto)) and transmits them to Metrika Platform.
+
+To disable Metrika Platform exporter, set the value of `platform.enabled` configuration parameter to `false`.
+
+To enable any other exporter, specify its configuration under `runtime.exporters`. Example:
+```yaml
+runtime:
+# ...
+  exporters:
+    file_stream_exporter:
+      output_path: "/var/metrikad/agent.log"
+```
 
 More on exporter implementations can be found in [CONTRIBUTING.md](CONTRIBUTING.md#implementing-exporters)
 ## Troubleshooting
