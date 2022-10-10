@@ -134,7 +134,7 @@ func defaultWatchers() []watch.Watcher {
 		httpConf := watch.HTTPWatchConf{
 			Interval: global.AgentConf.Runtime.SamplingInterval,
 			URL:      ep.URL,
-			Timeout:  global.AgentConf.Runtime.SamplingTimeout,
+			Timeout:  global.AgentConf.Platform.TransportTimeout,
 			Headers:  nil,
 		}
 		httpWatch := watch.NewHTTPWatch(httpConf)
