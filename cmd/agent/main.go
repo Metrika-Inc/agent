@@ -232,8 +232,8 @@ func main() {
 		global.DefaultExporterRegisterer.Register(pub, subCh)
 	}
 
-	if len(global.AgentConf.Runtime.ExportersRaw) > 0 {
-		exporters := contrib.SetupEnabledExporters(global.AgentConf.Runtime.ExportersRaw)
+	if len(global.AgentConf.Runtime.Exporters) > 0 {
+		exporters := contrib.SetupEnabledExporters(global.AgentConf.Runtime.Exporters)
 		for i := range exporters {
 			subCh := newSubscriptionChan()
 			subscriptions = append(subscriptions, subCh)

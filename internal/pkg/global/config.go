@@ -106,9 +106,6 @@ var (
 	// DefaultRuntimeMetricsAddr default address to expose Prometheus metrics
 	DefaultRuntimeMetricsAddr = "127.0.0.1:9000"
 
-	// DefaultRuntimeUseExporters default exporter usage
-	DefaultRuntimeUseExporters = false
-
 	// ConfigEnvPrefix prefix used for agent specific env vars
 	ConfigEnvPrefix = "MA"
 )
@@ -170,10 +167,9 @@ type RuntimeConfig struct {
 	MetricsAddr                  string                 `yaml:"metrics_addr"`
 	Log                          LogConfig              `yaml:"logging"`
 	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
-	UseExporters                 bool                   `yaml:"use_exporters"`
 	Watchers                     []*WatchConfig         `yaml:"watchers"`
 	DisableFingerprintValidation bool                   `yaml:"disable_fingerprint_validation"`
-	ExportersRaw                 map[string]interface{} `yaml:"exporters"`
+	Exporters                    map[string]interface{} `yaml:"exporters"`
 }
 
 // AgentConfig wraps all config used by the agent
@@ -320,16 +316,6 @@ func overloadFromEnv() error {
 			return errors.Wrapf(err, "runtime_sampling_interval env parse error")
 		}
 		AgentConf.Runtime.SamplingInterval = vDur
-	}
-
-	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_use_exporters"))
-	if v != "" {
-		vBool, err := strconv.ParseBool(v)
-		if err != nil {
-			return errors.Wrapf(err, "runtime_use_exporters env parse error")
-		}
-
-		AgentConf.Runtime.UseExporters = vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_watchers"))
