@@ -118,7 +118,7 @@ This covers a subset of configuration options that are most likely to be changed
 * `platform.api_key` - configured during install, an API key used for communicating with Metrika Platform. It maps the agent with your account.
 * `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`.
 * `runtime.logging.outputs` - where Metrika outputs logs, can specify multiple sources. Default: `stdout` (journalctl). **Warning**: Metrika Agent does not take care of rotating the logs.
-* `runtime.logging.level` - verbosity of the logs. Default - `warning`. Recommended to increase to `debug` when troubleshooting.
+* `runtime.logging.level` - verbosity of the logs. Default - `info`. Recommended to increase to `debug` when troubleshooting.
 * `runtime.exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
 * `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
 
