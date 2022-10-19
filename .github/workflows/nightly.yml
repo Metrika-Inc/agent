@@ -1,5 +1,5 @@
 ---
-name: "Release"
+name: "Release Docker images (nightly)"
 on:
   schedule:
     - cron: '0 0 * * *'
