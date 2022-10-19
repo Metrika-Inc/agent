@@ -170,7 +170,7 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	case "restart":
 		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, timesync.Now())
 		w.containerGone = false
-	case "die":
+	case "die", "stop", "kill":
 		exitCode, ok := m.Actor.Attributes["exit_code"]
 		if ok {
 			ctx["exit_code"] = exitCode
