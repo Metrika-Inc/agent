@@ -116,15 +116,6 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 	log := zap.S()
 	log.Info("flow not fully configured, starting discovery")
 
-	env, err := utils.GetEnvFromFile(d.config.EnvFilePath)
-	if err != nil {
-		log.Warnw("failed to load environment file", zap.Error(err))
-	} else {
-		// we need an else block because env gets initialized and returned
-		// even if an error is encountered
-		d.env = env
-	}
-
 	errs := &utils.AutoConfigError{}
 	containers, err := utils.GetRunningContainers()
 	if err != nil {
@@ -151,9 +142,15 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 
 		errs.Append(err)
 	}
-	if _, err := d.configureNodeID(); err != nil {
-		log.Warn("could not find node ID")
+
+	if _, err := d.configureNodeIDFromDocker(); err != nil {
+		log.Warnw("could not find node ID in docker container cmd args", zap.Error(err))
 		errs.Append(err)
+
+		if _, err := d.configureNodeIDFromEnvFile(); err != nil {
+			log.Warnw("could not find node ID in env file", zap.Error(err))
+			errs.Append(err)
+		}
 	}
 
 	if d.container != nil && len(d.container.Names) > 0 {
@@ -199,7 +196,33 @@ func (d *Flow) NodeID() string {
 	return d.config.NodeID
 }
 
-func (d *Flow) configureNodeID() (string, error) {
+func (d *Flow) configureNodeIDFromEnvFile() (string, error) {
+	env, err := utils.GetEnvFromFile(d.config.EnvFilePath)
+	if err != nil {
+		zap.S().Errorw("failed to load environment file", zap.Error(err))
+	} else {
+		// we need an else block because env gets initialized and returned
+		// even if an error is encountered
+		d.env = env
+	}
+
+	if d.env == nil {
+		return "", fmt.Errorf("got nil env when loading from env file: %s", d.config.EnvFilePath)
+	}
+
+	nodeID, ok := d.env[flowNodeIDKey]
+	if !ok {
+		return "", errors.New("node ID not found")
+	}
+
+	zap.S().Infow("node id found", "node_id", nodeID)
+	d.config.NodeID = nodeID
+	d.renderNeeded = true
+
+	return d.config.NodeID, nil
+}
+
+func (d *Flow) configureNodeIDFromDocker() (string, error) {
 	log := zap.S()
 	if d.config.NodeID != "" {
 		log.Debugw("NodeID exists, skipping discovery", "node_id", d.config.NodeID)
@@ -228,15 +251,6 @@ func (d *Flow) configureNodeID() (string, error) {
 		}
 	}
 
-	// fall back to environment file
-	if d.env != nil {
-		if nodeID, ok := d.env[flowNodeIDKey]; ok {
-			log.Infow("node id found", "node_id", nodeID)
-			d.config.NodeID = nodeID
-			d.renderNeeded = true
-			return d.config.NodeID, nil
-		}
-	}
 	return "", errors.New("node ID not found")
 }
 
