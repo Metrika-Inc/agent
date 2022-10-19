@@ -2,8 +2,7 @@
 name: "Release"
 on:
   schedule:
-#    - cron: '10 0 * * *'
-    - cron: '20 17 * * *'
+    - cron: '0 0 * * *'
 
 env:
   REGISTRY: ghcr.io
