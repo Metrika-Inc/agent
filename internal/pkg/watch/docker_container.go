@@ -138,8 +138,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("status", "stop")
 	filter.Add("status", "kill")
 	filter.Add("status", "die")
-	filter.Add("container", container.Names[0])
+	filter.Add("container", container.ID)
+
 	options := dt.EventsOptions{Filters: filter}
+	zap.S().Debug("subscribing to docker event stream", "filter", filter)
 
 	msgchan, errchan, err := utils.DockerEvents(ctx, options)
 	if err != nil {
