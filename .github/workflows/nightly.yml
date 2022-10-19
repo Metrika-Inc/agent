@@ -39,6 +39,7 @@ jobs:
         uses: docker/metadata-action@v2
         with:
           images: ${{ steps.repo_slug.outputs.result }}
+          tags: nightly
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -54,6 +55,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             MA_PROTOCOL=flow
-            MA_VERSION=${{ steps.meta.outputs.version }}
+            MA_VERSION=main
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
