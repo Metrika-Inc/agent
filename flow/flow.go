@@ -147,6 +147,7 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 		log.Warnw("could not find node ID in docker container cmd args", zap.Error(err))
 		errs.Append(err)
 
+		// fall back to environment file
 		if _, err := d.configureNodeIDFromEnvFile(); err != nil {
 			log.Warnw("could not find node ID in env file", zap.Error(err))
 			errs.Append(err)
