@@ -218,6 +218,13 @@ func main() {
 		httpwg.Add(1)
 		httpsrv = mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
 		if global.AgentConf.Runtime.MetricsEnabled {
+			// attempt register NetDev collector for network metrics
+			netdev, err := collector.NewNetDevCollector()
+			if err != nil {
+				zap.S().Errorw("failed to initialize netdev collector for tracking network metrics", zap.Error(err))
+			} else {
+				prometheus.MustRegister(netdev)
+			}
 			http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
 		}
 		http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
