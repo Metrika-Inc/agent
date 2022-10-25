@@ -25,7 +25,7 @@ INSTALL_ID=$(date +%s)
 function goodbye {
 	echo -e ""
 	log_error "${1}"
-	log_ok "Help improve Metrika Agent! Please open an issue and attach /tmp/metrika-install-${INSTALL_ID}/metrika-install.log."
+	log_ok "Help improve Metrika Agent! Please open an issue and attach /tmp/metrikad-install-${INSTALL_ID}/metrikad-install.log."
 	echo -e ""
 	retcode=1
 	if [ -n "${2}" ]; then
@@ -220,14 +220,14 @@ function sanity_check {
 		;;
 	esac
 
-       # TODO: remove MA_PLATFORM dependency.
-       # MA_PLATFORM envvar
-       if [[ -z "${PLATFORM_ADDR}" ]]; then
-           if [[ -z "${MA_PLATFORM}" ]]; then
-               goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
-           fi
-           PLATFORM_ADDR=${MA_PLATFORM}
-       fi
+	# TODO: remove MA_PLATFORM dependency.
+	# MA_PLATFORM envvar
+	if [[ -z "${PLATFORM_ADDR}" ]]; then
+		if [[ -z "${MA_PLATFORM}" ]]; then
+			goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
+		fi
+		PLATFORM_ADDR=${MA_PLATFORM}
+	fi
 
 	# MA_BLOCKCHAIN envvar
 	if [[ -z "${MA_BLOCKCHAIN}" ]]; then
@@ -307,8 +307,8 @@ function uninstall {
 }
 
 function check_existing_install {
-    # Ensure failed state of a previous installation is cleared before checking the status.
-    $sudo_cmd systemctl reset-failed || true
+	# Ensure failed state of a previous installation is cleared before checking the status.
+	$sudo_cmd systemctl reset-failed || true
 
 	if $sudo_cmd systemctl --no-pager list-units --full -all | grep -F "$BIN_NAME".service; then
 		# agent is installed.
@@ -321,24 +321,24 @@ function check_existing_install {
 function create_systemd_service {
 	log_info "Creating systemd service..."
 
-    # Setup DOCKER_HOST & DOCKER_API_VERSION if present
-    # to cover reverse-proxy enabled setup.
-    local dockerHostEnv=""
-    local dockerApiVersionEnv=""
-    if [ -n "$DOCKER_HOST" ]; then
-        dockerHostEnv="DOCKER_HOST=$DOCKER_HOST"
-        if [ -n "$DOCKER_API_VERSION" ]; then
-            dockerApiVersionEnv="DOCKER_API_VERSION=$DOCKER_API_VERSION"
-        fi
+	# Setup DOCKER_HOST & DOCKER_API_VERSION if present
+	# to cover reverse-proxy enabled setup.
+	local dockerHostEnv=""
+	local dockerApiVersionEnv=""
+	if [ -n "$DOCKER_HOST" ]; then
+		dockerHostEnv="DOCKER_HOST=$DOCKER_HOST"
+		if [ -n "$DOCKER_API_VERSION" ]; then
+			dockerApiVersionEnv="DOCKER_API_VERSION=$DOCKER_API_VERSION"
+		fi
 
-        log_info "Systemd environment set to:\n"
-        log_info "$dockerHostEnv"
-        log_info "$dockerApiVersionEnv"
-    else
-        if [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
-            log_warn "Both metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
-        fi
-    fi
+		log_info "Systemd environment set to:\n"
+		log_info "$dockerHostEnv"
+		log_info "$dockerApiVersionEnv"
+	else
+		if [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
+			log_warn "Both metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
+		fi
+	fi
 
 	service=$(
 		envsubst <<EOF
@@ -412,11 +412,11 @@ function create_users_and_groups {
 	if [ $NO_DOCKER_GRP_REQUESTED -ne 1 ]; then
 		$sudo_cmd usermod -aG docker $MA_USER
 	else
-        if [ -z "$DOCKER_HOST" ]; then
-            log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data!"
-        else
-            log_info "Will configure the agent to use DOCKER_HOST=$DOCKER_HOST"
-        fi
+		if [ -z "$DOCKER_HOST" ]; then
+			log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data!"
+		else
+			log_info "Will configure the agent to use DOCKER_HOST=$DOCKER_HOST"
+		fi
 
 	fi
 }
