@@ -41,8 +41,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	_ "net/http/pprof"
 )
 
 var (
