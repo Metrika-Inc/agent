@@ -13,6 +13,7 @@ INSTALLER_VERSION="0.1"
 SUPPORTED_BLOCKCHAINS=("flow")
 SUPPORTED_ARCHS=("arm64 x86_64")
 HOST_ARCH=""
+HOST_OS=""
 LOGFILE="metrikad-install.log"
 LATEST_RELEASE="0.0.0"
 IS_UPDATABLE=-1
@@ -143,12 +144,31 @@ function download_agent {
 			# TODO(cosmix): add the architecture here when we add multiarch support.
 			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
 
+			binary="$BIN_NAME-$HOST_OS-$HOST_ARCH"
 			log_info "Downloading the latest version (${LATEST_RELEASE}) of the Metrika Agent for ${MA_BLOCKCHAIN} from GitHub ${download_url}"
-			if ! curl -s --output "${BIN_NAME}" -f -L -H "Accept: application/octet-stream" $download_url; then
+			if ! curl -s --output "${binary}" -f -L -H "Accept: application/octet-stream" "$download_url"; then
 				goodbye "Failed downloading the latest version of the Metrika agent." 60
 			fi
 
+			log_info "Downloading SHA256 binary checksum"
 
+			# checksum_file should be similar to metrikad-flow-linux-amd64.sha256
+			checksum_file="$binary.sha256"
+			checksum_url="$download_url.sha256"
+			if ! curl -s --output "$checksum_file" -f -L -H "Accept: application/octet-stream" "$checksum_url"; then
+				goodbye "Failed downloading the latest version of the Metrika agent." 60
+			fi
+
+			log_info "Verifying binary integrity"
+
+			local_checksum_file=$(mktemp -p .)
+			sha256sum "$binary" >"$local_checksum_file"
+			if ! sha256sum --strict -c "$checksum_file" "$local_checksum_file"; then
+				goodbye "Failed to verify binary integrity by SHA256 checksum." 60
+			fi
+
+			# Rename to metrikad-flow
+			mv "$binary" "$BIN_NAME"
 
 			if [ $UPGRADE_REQUESTED -ne 1 ]; then
 				log_info "Downloading additional configuration for the Metrika agent."
@@ -230,9 +250,11 @@ function sanity_check {
 	fi
 
 	# Linux check.
-	if [[ $(uname -s) != "Linux" ]]; then
+	l=$(uname -s)
+	if [[ $l != "Linux" ]]; then
 		goodbye "Metrika Agent currently only supports GNU/Linux operating systems." 7
 	fi
+	HOST_OS=${l,,}
 
 	# systemd check.
 	check_for_systemd
@@ -406,7 +428,6 @@ function create_users_and_groups {
 # ----------------------------------
 print_header
 
-
 installer_dir="/tmp/metrikad-install-${INSTALL_ID}"
 mkdir "${installer_dir}"
 cd "${installer_dir}" || goodbye "Could not change to the installation directory ${installer_dir}" 5
@@ -418,7 +439,6 @@ tee <$pipe $LOGFILE &
 exec 1>&-
 exec 1>$pipe 2>&1
 trap 'rm -f $pipe' EXIT
-
 
 for arg in "$@"; do
 	case "$arg" in
