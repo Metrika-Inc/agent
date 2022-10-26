@@ -55,7 +55,7 @@ jobs:
         id: build_binaries
         run: |
           make build-linux-amd64
-          make build-linux-arm64
+          # make build-linux-arm64
 
       - name: Get latest release tag
         id: git_last_tag
@@ -109,29 +109,29 @@ jobs:
           asset_name: metrikad-flow-linux-amd64.sha256
           asset_content_type: text/plain
 
-      - name: Upload Flow Release Asset Linux arm64
-        if: success()
-        id: upload-release-flow-asset-linux-arm64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./metrikad-flow-linux-arm64
-          asset_name: metrikad-flow-linux-arm64
-          asset_content_type: application/octet-stream
+      # - name: Upload Flow Release Asset Linux arm64
+      #   if: success()
+      #   id: upload-release-flow-asset-linux-arm64
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ./metrikad-flow-linux-arm64
+      #     asset_name: metrikad-flow-linux-arm64
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload Flow Release Asset Linux arm64 checksum
-        if: success()
-        id: upload-release-flow-asset-linux-arm64-checksum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./metrikad-flow-linux-arm64.sha256
-          asset_name: metrikad-flow-linux-arm64.sha256
-          asset_content_type: text/plain
+      # - name: Upload Flow Release Asset Linux arm64 checksum
+      #   if: success()
+      #   id: upload-release-flow-asset-linux-arm64-checksum
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ./metrikad-flow-linux-arm64.sha256
+      #     asset_name: metrikad-flow-linux-arm64.sha256
+      #     asset_content_type: text/plain
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
