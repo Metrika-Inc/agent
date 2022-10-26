@@ -25,6 +25,14 @@ jobs:
         if: success()
         uses: actions/checkout@v3
 
+      # Install the cosign tool except on PR
+      # https://github.com/sigstore/cosign-installer
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v2.8.1
+        with:
+          cosign-release: 'v1.13.1'
+
       - name: "Get tag data"
         if: success()
         id: git_tags
@@ -149,6 +157,7 @@ jobs:
           buildkitd-flags: --debug
 
       - name: Build and push Docker Flow images
+        id: build-and-push
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -160,6 +169,17 @@ jobs:
             MA_VERSION=${{ steps.meta.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sign the published Docked images
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign sign --key env://COSIGN_PRIVATE_KEY \
+            -a "repo=${{ github.repository }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.repo_slug.outputs.result }}@${{ steps.build-and-push.outputs.digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
 
       - name: Slack Notification Failure
         if: failure()
