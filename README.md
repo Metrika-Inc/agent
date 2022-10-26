@@ -67,6 +67,22 @@ docker run --rm \
     ghcr.io/Metrika-Inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
 ```
 
+#### Docker image verification
+Docker images are signed by Metrika using Github's [sigstore](https://sigstore.dev) [integration](https://github.blog/2021-12-06-safeguard-container-signing-capability-actions/). Images can be verified with [cosign](https://github.com/sigstore/cosign) following the steps below:
+1. Install cosign by following these [instructions](https://docs.sigstore.dev/cosign/installation/).
+2. Verify the image using Metrika's cosign public key:
+```sh
+cat <<EOT >> ma-cosign.pub
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEP6OfMlstCuLkvrKVahxxvnaDW+Tw
+wUJusBmsWSOMQVnYDb/jVfL/e/rgQxvFbulNiHGIRF3IXWzE3Jr8wTjdrg==
+-----END PUBLIC KEY-----
+EOT
+
+cosign verify --key ma-cosign.pub ghcr.io/metrika-inc/agent:<tag>
+```
+You can read more details on verifying containers with cosign [here](https://github.com/sigstore/cosign#verify-a-container-against-a-public-key).
+
 ### Using a Docker reverse proxy
 To avoid adding the metrikad user to the docker group, you can use a reverse proxy. The reverse proxy filters traffic before it reaches the non-networked Docker socket, preventing the agent process from speaking directly to it. The reverse proxy still needs a user that belongs to the docker group to run it so it can proxy requests to the UNIX socket.
 
