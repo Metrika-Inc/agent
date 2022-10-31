@@ -30,6 +30,7 @@ import (
 	"agent/internal/pkg/discover"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
+	"agent/internal/pkg/mahttp"
 	"agent/internal/pkg/publisher"
 	"agent/internal/pkg/watch"
 	"agent/internal/pkg/watch/factory"
@@ -56,6 +57,8 @@ var (
 
 	ctx, pubCtx       context.Context
 	cancel, pubCancel context.CancelFunc
+	promHandler       = promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
+	zapLevelHandler   = zap.NewAtomicLevelAt(global.AgentConf.Runtime.Log.Level())
 )
 
 func newSubscriptionChan() chan interface{} {
@@ -81,7 +84,7 @@ func parseFlags(args []string) error {
 
 func setupZapLogger() {
 	cfg := zap.NewProductionConfig()
-	cfg.Level = zap.NewAtomicLevelAt(global.AgentConf.Runtime.Log.Level())
+	cfg.Level = zapLevelHandler
 	cfg.OutputPaths = global.AgentConf.Runtime.Log.Outputs
 	if len(cfg.OutputPaths) == 0 {
 		cfg.OutputPaths = []string{"stdout"}
@@ -92,7 +95,6 @@ func setupZapLogger() {
 		zap.AddStacktrace(zapcore.FatalLevel),
 		zap.WithClock(timesync.Default),
 	}
-	http.Handle("/loglvl", cfg.Level)
 	l, err := cfg.Build(opts...)
 	if err != nil {
 		panic(fmt.Sprintf("failed to setup zap logging: %v", err))
@@ -209,11 +211,11 @@ func main() {
 		timesync.EmitEvent(timesync.Default, model.AgentClockSyncName)
 	}
 
-	go func() {
-		promHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
-		http.Handle("/metrics", promHandler)
-		http.ListenAndServe(global.AgentConf.Runtime.MetricsAddr, nil)
-	}()
+	httpwg := &sync.WaitGroup{}
+	httpwg.Add(1)
+	httpsrv := mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.MetricsAddr)
+	http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
+	http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
 
 	log := zap.S()
 	defer log.Sync()
@@ -283,6 +285,15 @@ func main() {
 	if err := emit.Ev(multiEmitter, ev); err != nil {
 		log.Error("error emitting event: ", err)
 	}
+
+	httpctx, httpcancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer httpcancel()
+	if err := httpsrv.Shutdown(httpctx); err != nil {
+		log.Errorw("error shutting down HTTP server", zap.Error(err))
+	}
+
+	// wait for goroutine started in startHttpServer() to stop
+	httpwg.Wait()
 
 	// stop watchers and wait for goroutine cleanup
 	factory.DefaultWatchRegistry.Stop()

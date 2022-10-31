@@ -106,6 +106,9 @@ var (
 	// DefaultRuntimeMetricsAddr default address to expose Prometheus metrics
 	DefaultRuntimeMetricsAddr = "127.0.0.1:9000"
 
+	// DefaultRuntimeAllowedHosts default list of allowed HTTP host headers
+	DefaultRuntimeAllowedHosts = []string{"127.0.0.1"}
+
 	// ConfigEnvPrefix prefix used for agent specific env vars
 	ConfigEnvPrefix = "MA"
 )
@@ -165,6 +168,7 @@ type WatchConfig struct {
 // RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
 	MetricsAddr                  string                 `yaml:"metrics_addr"`
+	AllowedHosts                 []string               `yaml:"allowed_hosts"`
 	Log                          LogConfig              `yaml:"logging"`
 	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
 	Watchers                     []*WatchConfig         `yaml:"watchers"`
@@ -309,6 +313,11 @@ func overloadFromEnv() error {
 		AgentConf.Runtime.MetricsAddr = v
 	}
 
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_allowed_hosts"))
+	if v != "" {
+		AgentConf.Runtime.AllowedHosts = strings.Split(v, ",")
+	}
+
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_sampling_interval"))
 	if v != "" {
 		vDur, err := time.ParseDuration(v)
@@ -386,6 +395,10 @@ func ensureDefaults() {
 
 	if AgentConf.Runtime.MetricsAddr == "" {
 		AgentConf.Runtime.MetricsAddr = DefaultRuntimeMetricsAddr
+	}
+
+	if len(AgentConf.Runtime.AllowedHosts) == 0 {
+		AgentConf.Runtime.AllowedHosts = DefaultRuntimeAllowedHosts
 	}
 
 	if AgentConf.Runtime.SamplingInterval == 0 {
