@@ -69,6 +69,9 @@ runtime:
   #  - Update its logging level (PUT /loglvl).
   http_addr: 127.0.0.1:9000
 
+  # metrics_enabled: bool, enable prometheus /metrics endpoint. Default is false.
+  metrics_enabled: false
+
   # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
   # validating HTTP requests processed by the agent such as /metrics. Use
   # comma-separated format when configuring this with an environment variable.
