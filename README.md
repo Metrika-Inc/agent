@@ -171,6 +171,18 @@ Agent issues can be troubleshot with the help of logs. By default agent logs can
 journalctl -u metrikad-{blockchain}.service
 ```
 
+You can modify the logging level without restarting the agent by sending an HTTP PUT request to the `/loglvl` endpoint:
+```sh
+curl -X PUT 127.0.0.1:9000/loglvl -d level=debug
+```
+
+### Prometheus Metrics
+The agent listens for HTTP requests on the address specified by `runtime.metrics_addr`. You can scrape Prometheus metrics by hitting the `/metrics` endpoint, for example:
+
+```sh
+curl 127.0.0.1:9000/metrics
+```
+
 ### Blockchain Node Discovery Issues
 The Metrika Agent attempts to discover a supported running blockchain node in the system. In case the blockchain node is containerized, Agent attempts to find the container by matching container name or image to a list of regular expressions specified in `/etc/metrikad/configs/{blockchain}.yml`. If the container name is not in the list of common names Metrika Agent is aware of, it can be added to the list of `containerRegex` in the aforementioned configuration file.
 
