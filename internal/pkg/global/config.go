@@ -103,8 +103,8 @@ var (
 	// DefaultRuntimeDisableFingerprintValidation default fingerprint validation policy
 	DefaultRuntimeDisableFingerprintValidation = false
 
-	// DefaultRuntimeMetricsAddr default address to expose Prometheus metrics
-	DefaultRuntimeMetricsAddr = "127.0.0.1:9000"
+	// DefaultRuntimeHTTPAddr default address to expose Prometheus metrics
+	DefaultRuntimeHTTPAddr = "127.0.0.1:9000"
 
 	// DefaultRuntimeAllowedHosts default list of allowed HTTP host headers
 	DefaultRuntimeAllowedHosts = []string{"127.0.0.1"}
@@ -167,7 +167,7 @@ type WatchConfig struct {
 
 // RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
-	MetricsAddr                  string                 `yaml:"metrics_addr"`
+	HTTPAddr                     string                 `yaml:"metrics_addr"`
 	AllowedHosts                 []string               `yaml:"allowed_hosts"`
 	Log                          LogConfig              `yaml:"logging"`
 	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
@@ -310,7 +310,7 @@ func overloadFromEnv() error {
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_metrics_addr"))
 	if v != "" {
-		AgentConf.Runtime.MetricsAddr = v
+		AgentConf.Runtime.HTTPAddr = v
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_allowed_hosts"))
@@ -393,8 +393,8 @@ func ensureDefaults() {
 		AgentConf.Runtime.Log.Lvl = DefaultRuntimeLoggingLevel
 	}
 
-	if AgentConf.Runtime.MetricsAddr == "" {
-		AgentConf.Runtime.MetricsAddr = DefaultRuntimeMetricsAddr
+	if AgentConf.Runtime.HTTPAddr == "" {
+		AgentConf.Runtime.HTTPAddr = DefaultRuntimeHTTPAddr
 	}
 
 	if len(AgentConf.Runtime.AllowedHosts) == 0 {

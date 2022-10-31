@@ -213,7 +213,7 @@ func main() {
 
 	httpwg := &sync.WaitGroup{}
 	httpwg.Add(1)
-	httpsrv := mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.MetricsAddr)
+	httpsrv := mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
 	http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
 	http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
 
