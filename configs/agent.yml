@@ -68,6 +68,12 @@ runtime:
   # agent's runtime.
   metrics_addr: 127.0.0.1:9000
 
+  # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
+  # validating HTTP requests processed by the agent such as /metrics. Use
+  # comma-separated format when configuring this with an environment variable.
+  allowed_hosts:
+    - 127.0.0.1
+
   # sampling_interval: duration, default interval used by Watchers that use
   # polling for collecting metrics/events.
   sampling_interval: 5s
