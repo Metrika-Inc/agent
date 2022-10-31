@@ -103,7 +103,7 @@ platform:
 	require.Equal(t, []string{"stdout", "stderr"}, AgentConf.Runtime.Log.Outputs)
 	require.Equal(t, "info", AgentConf.Runtime.Log.Lvl)
 	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
-	require.Equal(t, "foobar:9000", AgentConf.Runtime.MetricsAddr)
+	require.Equal(t, "foobar:9000", AgentConf.Runtime.HTTPAddr)
 	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
 	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
 }

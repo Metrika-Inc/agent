@@ -64,9 +64,10 @@ runtime:
   # not match. Checksum is cached under $HOME/.cache/metrikad/fingerprint.
   disable_fingerprint_validation: false
 
-  # metrics_addr: string, network address to get Prometheus metrics about the
-  # agent's runtime.
-  metrics_addr: 127.0.0.1:9000
+  # http_addr: string, network address to listen for HTTP requests to:
+  #  - Get Prometheus metrics about the agent's runtime (GET /metrics).
+  #  - Update its logging level (PUT /loglvl).
+  http_addr: 127.0.0.1:9000
 
   # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
   # validating HTTP requests processed by the agent such as /metrics. Use
