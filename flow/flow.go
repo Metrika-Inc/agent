@@ -374,9 +374,6 @@ func (d *Flow) Network() string {
 // until it discovers both node role and network properties.
 func (d *Flow) updateFromLogs(containerName string) error {
 	if d.nodeRole != "" && d.network != "" {
-		// TODO: node type discovery is quite expensive
-		// and we are not handling role changes for now
-		// so ignore further calls.
 		return nil
 	}
 

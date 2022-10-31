@@ -73,8 +73,6 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 		ShowStderr: true,
 		Follow:     true,
 		Tail:       "0",
-		// TODO: restore offset from a WAL.
-		// Since: "2022-02-25T19:14:59.721119832Z",
 	}
 
 	var rc io.ReadCloser

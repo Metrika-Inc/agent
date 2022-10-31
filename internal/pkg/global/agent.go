@@ -74,7 +74,6 @@ type Chain interface {
 
 	// NodeLogPath returns the path to the log file to watch.
 	// Supports special keys like "docker" or "journald <service-name>"
-	// TODO: string -> []string perhaps
 	NodeLogPath() string
 
 	// NodeID returns the blockchain node id

@@ -28,7 +28,6 @@ import (
 var DefaultExporterRegisterer = new(ExporterRegisterer)
 
 // DefaultExporterTimeout exporter channel send timeout
-// TODO: make timeout configurable per exporter basis
 var DefaultExporterTimeout = 5 * time.Second
 
 // Exporter interface describes the interface to be implemented for accessing

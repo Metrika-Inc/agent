@@ -195,7 +195,6 @@ func (t *TimeSync) waitForDone() {
 }
 
 func (t *TimeSync) setAdjustBool() {
-	// TODO: select sensible values for when it's appropriate to adjust timedrift
 	t.Lock()
 	defer t.Unlock()
 	if t.delta > 3*time.Second || t.delta < -500*time.Millisecond {

@@ -183,7 +183,7 @@ func (d *DockerMockAdapterError) MatchContainer(containers []dt.Container, ident
 }
 
 func (d *DockerMockAdapterError) DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
-	panic("not implemented") // TODO: Implement
+	panic("not implemented")
 }
 
 func (d *DockerMockAdapterError) DockerEvents(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error, error) {
