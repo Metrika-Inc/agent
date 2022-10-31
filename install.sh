@@ -141,7 +141,6 @@ function download_agent {
 		# This is not a custom install. We'll check and get the binary from Github.
 		case $IS_UPDATABLE in
 		1)
-			# TODO(cosmix): add the architecture here when we add multiarch support.
 			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
 
 			binary="$BIN_NAME-$HOST_OS-$HOST_ARCH"
@@ -220,8 +219,6 @@ function sanity_check {
 		;;
 	esac
 
-	# TODO: remove MA_PLATFORM dependency.
-	# MA_PLATFORM envvar
 	if [[ -z "${PLATFORM_ADDR}" ]]; then
 		if [[ -z "${MA_PLATFORM}" ]]; then
 			goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100

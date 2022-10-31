@@ -138,5 +138,3 @@ func TestDtoToOpenMetrics(t *testing.T) {
 		}
 	}
 }
-
-// TODO: get some metrics from collectors, or find histograms/summaries somewhere

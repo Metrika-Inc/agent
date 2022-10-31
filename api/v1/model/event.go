@@ -71,8 +71,7 @@ const (
 	// AgentNetErrorName The agent failed to send data to the backend. Ctx: error
 	AgentNetErrorName = "agent.net.error"
 
-	// AgentHealthName The agent self-test results
-	// TODO: not implemented
+	// AgentHealthName The agent self-test results (not implemented)
 	AgentHealthName = "agent.health"
 
 	/* chain specific events */
@@ -89,15 +88,13 @@ const (
 	// AgentNodeLogMissingName The node log file has gone missing. Ctx: node_id, node_type, node_version
 	AgentNodeLogMissingName = "agent.node.log.missing"
 
-	// AgentNodeConfigMissingName The node configuration file has gone missing
-	// TODO: not implemented
+	// AgentNodeConfigMissingName The node configuration file has gone missing (not implemented)
 	AgentNodeConfigMissingName = "agent.node.config.missing"
 
 	// AgentNodeLogFoundName The node log file has been found. Ctx: node_id, node_type,  node_version
 	AgentNodeLogFoundName = "agent.node.log.found"
 
-	// AgentConfigMissingName The agent configuration has gone missing
-	// TODO: not implemented
+	// AgentConfigMissingName The agent configuration has gone missing (not implemented)
 	AgentConfigMissingName = "agent.config.missing"
 
 	// AgentClockSyncName The agent synchronized its clock to NTP. Ctx: offset_millis, ntp_server

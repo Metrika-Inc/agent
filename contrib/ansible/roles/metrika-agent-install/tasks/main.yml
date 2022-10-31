@@ -7,8 +7,7 @@
   user:
     name: metrika-agent
     comment: Metrika agent user
-    # TODO - After implementing the docker proxy, remove the docker group from this user
-    groups: "metrika-agent, docker"
+    groups: "metrika-agent"
     shell: /sbin/nologin
     create_home: yes
     state: present

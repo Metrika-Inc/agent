@@ -32,8 +32,7 @@ const (
 // Used for calculating the total memory bytes on TCP and UDP.
 var pageSize = os.Getpagesize()
 
-type sockStatCollector struct {
-}
+type sockStatCollector struct{}
 
 // NewSockStatCollector returns a new Collector exposing socket stats.
 func NewSockStatCollector() (prometheus.Collector, error) {
@@ -95,7 +94,6 @@ func (c *sockStatCollector) update(ch chan<- prometheus.Metric, isIPv6 bool, s *
 
 	// If sockstat contains the number of used sockets, export it.
 	if !isIPv6 && s.Used != nil {
-		// TODO: this must be updated if sockstat6 ever exports this data.
 		ch <- prometheus.MustNewConstMetric(
 			prometheus.NewDesc(
 				prometheus.BuildFQName(namespace, sockStatSubsystem, "sockets_used"),
@@ -187,7 +185,6 @@ func (c *sockStatCollector) updateDesc(ch chan<- *prometheus.Desc, isIPv6 bool, 
 
 	// If sockstat contains the number of used sockets, export it.
 	if !isIPv6 && s.Used != nil {
-		// TODO: this must be updated if sockstat6 ever exports this data.
 		ch <- prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, sockStatSubsystem, "sockets_used"),
 			"Number of IPv4 sockets in use.",
