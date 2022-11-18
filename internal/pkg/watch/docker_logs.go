@@ -50,8 +50,6 @@ type DockerLogWatchConf struct {
 type DockerLogWatch struct {
 	DockerLogWatchConf
 	Watch
-
-	rc io.ReadCloser
 }
 
 // NewDockerLogWatch DockerLogWatch constructor
@@ -145,6 +143,11 @@ func (w *DockerLogWatch) StartUnsafe() {
 	)
 
 	newEventStream := func() bool {
+		// Before initializing a log stream, confirm that we need a log watcher
+		if !global.BlockchainNode.LogWatchEnabled() {
+			return true
+		}
+
 		// Retry forever to establish the stream. Ensures periodic retries
 		// according to the specified interval and probes the stop channel
 		// for exit point.
@@ -170,6 +173,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 	}
 
 	if stopped := newEventStream(); stopped {
+		w.Stop()
 		return
 	}
 
@@ -224,6 +228,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 
 				if stopped := newEventStream(); stopped {
+					w.Stop()
 					return
 				}
 
@@ -278,6 +283,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 
 				if stopped := newEventStream(); stopped {
+					w.Stop()
 					return
 				}
 

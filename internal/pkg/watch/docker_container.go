@@ -291,6 +291,7 @@ func (w *ContainerWatch) StartUnsafe() {
 		defer w.wg.Done()
 
 		for {
+			// add a node type check here in case we're late in 
 			if w.containerGone {
 				cancel()
 				newEventStream()

@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/discover"
+	"agent/internal/pkg/global"
 
 	"github.com/stretchr/testify/require"
 )
@@ -101,4 +103,50 @@ func TestDockerLogs_happy(t *testing.T) {
 			t.Fatalf("timeout waiting for message %s (%d)", expmsg.Name, i)
 		}
 	}
+}
+
+func TestDockerLogs_disabled(t *testing.T) {
+	// ensure we're configuring mock blockchain to not watch logs for this test
+	disableDockerLogWatch(t)
+	defer enableDockerLogWatch(t)
+
+	ts := newMockDockerDaemonHTTP(t)
+	defer ts.Close()
+
+	mockad := new(DockerMockAdapterHealthy)
+	deferme := overrideDockerAdapter(ts.URL, mockad)
+	defer deferme()
+
+	w := NewDockerLogWatch(DockerLogWatchConf{
+		Regex: []string{"flow-private-network_consensus_3_1"},
+		Events: map[string]model.FromContext{
+			"OnVoting": new(onVoting),
+		},
+		RetryIntv: 10 * time.Millisecond,
+	})
+	defer w.wg.Wait()
+	defer w.Stop()
+
+	emitch := make(chan interface{}, 10)
+	w.Subscribe(emitch)
+
+	Start(w)
+
+	<-time.After(50 * time.Millisecond)
+
+	_, ok := <-w.StopKey
+	require.False(t, ok)
+	require.Len(t, emitch, 0)
+}
+
+func disableDockerLogWatch(t *testing.T) {
+	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
+	require.True(t, ok)
+	mockChain.SetLogWatchEnabled(false)
+}
+
+func enableDockerLogWatch(t *testing.T) {
+	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
+	require.True(t, ok)
+	mockChain.SetLogWatchEnabled(true)
 }
