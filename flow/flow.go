@@ -501,5 +501,5 @@ func (d *Flow) Protocol() string {
 // 1) Agent is not fully configured // flow node is not yet discovered
 // 2) Flow node role is consensus
 func (d *Flow) LogWatchEnabled() bool {
-	return d.nodeRole == "" || d.nodeRole == "consensus"
+	return d.nodeRole == "" || d.nodeRole == nodeRoleConsensus
 }
