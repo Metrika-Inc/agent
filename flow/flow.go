@@ -54,7 +54,7 @@ const (
 	nodeRoleVerification = "verification"
 )
 
-var RecognizedNodeRoles = map[string]struct{}{
+var recognizedNodeRoles = map[string]struct{}{
 	"":                   {}, // valid value when node not discovered yet
 	nodeRoleAccess:       {},
 	nodeRoleCollection:   {},
@@ -439,7 +439,7 @@ func (d *Flow) updateFromLogs(containerName string) error {
 			}
 			nodeRole = strings.ToLower(nodeRole)
 
-			if _, ok := RecognizedNodeRoles[nodeRole]; !ok {
+			if _, ok := recognizedNodeRoles[nodeRole]; !ok {
 				return fmt.Errorf("unsupported node role detected: %s", nodeRole)
 			}
 
@@ -500,6 +500,6 @@ func (d *Flow) Protocol() string {
 // Currently we're only collecting flow node logs if:
 // 1) Agent is not fully configured // flow node is not yet discovered
 // 2) Flow node role is consensus
-func (f *Flow) LogWatchEnabled() bool {
-	return f.nodeRole == "" || f.nodeRole == "consensus"
+func (d *Flow) LogWatchEnabled() bool {
+	return d.nodeRole == "" || d.nodeRole == "consensus"
 }

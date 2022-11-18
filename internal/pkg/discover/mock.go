@@ -27,6 +27,7 @@ type MockBlockchain struct {
 	sync.RWMutex
 }
 
+// NewMockBlockchain creates a new instance of Mock Blockchain. Used for tests.
 func NewMockBlockchain() *MockBlockchain {
 	return &MockBlockchain{
 		logWatchEnabled: true,
@@ -95,12 +96,14 @@ func (m *MockBlockchain) Network() string {
 	return "mock-node-network"
 }
 
+// LogWatchEnabled specifies if a node wants its logs to be read
 func (m *MockBlockchain) LogWatchEnabled() bool {
 	m.RLock()
 	defer m.RUnlock()
 	return m.logWatchEnabled
 }
 
+// SetLogWatchEnabled sets LogWatchEnable return value
 func (m *MockBlockchain) SetLogWatchEnabled(val bool) {
 	m.Lock()
 	defer m.Unlock()
