@@ -309,7 +309,7 @@ func overloadFromEnv() error {
 		AgentConf.Runtime.DisableFingerprintValidation = vBool
 	}
 
-	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_metrics_addr"))
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_http_addr"))
 	if v != "" {
 		AgentConf.Runtime.HTTPAddr = v
 	}
