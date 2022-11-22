@@ -58,7 +58,6 @@ var (
 	ctx, pubCtx       context.Context
 	cancel, pubCancel context.CancelFunc
 	promHandler       = promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
-	zapLevelHandler   = zap.NewAtomicLevelAt(global.AgentConf.Runtime.Log.Level())
 )
 
 func newSubscriptionChan() chan interface{} {
@@ -82,7 +81,8 @@ func parseFlags(args []string) error {
 	return nil
 }
 
-func setupZapLogger() {
+func setupZapLogger() zap.AtomicLevel {
+	zapLevelHandler := zap.NewAtomicLevelAt(global.AgentConf.Runtime.Log.Level())
 	cfg := zap.NewProductionConfig()
 	cfg.Level = zapLevelHandler
 	cfg.OutputPaths = global.AgentConf.Runtime.Log.Outputs
@@ -102,6 +102,8 @@ func setupZapLogger() {
 
 	// set newly configured logger as default (access via zap.L() // zap.S())
 	zap.ReplaceGlobals(l)
+
+	return zapLevelHandler
 }
 
 func defaultWatchers() []watch.Watcher {
@@ -183,9 +185,7 @@ func main() {
 
 		os.Exit(1)
 	}
-
-	setupZapLogger()
-
+	zapLevelHandler := setupZapLogger()
 	zap.S().Debugw("loaded agent config", "config", global.AgentConf)
 
 	if err := global.AgentPrepareStartup(); err != nil {

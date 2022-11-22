@@ -167,7 +167,7 @@ type WatchConfig struct {
 
 // RuntimeConfig configuration related to the agent runtime.
 type RuntimeConfig struct {
-	HTTPAddr                     string                 `yaml:"metrics_addr"`
+	HTTPAddr                     string                 `yaml:"http_addr"`
 	MetricsEnabled               bool                   `yaml:"metrics_enabled"`
 	AllowedHosts                 []string               `yaml:"allowed_hosts"`
 	Log                          LogConfig              `yaml:"logging"`
@@ -309,7 +309,7 @@ func overloadFromEnv() error {
 		AgentConf.Runtime.DisableFingerprintValidation = vBool
 	}
 
-	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_metrics_addr"))
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_http_addr"))
 	if v != "" {
 		AgentConf.Runtime.HTTPAddr = v
 	}
