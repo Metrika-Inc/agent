@@ -15,17 +15,12 @@ package utils
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"os/exec"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -161,42 +156,6 @@ func DockerEvents(ctx context.Context, options types.EventsOptions) (
 	<-chan events.Message, <-chan error, error,
 ) {
 	return DefaultDockerAdapter.DockerEvents(ctx, options)
-}
-
-// PidOf returns the PID of a specified process name.
-// If process is not found an os.ExitError is returned.
-// In case of abnormal output, strconv.NumError is returned.
-func PidOf(name string) (int, error) {
-	var err error
-	var ret int
-	// try pidof
-	output, err := exec.Command("pidof", "-s", name).Output()
-	if err != nil {
-		output, err = exec.Command("pgrep", "-n", name).Output()
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	ret, err = strconv.Atoi(strings.Trim(string(output), "\n"))
-	if err != nil {
-		return 0, err
-	}
-	return ret, nil
-}
-
-// PidArgs returns a string slice of the command line arguments
-// of a specifid PID.
-// First element is the executable path.
-func PidArgs(pid int) ([]string, error) {
-	pidStr := strconv.Itoa(pid)
-
-	out, err := ioutil.ReadFile("/proc/" + pidStr + "/cmdline")
-	if err != nil {
-		return nil, err
-	}
-	args := bytes.Replace(out, []byte{0x0}, []byte{' '}, -1)
-	return strings.Fields(string(args)), nil
 }
 
 // GetEnvFromFile returns a map of environment variables parsed from a file.
