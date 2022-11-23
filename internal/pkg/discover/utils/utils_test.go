@@ -21,39 +21,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"regexp"
 	"testing"
 
 	dt "github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/require"
 )
-
-func TestPidOf(t *testing.T) {
-	pid := getRealPID(t)
-	require.NotEqual(t, 0, pid)
-
-	result, err := PidOf("404noPID")
-	require.Equal(t, 0, result)
-	expectedError := &exec.ExitError{}
-	require.ErrorAs(t, err, &expectedError)
-}
-
-func TestPidArgs(t *testing.T) {
-	t.Run("PidArgs happy case", func(t *testing.T) {
-		pid := getRealPID(t)
-		args, err := PidArgs(pid)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, 1, len(args))
-	})
-	t.Run("PidArgs pid not found", func(t *testing.T) {
-		pid := -123
-		args, err := PidArgs(pid)
-		require.Error(t, err)
-		require.Nil(t, args)
-	})
-
-}
 
 func TestGetEnvFromFile(t *testing.T) {
 	path := "testcases/correctEnvFile"
@@ -71,15 +44,6 @@ func TestGetEnvFromFile(t *testing.T) {
 			t.Fatalf("Could not find the env var %v = %v", k, v)
 		}
 	}
-}
-
-func getRealPID(t *testing.T) int {
-	pid, err := PidOf("init")
-	if err != nil {
-		pid, err = PidOf("systemd")
-	}
-	require.NoError(t, err)
-	return pid
 }
 
 func TestGetLogLine(t *testing.T) {
