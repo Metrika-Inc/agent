@@ -171,16 +171,23 @@ Agent issues can be troubleshot with the help of logs. By default agent logs can
 journalctl -u metrikad-{blockchain}.service
 ```
 
+### Changing log level
+
+_Requires_: `runtime.http_addr`.
+
 You can modify the logging level without restarting the agent by sending an HTTP PUT request to the `/loglvl` endpoint:
 ```sh
 curl -X PUT 127.0.0.1:9000/loglvl -d level=debug
 ```
 
 ### Prometheus Metrics
+
+_Requires_: `runtime.http_addr` and `runtime.metrics_enabled`.
+
 The agent listens for HTTP requests on the address specified by `runtime.metrics_addr`. You can scrape Prometheus metrics by hitting the `/metrics` endpoint, for example:
 
 ```sh
-curl 127.0.0.1:9000/metrics
+curl 127.0.0.1:9000/metrics # when runtime.http_addr=127.0.0.1:9000
 ```
 
 ### Blockchain Node Discovery Issues
