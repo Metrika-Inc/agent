@@ -212,10 +212,10 @@ func main() {
 	}
 
 	httpwg := &sync.WaitGroup{}
-	httpwg.Add(1)
 
 	var httpsrv *http.Server
 	if global.AgentConf.Runtime.HTTPAddr != "" {
+		httpwg.Add(1)
 		httpsrv = mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
 		if global.AgentConf.Runtime.MetricsEnabled {
 			http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
