@@ -213,11 +213,15 @@ func main() {
 
 	httpwg := &sync.WaitGroup{}
 	httpwg.Add(1)
-	httpsrv := mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
-	if global.AgentConf.Runtime.MetricsEnabled {
-		http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
+
+	var httpsrv *http.Server
+	if global.AgentConf.Runtime.HTTPAddr != "" {
+		httpsrv = mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
+		if global.AgentConf.Runtime.MetricsEnabled {
+			http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
+		}
+		http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
 	}
-	http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
 
 	log := zap.S()
 	defer log.Sync()
@@ -288,10 +292,12 @@ func main() {
 		log.Error("error emitting event: ", err)
 	}
 
-	httpctx, httpcancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer httpcancel()
-	if err := httpsrv.Shutdown(httpctx); err != nil {
-		log.Errorw("error shutting down HTTP server", zap.Error(err))
+	if httpsrv != nil {
+		httpctx, httpcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer httpcancel()
+		if err := httpsrv.Shutdown(httpctx); err != nil {
+			log.Errorw("error shutting down HTTP server", zap.Error(err))
+		}
 	}
 
 	// wait for goroutine started in startHttpServer() to stop

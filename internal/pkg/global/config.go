@@ -104,7 +104,7 @@ var (
 	DefaultRuntimeDisableFingerprintValidation = false
 
 	// DefaultRuntimeHTTPAddr default address to expose Prometheus metrics
-	DefaultRuntimeHTTPAddr = "127.0.0.1:9000"
+	DefaultRuntimeHTTPAddr = ""
 
 	// DefaultRuntimeAllowedHosts default list of allowed HTTP host headers
 	DefaultRuntimeAllowedHosts = []string{"127.0.0.1"}
