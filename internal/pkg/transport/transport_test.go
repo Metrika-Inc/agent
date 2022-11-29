@@ -82,6 +82,7 @@ func TestPlatformGRPC_Publish(t *testing.T) {
 	require.NotNil(t, mockServer.gotPlatformMessage)
 	require.NotEmpty(t, mockServer.gotPlatformMessage.Network)
 	require.NotEmpty(t, mockServer.gotPlatformMessage.Protocol)
+	require.NotEmpty(t, mockServer.gotPlatformMessage.NodeType)
 
 	require.Equal(t, global.BlockchainNode.Network(), mockServer.gotPlatformMessage.Network)
 	require.Equal(t, global.BlockchainNode.Protocol(), mockServer.gotPlatformMessage.Protocol)

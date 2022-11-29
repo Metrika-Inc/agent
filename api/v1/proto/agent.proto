@@ -36,6 +36,7 @@ message PlatformMessage {
     string agentUUID = 2;
     string protocol = 3;
     string network = 4;
+    string node_type = 5;
 }
 
 message PlatformResponse {
