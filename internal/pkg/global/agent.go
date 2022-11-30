@@ -79,8 +79,8 @@ type Chain interface {
 	// NodeID returns the blockchain node id
 	NodeID() string
 
-	// NodeType returns the blockchain node type (i.e. consensus)
-	NodeType() string
+	// NodeRole returns the blockchain node type (i.e. consensus)
+	NodeRole() string
 
 	// NodeVersion returns the blockchain node version
 	NodeVersion() string

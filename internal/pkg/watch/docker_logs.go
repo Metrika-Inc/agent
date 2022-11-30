@@ -205,7 +205,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 				ctx := map[string]interface{}{
 					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
 					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 				}
 
@@ -259,7 +259,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				w.Log.Error("EOF error while reading log data, will try to recover log streaming immediately")
 				ctx := map[string]interface{}{
 					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
 					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 				}
 
@@ -293,7 +293,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 			if lastErr != nil {
 				ctx := map[string]interface{}{
 					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
 					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 				}
 				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, timesync.Now())

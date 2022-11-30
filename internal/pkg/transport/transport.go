@@ -122,7 +122,7 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 		Data:      data,
 		Protocol:  global.BlockchainNode.Protocol(),
 		Network:   global.BlockchainNode.Network(),
-		NodeType:  global.BlockchainNode.NodeType(),
+		NodeRole:  global.BlockchainNode.NodeRole(),
 	}
 
 	if t.AgentService == nil {
