@@ -354,8 +354,8 @@ func (d *Flow) NodeLogPath() string {
 	return ""
 }
 
-// NodeType returns the discovered node role (i.e. consensus).
-func (d *Flow) NodeType() string {
+// NodeRole returns the discovered node role (i.e. consensus).
+func (d *Flow) NodeRole() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 

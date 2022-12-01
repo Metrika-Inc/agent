@@ -65,8 +65,8 @@ func (m *MockBlockchain) NodeID() string {
 	return "mock-node-id"
 }
 
-// NodeType ...
-func (m *MockBlockchain) NodeType() string {
+// NodeRole ...
+func (m *MockBlockchain) NodeRole() string {
 	return "mock-node-type"
 }
 

@@ -51,7 +51,7 @@ func newNodeEventCtx() map[string]interface{} {
 		ctx[model.NodeIDKey] = nodeID
 	}
 
-	nodeType := global.BlockchainNode.NodeType()
+	nodeType := global.BlockchainNode.NodeRole()
 	if nodeType != "" {
 		ctx[model.NodeTypeKey] = nodeType
 	}
@@ -164,7 +164,7 @@ func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error
 	var err error
 	ctx := map[string]interface{}{
 		model.NodeIDKey:      global.BlockchainNode.NodeID(),
-		model.NodeTypeKey:    global.BlockchainNode.NodeType(),
+		model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
 		model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
 	}
 

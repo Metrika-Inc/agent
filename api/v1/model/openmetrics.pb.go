@@ -359,7 +359,6 @@ type MetricPoint struct {
 	// Required.
 	//
 	// Types that are assignable to Value:
-	//
 	//	*MetricPoint_UnknownValue
 	//	*MetricPoint_GaugeValue
 	//	*MetricPoint_CounterValue
@@ -522,7 +521,6 @@ type UnknownValue struct {
 	// Required.
 	//
 	// Types that are assignable to Value:
-	//
 	//	*UnknownValue_DoubleValue
 	//	*UnknownValue_IntValue
 	Value isUnknownValue_Value `protobuf_oneof:"value"`
@@ -606,7 +604,6 @@ type GaugeValue struct {
 	// Required.
 	//
 	// Types that are assignable to Value:
-	//
 	//	*GaugeValue_DoubleValue
 	//	*GaugeValue_IntValue
 	Value isGaugeValue_Value `protobuf_oneof:"value"`
@@ -690,7 +687,6 @@ type CounterValue struct {
 	// Required.
 	//
 	// Types that are assignable to Total:
-	//
 	//	*CounterValue_DoubleValue
 	//	*CounterValue_IntValue
 	Total isCounterValue_Total `protobuf_oneof:"total"`
@@ -793,7 +789,6 @@ type HistogramValue struct {
 	// Optional.
 	//
 	// Types that are assignable to Sum:
-	//
 	//	*HistogramValue_DoubleValue
 	//	*HistogramValue_IntValue
 	Sum isHistogramValue_Sum `protobuf_oneof:"sum"`
@@ -1070,7 +1065,6 @@ type SummaryValue struct {
 	// Optional.
 	//
 	// Types that are assignable to Sum:
-	//
 	//	*SummaryValue_DoubleValue
 	//	*SummaryValue_IntValue
 	Sum isSummaryValue_Sum `protobuf_oneof:"sum"`
