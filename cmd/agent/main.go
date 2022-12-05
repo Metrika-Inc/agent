@@ -120,10 +120,12 @@ func defaultWatchers() []watch.Watcher {
 		}))
 
 		// Docker container watch (logs)
-		dw = append(dw, watch.NewDockerLogWatch(watch.DockerLogWatchConf{
+		logWatch := watch.NewDockerLogWatch(watch.DockerLogWatchConf{
 			Regex:  regex,
 			Events: logEvs,
-		}))
+		})
+		// start log watcher independently if conditions for it are met
+		go logWatch.PendingStart(subscriptions...)
 
 		zap.S().Debugf("watching containers %v", regex)
 	}
@@ -160,7 +162,7 @@ func registerWatchers() error {
 
 	watchersEnabled = append(watchersEnabled, defaultWatchers()...)
 
-	if err := factory.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
+	if err := watch.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
 		return err
 	}
 
@@ -269,7 +271,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := factory.DefaultWatchRegistry.Start(subscriptions...); err != nil {
+	if err := watch.DefaultWatchRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
 	}
 
@@ -311,8 +313,8 @@ func main() {
 	httpwg.Wait()
 
 	// stop watchers and wait for goroutine cleanup
-	factory.DefaultWatchRegistry.Stop()
-	factory.DefaultWatchRegistry.Wait()
+	watch.DefaultWatchRegistry.Stop()
+	watch.DefaultWatchRegistry.Wait()
 
 	// stop platform publisher if running
 	if pubCancel != nil {

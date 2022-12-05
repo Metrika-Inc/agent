@@ -497,9 +497,9 @@ func (d *Flow) Protocol() string {
 }
 
 // LogWatchEnabled specifies if a log watcher should be turned on or not.
-// Currently we're only collecting flow node logs if:
-// 1) Agent is not fully configured // flow node is not yet discovered
-// 2) Flow node role is consensus
+// Currently we're only collecting flow node logs if flow node type is consensus.
+//
+// Note: if node type is not yet discovered, LogWatchEnabled will return false.
 func (d *Flow) LogWatchEnabled() bool {
-	return d.nodeRole == "" || d.nodeRole == nodeRoleConsensus
+	return d.nodeRole == nodeRoleConsensus
 }

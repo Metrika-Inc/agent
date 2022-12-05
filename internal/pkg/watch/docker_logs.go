@@ -330,3 +330,32 @@ func (w *DockerLogWatch) StartUnsafe() {
 func (w *DockerLogWatch) Stop() {
 	w.Watch.Stop()
 }
+
+// PendingStart waits until node type is determined and calls
+// chain.LogWatchEnabled() to check if it should start up or not.
+func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
+	ticker := time.NewTicker(time.Second)
+
+	for {
+		select {
+		case <-w.StopKey:
+			return
+		case <-ticker.C:
+			nodeType := global.BlockchainNode.NodeType()
+			if nodeType == "" {
+				continue
+			}
+			log := w.Log.With("node_type", nodeType)
+			if global.BlockchainNode.LogWatchEnabled() {
+				if err := DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
+					log.Errorw("failed to register docker log watcher", zap.Error(err))
+					return
+				}
+				log.Info("docker log watch started")
+			} else {
+				log.Info("docker log watch disabled - node type does not require logs to be watched")
+				return
+			}
+		}
+	}
+}
