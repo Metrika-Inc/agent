@@ -341,7 +341,7 @@ func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
 		case <-w.StopKey:
 			return
 		case <-ticker.C:
-			nodeType := global.BlockchainNode.NodeType()
+			nodeType := global.BlockchainNode.NodeRole()
 			if nodeType == "" {
 				continue
 			}
