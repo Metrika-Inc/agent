@@ -8,7 +8,7 @@ import (
 var DefaultWatchRegistry WatchersRegisterer
 
 func init() {
-	defaultWatchRegistrar := new(WatchRegistry)
+	defaultWatchRegistrar := new(Registry)
 
 	defaultWatchRegistrar.watch = []*WatcherInstance{}
 	defaultWatchRegistrar.Mutex = &sync.Mutex{}
@@ -24,12 +24,14 @@ type WatchersRegisterer interface {
 	Wait()
 }
 
-// WatchRegistry type
-type WatchRegistry struct {
+// Registry type
+type Registry struct {
 	watch []*WatcherInstance
 	*sync.Mutex
 }
 
+// WatcherInstance describes a state of a single
+// watcher that's inside the registry.
 type WatcherInstance struct {
 	started bool
 	watcher Watcher
@@ -37,7 +39,7 @@ type WatcherInstance struct {
 }
 
 // Register registrers one or more watchers
-func (r *WatchRegistry) Register(w ...Watcher) error {
+func (r *Registry) Register(w ...Watcher) error {
 	r.Lock()
 	defer r.Unlock()
 	for _, watcher := range w {
@@ -50,7 +52,7 @@ func (r *WatchRegistry) Register(w ...Watcher) error {
 	return nil
 }
 
-func (r *WatchRegistry) register(watcher Watcher) (*WatcherInstance, error) {
+func (r *Registry) register(watcher Watcher) (*WatcherInstance, error) {
 	instance := &WatcherInstance{
 		watcher: watcher,
 		Mutex:   &sync.Mutex{},
@@ -60,7 +62,7 @@ func (r *WatchRegistry) register(watcher Watcher) (*WatcherInstance, error) {
 }
 
 // RegisterAndStart attempts to register and start a single watcher.
-func (r *WatchRegistry) RegisterAndStart(w Watcher, ch ...chan<- interface{}) error {
+func (r *Registry) RegisterAndStart(w Watcher, ch ...chan<- interface{}) error {
 	r.Lock()
 	defer r.Unlock()
 
@@ -77,7 +79,7 @@ func (r *WatchRegistry) RegisterAndStart(w Watcher, ch ...chan<- interface{}) er
 // Calling Start multiple times will start watchers that haven't
 // been started, and will act as a no-op for already running watchers, even
 // if ch parameter is different.
-func (r *WatchRegistry) Start(ch ...chan<- interface{}) error {
+func (r *Registry) Start(ch ...chan<- interface{}) error {
 	r.Lock()
 	defer r.Unlock()
 	return start(ch, r.watch...)
@@ -103,7 +105,7 @@ func start(ch []chan<- interface{}, instances ...*WatcherInstance) error {
 }
 
 // Stop stops all registered watches
-func (r *WatchRegistry) Stop() {
+func (r *Registry) Stop() {
 	r.Lock()
 	defer r.Unlock()
 	for _, w := range r.watch {
@@ -113,7 +115,7 @@ func (r *WatchRegistry) Stop() {
 }
 
 // Wait for all registered watches to finish
-func (r *WatchRegistry) Wait() {
+func (r *Registry) Wait() {
 	for _, w := range r.watch {
 		w.watcher.Wait()
 	}
