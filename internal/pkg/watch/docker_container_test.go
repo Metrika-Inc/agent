@@ -39,7 +39,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	global.BlockchainNode = &discover.MockBlockchain{}
+	global.BlockchainNode = discover.NewMockBlockchain()
 	l, _ := zap.NewProduction()
 	zap.ReplaceGlobals(l)
 	m.Run()
@@ -134,7 +134,6 @@ func TestContainerWatch_happy(t *testing.T) {
 	emitch := make(chan interface{}, 10)
 	w.Subscribe(emitch)
 
-	global.BlockchainNode = &discover.MockBlockchain{}
 	Start(w)
 
 	expEvents := []string{

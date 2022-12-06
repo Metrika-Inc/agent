@@ -45,7 +45,23 @@ const (
 	// tailLinesStr is the default number of lines to fetch
 	// when peeking the logfile for network/chain or node role data.
 	tailLinesStr = "100"
+
+	// Valid node roles
+	nodeRoleAccess       = "access"
+	nodeRoleCollection   = "collection"
+	nodeRoleConsensus    = "consensus"
+	nodeRoleExecution    = "execution"
+	nodeRoleVerification = "verification"
 )
+
+var recognizedNodeRoles = map[string]struct{}{
+	"":                   {}, // valid value when node not discovered yet
+	nodeRoleAccess:       {},
+	nodeRoleCollection:   {},
+	nodeRoleConsensus:    {},
+	nodeRoleExecution:    {},
+	nodeRoleVerification: {},
+}
 
 // Flow is responsible for discovery and validation
 // of the agent's flow-related configuration.
@@ -417,10 +433,17 @@ func (d *Flow) updateFromLogs(containerName string) error {
 		}
 
 		if role, ok := m["node_role"]; ok && d.nodeRole == "" {
-			d.nodeRole, ok = role.(string)
+			nodeRole, ok := role.(string)
 			if !ok {
 				return fmt.Errorf("type assertion failed for node role: %v", role)
 			}
+			nodeRole = strings.ToLower(nodeRole)
+
+			if _, ok := recognizedNodeRoles[nodeRole]; !ok {
+				return fmt.Errorf("unsupported node role detected: %s", nodeRole)
+			}
+
+			d.nodeRole = nodeRole
 		}
 
 		if chain, ok := m["chain"]; ok && d.network == "" {
@@ -471,4 +494,12 @@ func (d *Flow) updateNodeVersion() (string, error) {
 // Protocol returns "flow"
 func (d *Flow) Protocol() string {
 	return protocolName
+}
+
+// LogWatchEnabled specifies if a log watcher should be turned on or not.
+// Currently we're only collecting flow node logs if flow node type is consensus.
+//
+// Note: if node type is not yet discovered, LogWatchEnabled will return false.
+func (d *Flow) LogWatchEnabled() bool {
+	return d.nodeRole == nodeRoleConsensus
 }

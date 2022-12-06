@@ -32,15 +32,19 @@ import (
 	"go.uber.org/zap"
 )
 
-const maxLineBytes = uint32(1024 * 1024)
+const (
+	maxLineBytes = uint32(1024 * 1024)
 
-var defaultRetryIntv = 3 * time.Second
+	defaultRetryIntv            = 3 * time.Second
+	defaultPendingStartInterval = time.Second
+)
 
 // DockerLogWatchConf DockerLogWatch configuration struct.
 type DockerLogWatchConf struct {
-	Regex     []string
-	Events    map[string]model.FromContext
-	RetryIntv time.Duration
+	Regex                []string
+	Events               map[string]model.FromContext
+	RetryIntv            time.Duration
+	PendingStartInterval time.Duration
 }
 
 // DockerLogWatch uses the host docker daemon to discover a
@@ -50,8 +54,6 @@ type DockerLogWatchConf struct {
 type DockerLogWatch struct {
 	DockerLogWatchConf
 	Watch
-
-	rc io.ReadCloser
 }
 
 // NewDockerLogWatch DockerLogWatch constructor
@@ -62,6 +64,9 @@ func NewDockerLogWatch(conf DockerLogWatchConf) *DockerLogWatch {
 	w.Log = w.Log.With("watch", "docker_logs")
 	if w.RetryIntv == 0 {
 		w.RetryIntv = defaultRetryIntv
+	}
+	if w.PendingStartInterval == 0 {
+		w.PendingStartInterval = defaultPendingStartInterval
 	}
 
 	return w
@@ -145,6 +150,11 @@ func (w *DockerLogWatch) StartUnsafe() {
 	)
 
 	newEventStream := func() bool {
+		// Before initializing a log stream, confirm that we need a log watcher
+		if !global.BlockchainNode.LogWatchEnabled() {
+			return true
+		}
+
 		// Retry forever to establish the stream. Ensures periodic retries
 		// according to the specified interval and probes the stop channel
 		// for exit point.
@@ -170,6 +180,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 	}
 
 	if stopped := newEventStream(); stopped {
+		w.Stop()
 		return
 	}
 
@@ -224,6 +235,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 
 				if stopped := newEventStream(); stopped {
+					w.Stop()
 					return
 				}
 
@@ -278,6 +290,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 
 				if stopped := newEventStream(); stopped {
+					w.Stop()
 					return
 				}
 
@@ -323,4 +336,34 @@ func (w *DockerLogWatch) StartUnsafe() {
 // Stop stops the watch.
 func (w *DockerLogWatch) Stop() {
 	w.Watch.Stop()
+}
+
+// PendingStart waits until node type is determined and calls
+// chain.LogWatchEnabled() to check if it should start up or not.
+func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
+	ticker := time.NewTicker(w.PendingStartInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-w.StopKey:
+			return
+		case <-ticker.C:
+			nodeType := global.BlockchainNode.NodeRole()
+			if nodeType == "" {
+				continue
+			}
+			log := w.Log.With("node_type", nodeType)
+			if global.BlockchainNode.LogWatchEnabled() {
+				if err := DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
+					log.Errorw("failed to register docker log watcher", zap.Error(err))
+					return
+				}
+				log.Info("docker log watch started")
+			} else {
+				log.Info("docker log watch disabled - node type does not require logs to be watched")
+			}
+			return
+		}
+	}
 }

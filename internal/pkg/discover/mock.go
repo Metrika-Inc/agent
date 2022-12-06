@@ -16,12 +16,23 @@ package discover
 import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/global"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 )
 
 // MockBlockchain ...
-type MockBlockchain struct{}
+type MockBlockchain struct {
+	logWatchEnabled bool
+	sync.RWMutex
+}
+
+// NewMockBlockchain creates a new instance of Mock Blockchain. Used for tests.
+func NewMockBlockchain() *MockBlockchain {
+	return &MockBlockchain{
+		logWatchEnabled: true,
+	}
+}
 
 // Protocol ...
 func (m *MockBlockchain) Protocol() string {
@@ -83,4 +94,18 @@ func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
 // Network ...
 func (m *MockBlockchain) Network() string {
 	return "mock-node-network"
+}
+
+// LogWatchEnabled specifies if a node wants its logs to be read
+func (m *MockBlockchain) LogWatchEnabled() bool {
+	m.RLock()
+	defer m.RUnlock()
+	return m.logWatchEnabled
+}
+
+// SetLogWatchEnabled sets LogWatchEnable return value
+func (m *MockBlockchain) SetLogWatchEnabled(val bool) {
+	m.Lock()
+	defer m.Unlock()
+	m.logWatchEnabled = val
 }

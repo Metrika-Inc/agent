@@ -93,6 +93,10 @@ type Chain interface {
 
 	// Network network name the blockchain node is running on
 	Network() string
+
+	// LogWatchEnabled specifies if the specific the logs of
+	// a specific node need to be watched or not.
+	LogWatchEnabled() bool
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint
