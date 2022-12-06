@@ -32,15 +32,19 @@ import (
 	"go.uber.org/zap"
 )
 
-const maxLineBytes = uint32(1024 * 1024)
+const (
+	maxLineBytes = uint32(1024 * 1024)
 
-var defaultRetryIntv = 3 * time.Second
+	defaultRetryIntv            = 3 * time.Second
+	defaultPendingStartInterval = time.Second
+)
 
 // DockerLogWatchConf DockerLogWatch configuration struct.
 type DockerLogWatchConf struct {
-	Regex     []string
-	Events    map[string]model.FromContext
-	RetryIntv time.Duration
+	Regex                []string
+	Events               map[string]model.FromContext
+	RetryIntv            time.Duration
+	PendingStartInterval time.Duration
 }
 
 // DockerLogWatch uses the host docker daemon to discover a
@@ -60,6 +64,9 @@ func NewDockerLogWatch(conf DockerLogWatchConf) *DockerLogWatch {
 	w.Log = w.Log.With("watch", "docker_logs")
 	if w.RetryIntv == 0 {
 		w.RetryIntv = defaultRetryIntv
+	}
+	if w.PendingStartInterval == 0 {
+		w.PendingStartInterval = defaultPendingStartInterval
 	}
 
 	return w
@@ -334,7 +341,7 @@ func (w *DockerLogWatch) Stop() {
 // PendingStart waits until node type is determined and calls
 // chain.LogWatchEnabled() to check if it should start up or not.
 func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(w.PendingStartInterval)
 
 	for {
 		select {
@@ -354,8 +361,8 @@ func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
 				log.Info("docker log watch started")
 			} else {
 				log.Info("docker log watch disabled - node type does not require logs to be watched")
-				return
 			}
+			return
 		}
 	}
 }

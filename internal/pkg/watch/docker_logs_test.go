@@ -140,13 +140,61 @@ func TestDockerLogs_disabled(t *testing.T) {
 }
 
 func disableDockerLogWatch(t *testing.T) {
+	t.Helper()
 	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
 	require.True(t, ok)
 	mockChain.SetLogWatchEnabled(false)
 }
 
 func enableDockerLogWatch(t *testing.T) {
+	t.Helper()
 	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
 	require.True(t, ok)
 	mockChain.SetLogWatchEnabled(true)
+}
+
+func TestPendingStart(t *testing.T) {
+		w := NewDockerLogWatch(DockerLogWatchConf{
+			Regex: []string{},
+			Events: map[string]model.FromContext{
+				"OnVoting": new(onVoting),
+			},
+			RetryIntv:            10 * time.Millisecond,
+			PendingStartInterval: 25 * time.Millisecond,
+		})
+		
+
+		emitch := make(chan interface{}, 10)
+		w.PendingStart(emitch)
+		w.Stop()
+		w.wg.Wait()
+		registry, ok := DefaultWatchRegistry.(*Registry)
+		require.True(t, ok)
+		require.Len(t, registry.watch, 1)
+
+		// clear the registry afterwards
+		registry.watch = []*WatcherInstance{}
+
+	t.Run("PendingStart - logs are disabled", func(t *testing.T) {
+		disableDockerLogWatch(t)
+		defer enableDockerLogWatch(t)
+
+		w := NewDockerLogWatch(DockerLogWatchConf{
+			Regex: []string{},
+			Events: map[string]model.FromContext{
+				"OnVoting": new(onVoting),
+			},
+			RetryIntv:            10 * time.Millisecond,
+			PendingStartInterval: 25 * time.Millisecond,
+		})
+		defer w.wg.Wait()
+		defer w.Stop()
+
+		emitch := make(chan interface{}, 10)
+		w.PendingStart(emitch)
+
+		registry, ok := DefaultWatchRegistry.(*Registry)
+		require.True(t, ok)
+		require.Len(t, registry.watch, 0)
+	})
 }

@@ -63,6 +63,7 @@ type Watch struct {
 	startOnce *sync.Once
 	listeners []chan<- interface{}
 	Log       *zap.SugaredLogger
+	*sync.Mutex
 }
 
 // NewWatch base watch constructor
@@ -73,11 +74,14 @@ func NewWatch() Watch {
 		startOnce: &sync.Once{},
 		Log:       zap.S(),
 		wg:        &sync.WaitGroup{},
+		Mutex:     &sync.Mutex{},
 	}
 }
 
 // StartUnsafe sets watch running state to true
 func (w *Watch) StartUnsafe() {
+	w.Lock()
+	defer w.Unlock()
 	w.Running = true
 }
 
@@ -88,6 +92,8 @@ func (w *Watch) Wait() {
 
 // Stop stops the watch
 func (w *Watch) Stop() {
+	w.Lock()
+	defer w.Unlock()
 	if !w.Running {
 		return
 	}
