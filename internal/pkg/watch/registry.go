@@ -1,7 +1,10 @@
 package watch
 
 import (
+	"reflect"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // DefaultWatchRegistry is the default watcher registry used by the agent.
@@ -27,7 +30,7 @@ type WatchersRegisterer interface {
 }
 
 // Registry is an implementation of WatchersRegisterer.
-// It controls the agent watchers' life cycle. 
+// It controls the agent watchers' life cycle.
 type Registry struct {
 	watch []*WatcherInstance
 
@@ -63,6 +66,8 @@ func (r *Registry) Register(w ...Watcher) error {
 
 func (r *Registry) register(watcher Watcher) (*WatcherInstance, error) {
 	if _, ok := r.watcherMap[watcher]; ok {
+		zap.S().Warnw("duplicate register attempt watcher, skipping",
+			"type", reflect.TypeOf(watcher).String())
 		return nil, nil
 	}
 	instance := &WatcherInstance{
