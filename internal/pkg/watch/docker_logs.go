@@ -342,6 +342,7 @@ func (w *DockerLogWatch) Stop() {
 // chain.LogWatchEnabled() to check if it should start up or not.
 func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
 	ticker := time.NewTicker(w.PendingStartInterval)
+	defer ticker.Stop()
 
 	for {
 		select {
