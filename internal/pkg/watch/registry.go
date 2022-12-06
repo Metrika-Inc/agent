@@ -8,10 +8,12 @@ import (
 var DefaultWatchRegistry WatchersRegisterer
 
 func init() {
-	defaultWatchRegistrar := new(Registry)
+	defaultWatchRegistrar := &Registry{
+		watch:      []*WatcherInstance{},
+		Mutex:      &sync.Mutex{},
+		watcherMap: make(map[Watcher]struct{}),
+	}
 
-	defaultWatchRegistrar.watch = []*WatcherInstance{}
-	defaultWatchRegistrar.Mutex = &sync.Mutex{}
 	DefaultWatchRegistry = defaultWatchRegistrar
 }
 
@@ -24,9 +26,14 @@ type WatchersRegisterer interface {
 	Wait()
 }
 
-// Registry type
+// Registry is an implementation of WatchersRegisterer.
+// It controls the agent watchers' life cycle. 
 type Registry struct {
 	watch []*WatcherInstance
+
+	// watcherMap is used to track registered watchers
+	// and ensure idempotency when calling register
+	watcherMap map[Watcher]struct{}
 	*sync.Mutex
 }
 
@@ -38,7 +45,9 @@ type WatcherInstance struct {
 	*sync.Mutex
 }
 
-// Register registrers one or more watchers
+// Register registrers one or more watchers.
+// Register is idempotent - trying to register
+// an already registered watcher will be a no-op.
 func (r *Registry) Register(w ...Watcher) error {
 	r.Lock()
 	defer r.Unlock()
@@ -53,11 +62,15 @@ func (r *Registry) Register(w ...Watcher) error {
 }
 
 func (r *Registry) register(watcher Watcher) (*WatcherInstance, error) {
+	if _, ok := r.watcherMap[watcher]; ok {
+		return nil, nil
+	}
 	instance := &WatcherInstance{
 		watcher: watcher,
 		Mutex:   &sync.Mutex{},
 	}
 	r.watch = append(r.watch, instance)
+	r.watcherMap[watcher] = struct{}{}
 	return instance, nil
 }
 
