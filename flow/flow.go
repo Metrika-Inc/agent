@@ -189,13 +189,11 @@ func (d *Flow) DiscoverContainer() (*types.Container, error) {
 	}
 
 	if d.renderNeeded {
-		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath,
-			DefaultFlowPath, d.config); err != nil {
+		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, DefaultFlowPath, d.config); err != nil {
 			log.Errorw("failed to generate the template", zap.Error(err))
 			errs.Append(err)
 		}
 		d.renderNeeded = false
-		flowConf = &d.config
 	}
 
 	err = errs.ErrIfAny()

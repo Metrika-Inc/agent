@@ -16,6 +16,8 @@ package flow
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 
 	"agent/internal/pkg/global"
 
@@ -30,7 +32,10 @@ var (
 	DefaultTemplatePath = "/etc/metrikad/configs/flow.template"
 )
 
-var flowConf *flowConfig
+const (
+	// FlowConfigEnvPrefix used to prefix flow specific env vars when overloading configuration
+	FlowConfigEnvPrefix = "FLOW"
+)
 
 type flowConfig struct {
 	configPath     string
@@ -64,8 +69,33 @@ func (d *flowConfig) load() (flowConfig, error) {
 		return flowConfig{}, err
 	}
 
-	flowConf = &conf
+	if err := d.overloadFromEnv(&conf); err != nil {
+		return flowConfig{}, err
+	}
+
 	return conf, nil
+}
+
+// overloadFromEnv tries to parse flow configuration parameters from the environment
+// and overrides global config if a value is set.
+//
+// Note: Overloading is only supported for containerRegex and envFile configuration keys
+func (d *flowConfig) overloadFromEnv(conf *flowConfig) error {
+	v := os.Getenv(strings.ToUpper(global.ConfigEnvPrefix + "_" + FlowConfigEnvPrefix + "_" + "container_regex"))
+	if v != "" {
+		regexList := strings.Split(v, ",")
+		if len(regexList) == 0 {
+			return fmt.Errorf("containerRegex cannot be empty")
+		}
+		conf.ContainerRegex = regexList
+	}
+
+	v = os.Getenv(strings.ToUpper(global.ConfigEnvPrefix + "_" + FlowConfigEnvPrefix + "_" + "env_file"))
+	if v != "" {
+		conf.EnvFilePath = v
+	}
+
+	return nil
 }
 
 // Default overrides the configuration file specified in configPath
