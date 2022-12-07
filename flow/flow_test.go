@@ -139,7 +139,7 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 	defer deferme()
 
 	defaultFlowConfigPathWas := DefaultFlowPath
-	DefaultFlowPath = "./testdata/flow.yml"
+	DefaultFlowPath = "./testdata/flow-config.yml"
 	defer func() {
 		DefaultFlowPath = defaultFlowConfigPathWas
 	}()
