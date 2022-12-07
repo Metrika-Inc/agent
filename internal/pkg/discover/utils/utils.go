@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -207,4 +208,34 @@ func getDockerClient() (*client.Client, error) {
 	}
 
 	return dockerCLI, nil
+}
+
+const (
+	networkMainnet   = "mainnet"
+	networkLocalnet  = "localnet"
+	networkCanarynet = "canarynet"
+	networkTestnet   = "testnet"
+	networkBenchnet  = "benchnet"
+)
+
+// KnownNetworks list valid network strings
+var KnownNetworks = []string{
+	string(networkMainnet),
+	string(networkLocalnet),
+	string(networkTestnet),
+	string(networkCanarynet),
+	string(networkBenchnet),
+}
+
+// KnownNetwork returns true if s is in KnownNetworks
+func KnownNetwork(s string) bool {
+	s = strings.ToLower(s)
+
+	for _, nw := range KnownNetworks {
+		if strings.Contains(s, nw) {
+			return true
+		}
+	}
+
+	return false
 }

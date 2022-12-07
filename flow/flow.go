@@ -445,20 +445,7 @@ func (d *Flow) updateFromLogs(containerName string) error {
 			d.nodeRole = nodeRole
 		}
 
-		if chain, ok := m["chain"]; ok && d.network == "" {
-			d.network, ok = chain.(string)
-			if !ok {
-				return fmt.Errorf("type assertion failed for chain: %v", chain)
-			}
-		}
-
-		// access nodes (and potentially others) use chain_id to log the network
-		if chain, ok := m["chain_id"]; ok && d.network == "" {
-			d.network, ok = chain.(string)
-			if !ok {
-				return fmt.Errorf("type assertion failed for chain: %v", chain)
-			}
-		}
+		d.updateNetworkFromJSONLog(m)
 
 		if d.network != "" && d.nodeRole != "" {
 			zap.S().Debugw("found both node_role and network", "node_role", d.nodeRole, "network", d.network)
@@ -473,6 +460,30 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	}
 
 	return nil
+}
+
+// access nodes (and potentially others) use chain_id to log the network
+var networkLogKeyCandidates = []string{"chain", "chain_id"}
+
+// updateNetworkFromJSONLog update the network by looking for a known value
+// in a list of keys. Network is updated based on the first key with a value
+// containing with a known network.
+func (d *Flow) updateNetworkFromJSONLog(m map[string]interface{}) {
+	for _, key := range networkLogKeyCandidates {
+		if chain, ok := m[key]; ok && d.network == "" {
+			networkVal, ok := chain.(string)
+			if !ok {
+				zap.S().Warnw("type assertion failed for chain log field", "chain", chain)
+
+				continue
+			}
+
+			if utils.KnownNetwork(networkVal) {
+				d.network = networkVal
+				break
+			}
+		}
+	}
 }
 
 // NodeVersion returns the discovered node version
