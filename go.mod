@@ -20,6 +20,7 @@ require (
 	github.com/prometheus/common v0.37.0
 	github.com/prometheus/procfs v0.8.0
 	github.com/stretchr/testify v1.8.0
+	github.com/vultr/metadata v1.1.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 	google.golang.org/grpc v1.49.0
