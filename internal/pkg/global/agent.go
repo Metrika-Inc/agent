@@ -28,6 +28,7 @@ import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/cloudproviders/do"
 	"agent/internal/pkg/cloudproviders/ec2"
+	"agent/internal/pkg/cloudproviders/equinix"
 	"agent/internal/pkg/cloudproviders/gce"
 	"agent/internal/pkg/fingerprint"
 
@@ -212,6 +213,19 @@ func setAgentHostname() error {
 			hostname, err := do.Hostname()
 			if err != nil {
 				zap.S().Debug("agent not running on Digital Ocean")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if equinix.IsRunningOn() { // Equinix
+			hostname, err := equinix.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on Equinix Metal")
 				return
 			}
 			hostnameCh <- hostname
