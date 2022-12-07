@@ -138,6 +138,12 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 	deferme := overrideDockerAdapter(ts.URL, mockad)
 	defer deferme()
 
+	defaultFlowConfigPathWas := DefaultFlowPath
+	DefaultFlowPath = "./testdata/flow.yml"
+	defer func() {
+		DefaultFlowPath = defaultFlowConfigPathWas
+	}()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockad.logFile = tt.testdataFile
@@ -150,7 +156,7 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 			if tt.expErr {
 				require.NotNil(t, err)
 			} else {
-				require.Nilf(t, err, "%v", err.Error())
+				require.Nil(t, err)
 				require.NotNil(t, container)
 
 				require.Equal(t, tt.expNetwork, flow.network)
