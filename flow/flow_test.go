@@ -104,9 +104,6 @@ func (d *DockerMockAdapterHealthy) DockerEvents(ctx context.Context, options typ
 }
 
 func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
-	ts := newMockDockerDaemonHTTP(t)
-	defer ts.Close()
-
 	tests := []struct {
 		name         string
 		testdataFile string
@@ -135,12 +132,15 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 		},
 	}
 
+	ts := newMockDockerDaemonHTTP(t)
+	defer ts.Close()
+	mockad := new(DockerMockAdapterHealthy)
+	deferme := overrideDockerAdapter(ts.URL, mockad)
+	defer deferme()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockad := new(DockerMockAdapterHealthy)
 			mockad.logFile = tt.testdataFile
-			deferme := overrideDockerAdapter(ts.URL, mockad)
-			defer deferme()
 
 			flow, err := NewFlow()
 			require.Nil(t, err)
