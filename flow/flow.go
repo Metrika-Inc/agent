@@ -418,15 +418,15 @@ func (d *Flow) updateFromLogs(containerName string) error {
 		if err != nil {
 			return err
 		}
-		if len(got) == 0 {
-			return fmt.Errorf("empty log line")
-		}
-
-		m := map[string]interface{}{}
 		// This assumes the container is not using a TTY. In this case
 		// stdout/stderr are multiplexed on the same stream and 8-byte header
 		// precedes each line. We don't need to parse the header since we are
 		// using scanner.Bytes().
+		if got == nil || len(got) < 8 {
+			return fmt.Errorf("empty log line")
+		}
+
+		m := map[string]interface{}{}
 		if err := json.Unmarshal(got[8:], &m); err != nil {
 			return err
 		}
