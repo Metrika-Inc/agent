@@ -470,7 +470,11 @@ var networkLogKeyCandidates = []string{"chain", "chain_id"}
 // containing with a known network.
 func (d *Flow) updateNetworkFromJSONLog(m map[string]interface{}) {
 	for _, key := range networkLogKeyCandidates {
-		if chain, ok := m[key]; ok && d.network == "" {
+		if d.network != "" {
+			return
+		}
+
+		if chain, ok := m[key]; ok {
 			networkVal, ok := chain.(string)
 			if !ok {
 				zap.S().Warnw("type assertion failed for chain log field", "chain", chain)

@@ -219,13 +219,7 @@ const (
 )
 
 // KnownNetworks list valid network strings
-var KnownNetworks = []string{
-	string(networkMainnet),
-	string(networkLocalnet),
-	string(networkTestnet),
-	string(networkCanarynet),
-	string(networkBenchnet),
-}
+var KnownNetworks = []string{networkMainnet, networkLocalnet, networkTestnet, networkCanarynet, networkBenchnet}
 
 // KnownNetwork returns true if s is in KnownNetworks
 func KnownNetwork(s string) bool {

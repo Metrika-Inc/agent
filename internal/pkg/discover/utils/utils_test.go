@@ -142,3 +142,11 @@ func TestGetRunningContainers(t *testing.T) {
 
 	require.Equal(t, expcontainers, containers)
 }
+
+func TestKnownNetwork(t *testing.T) {
+	for _, nw := range []string{"mainnet", "testnet", "localnet"} {
+		require.True(t, KnownNetwork(nw))
+	}
+
+	require.False(t, KnownNetwork("foobar"))
+}
