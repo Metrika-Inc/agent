@@ -452,6 +452,14 @@ func (d *Flow) updateFromLogs(containerName string) error {
 			}
 		}
 
+		// access nodes (and potentially others) use chain_id to log the network
+		if chain, ok := m["chain_id"]; ok && d.network == "" {
+			d.network, ok = chain.(string)
+			if !ok {
+				return fmt.Errorf("type assertion failed for chain: %v", chain)
+			}
+		}
+
 		if d.network != "" && d.nodeRole != "" {
 			zap.S().Debugw("found both node_role and network", "node_role", d.nodeRole, "network", d.network)
 			break
