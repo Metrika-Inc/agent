@@ -150,7 +150,7 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 			if tt.expErr {
 				require.NotNil(t, err)
 			} else {
-				require.Nil(t, err)
+				require.Nilf(t, err, "%v", err.Error())
 				require.NotNil(t, container)
 
 				require.Equal(t, tt.expNetwork, flow.network)
