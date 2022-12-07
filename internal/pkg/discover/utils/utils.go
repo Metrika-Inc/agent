@@ -165,8 +165,7 @@ func GetEnvFromFile(path string) (map[string]string, error) {
 
 // GetLogLine wraps a reader and returns the first line of text.
 // Use to determine the validity of the log file.
-func GetLogLine(r io.Reader) ([]byte, error) {
-	scan := bufio.NewScanner(r)
+func GetLogLine(scan *bufio.Scanner) ([]byte, error) {
 	ok := scan.Scan()
 	if !ok {
 		err := scan.Err()

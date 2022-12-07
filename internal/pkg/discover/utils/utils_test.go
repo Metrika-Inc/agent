@@ -14,6 +14,7 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	dt "github.com/docker/docker/api/types"
@@ -54,7 +56,8 @@ func TestGetLogLine(t *testing.T) {
 		require.NoError(t, err)
 		defer f.Close()
 
-		line, err := GetLogLine(f)
+		scan := bufio.NewScanner(f)
+		line, err := GetLogLine(scan)
 		require.NoError(t, err)
 
 		expected, err := ioutil.ReadFile(expectedFile)
@@ -65,9 +68,24 @@ func TestGetLogLine(t *testing.T) {
 	t.Run("GetLogLine empty file", func(t *testing.T) {
 		b := make([]byte, 0, 100)
 		buf := bytes.NewBuffer(b)
-		line, err := GetLogLine(buf)
+		scan := bufio.NewScanner(buf)
+		line, err := GetLogLine(scan)
 		require.ErrorIs(t, err, ErrEmptyLogFile)
 		require.Nil(t, line)
+	})
+
+	t.Run("GetLogLine thorough check", func(t *testing.T) {
+		logFile := "testcases/logs/correctLog.json"
+		out, err := os.ReadFile(logFile)
+		require.NoError(t, err)
+		lines := strings.Split(strings.Trim(string(out), "\n"), "\n")
+		reader := bytes.NewBuffer(out)
+		scan := bufio.NewScanner(reader)
+		for i, line := range lines {
+			logLine, err := GetLogLine(scan)
+			require.NoError(t, err)
+			require.Equal(t, line, string(logLine), "line %d", i)
+		}
 	})
 }
 

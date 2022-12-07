@@ -14,6 +14,7 @@
 package flow
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -411,15 +412,9 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	// We can't assume a single log line will have all the keys we need. Watch the log
 	// at most for 5 seconds until all metadata has been extracted,
 	started := time.Now()
+	scan := bufio.NewScanner(reader)
 	for time.Since(started) < 5*time.Second {
-		// cleanup header from log line
-		hdr := make([]byte, 8)
-		_, err := reader.Read(hdr)
-		if err != nil {
-			return err
-		}
-
-		got, err := utils.GetLogLine(reader)
+		got, err := utils.GetLogLine(scan)
 		if err != nil {
 			return err
 		}
@@ -428,7 +423,11 @@ func (d *Flow) updateFromLogs(containerName string) error {
 		}
 
 		m := map[string]interface{}{}
-		if err := json.Unmarshal(got, &m); err != nil {
+		// This assumes the container is not using a TTY. In this case
+		// stdout/stderr are multiplexed on the same stream and 8-byte header
+		// precedes each line. We don't need to parse the header since we are
+		// using scanner.Bytes().
+		if err := json.Unmarshal(got[8:], &m); err != nil {
 			return err
 		}
 
