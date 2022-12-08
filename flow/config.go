@@ -22,7 +22,7 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-const (
+var (
 	// DefaultFlowPath default flow configuration path
 	DefaultFlowPath = "/etc/metrikad/configs/flow.yml"
 

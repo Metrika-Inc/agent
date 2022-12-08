@@ -14,6 +14,7 @@
 package flow
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -411,24 +412,22 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	// We can't assume a single log line will have all the keys we need. Watch the log
 	// at most for 5 seconds until all metadata has been extracted,
 	started := time.Now()
+	scan := bufio.NewScanner(reader)
 	for time.Since(started) < 5*time.Second {
-		// cleanup header from log line
-		hdr := make([]byte, 8)
-		_, err := reader.Read(hdr)
+		got, err := utils.GetLogLine(scan)
 		if err != nil {
 			return err
 		}
-
-		got, err := utils.GetLogLine(reader)
-		if err != nil {
-			return err
-		}
-		if len(got) == 0 {
+		// This assumes the container is not using a TTY. In this case
+		// stdout/stderr are multiplexed on the same stream and 8-byte header
+		// precedes each line. We don't need to parse the header since we are
+		// using scanner.Bytes().
+		if got == nil || len(got) < 8 {
 			return fmt.Errorf("empty log line")
 		}
 
 		m := map[string]interface{}{}
-		if err := json.Unmarshal(got, &m); err != nil {
+		if err := json.Unmarshal(got[8:], &m); err != nil {
 			return err
 		}
 
@@ -446,12 +445,7 @@ func (d *Flow) updateFromLogs(containerName string) error {
 			d.nodeRole = nodeRole
 		}
 
-		if chain, ok := m["chain"]; ok && d.network == "" {
-			d.network, ok = chain.(string)
-			if !ok {
-				return fmt.Errorf("type assertion failed for chain: %v", chain)
-			}
-		}
+		d.updateNetworkFromJSONLog(m)
 
 		if d.network != "" && d.nodeRole != "" {
 			zap.S().Debugw("found both node_role and network", "node_role", d.nodeRole, "network", d.network)
@@ -466,6 +460,34 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	}
 
 	return nil
+}
+
+// access nodes (and potentially others) use chain_id to log the network
+var networkLogKeyCandidates = []string{"chain", "chain_id"}
+
+// updateNetworkFromJSONLog update the network by looking for a known value
+// in a list of keys. Network is updated based on the first key with a value
+// containing with a known network.
+func (d *Flow) updateNetworkFromJSONLog(m map[string]interface{}) {
+	for _, key := range networkLogKeyCandidates {
+		if d.network != "" {
+			return
+		}
+
+		if chain, ok := m[key]; ok {
+			networkVal, ok := chain.(string)
+			if !ok {
+				zap.S().Warnw("type assertion failed for chain log field", "chain", chain)
+
+				continue
+			}
+
+			if utils.KnownNetwork(networkVal) {
+				d.network = networkVal
+				break
+			}
+		}
+	}
 }
 
 // NodeVersion returns the discovered node version

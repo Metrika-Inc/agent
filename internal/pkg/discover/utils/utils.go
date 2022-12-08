@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -165,8 +166,7 @@ func GetEnvFromFile(path string) (map[string]string, error) {
 
 // GetLogLine wraps a reader and returns the first line of text.
 // Use to determine the validity of the log file.
-func GetLogLine(r io.Reader) ([]byte, error) {
-	scan := bufio.NewScanner(r)
+func GetLogLine(scan *bufio.Scanner) ([]byte, error) {
 	ok := scan.Scan()
 	if !ok {
 		err := scan.Err()
@@ -208,4 +208,28 @@ func getDockerClient() (*client.Client, error) {
 	}
 
 	return dockerCLI, nil
+}
+
+const (
+	networkMainnet   = "mainnet"
+	networkLocalnet  = "localnet"
+	networkCanarynet = "canarynet"
+	networkTestnet   = "testnet"
+	networkBenchnet  = "benchnet"
+)
+
+// KnownNetworks list valid network strings
+var KnownNetworks = []string{networkMainnet, networkLocalnet, networkTestnet, networkCanarynet, networkBenchnet}
+
+// KnownNetwork returns true if s is in KnownNetworks
+func KnownNetwork(s string) bool {
+	s = strings.ToLower(s)
+
+	for _, nw := range KnownNetworks {
+		if strings.Contains(s, nw) {
+			return true
+		}
+	}
+
+	return false
 }
