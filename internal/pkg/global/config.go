@@ -70,7 +70,7 @@ var (
 	PlatformAddrEnvVar = "MA_PLATFORM"
 
 	// DefaultRuntimeSamplingInterval default sampling interval
-	DefaultRuntimeSamplingInterval = 5 * time.Second
+	DefaultRuntimeSamplingInterval = 15 * time.Second
 
 	// DefaultPlatformEnabled default platform exporter's enabled state
 	DefaultPlatformEnabled = true
@@ -80,7 +80,7 @@ var (
 
 	// DefaultPlatformMaxPublishInterval default max period to wait
 	// between two consecutive publish operations.
-	DefaultPlatformMaxPublishInterval = 5 * time.Second
+	DefaultPlatformMaxPublishInterval = 15 * time.Second
 
 	// DefaultPlatformTransportTimeout default publish timeout
 	DefaultPlatformTransportTimeout = 10 * time.Second

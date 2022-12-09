@@ -14,7 +14,7 @@ platform:
 
   # max_publish_interval: duration, the maximum interval to wait between two
   # consecutive publish operations to the platform.
-  max_publish_interval: 5s
+  max_publish_interval: 15s
   
   # transport_timeout: duration, configures the timeout for publish
   # operations to the platform.
@@ -83,7 +83,7 @@ runtime:
 
   # sampling_interval: duration, default interval used by Watchers that use
   # polling for collecting metrics/events.
-  sampling_interval: 5s
+  sampling_interval: 15s
 
   # exporters: map[string]object, list of exporters to be enabled on agent startup.
   # The exporter constructor must be registered first in internal/pkg/contrib.
