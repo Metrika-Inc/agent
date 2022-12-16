@@ -21,7 +21,7 @@ platform:
   transport_timeout: 10s
 
   # addr: string, network address of the platform for publishing
-  addr: <platform_addr>
+  addr: agent.metrika.co:443
 
   # uri: string, platform publishing endpoint
   uri: /
