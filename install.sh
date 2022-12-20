@@ -378,8 +378,8 @@ function install_agent {
 		$sudo_cmd chmod -R 0755 ${APP_METADATA_DIR}
 		$sudo_cmd cp -t $APP_METADATA_DIR/configs configs/$AGENT_CONFIG_NAME
 		$sudo_cmd sed -i "s/<api_key>/$PLATFORM_API_KEY/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
-		$sudo_cmd sed -i "s/<platform_addr>/$PLATFORM_ADDR/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
 		$sudo_cmd cp -t $APP_METADATA_DIR/configs configs/"$BLOCKCHAIN_CONFIG_TEMPLATE_NAME"
+		$sudo_cmd sed -i "s/<platform_addr>/$PLATFORM_ADDR/g" $APP_METADATA_DIR/configs/$AGENT_CONFIG_NAME
 	fi
 }
 
