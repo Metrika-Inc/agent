@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+MA_PLATFORM_ADDR="agent.metrika.co:443"
 PLATFORM_API_KEY=$MA_API_KEY
 APP_NAME=metrikad
 BIN_NAME=metrikad-$MA_BLOCKCHAIN
@@ -219,10 +220,11 @@ function sanity_check {
 		;;
 	esac
 
-	if [[ -z "${PLATFORM_ADDR}" ]]; then
-		if [[ -z "${MA_PLATFORM}" ]]; then
-			goodbye "MA_PLATFORM environment variable must be set'. Goodbye." 100
-		fi
+	# MA_PLATFORM envvar (used to override runtime.addr)
+	if [[ -z "${MA_PLATFORM}" ]]; then
+		PLATFORM_ADDR=${MA_PLATFORM_ADDR}
+	else
+		log_warn "Overriding platform address with: ${MA_PLATFORM}"
 		PLATFORM_ADDR=${MA_PLATFORM}
 	fi
 
