@@ -17,7 +17,6 @@ func ValidationMiddleware(next http.Handler) http.Handler {
 		if !*global.AgentConf.Runtime.HostHeaderValidationEnabled {
 			next.ServeHTTP(w, r)
 			return
-
 		}
 
 		if r.Host == "" {
