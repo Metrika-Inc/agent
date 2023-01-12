@@ -15,7 +15,7 @@ jobs:
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Closed PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: "#FF0000"
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
@@ -27,7 +27,7 @@ jobs:
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Opened PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: ${{ job.status }}
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
@@ -39,7 +39,7 @@ jobs:
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Reopened PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: "#FFA500"
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
@@ -51,7 +51,7 @@ jobs:
           SLACK_TITLE: ${{ github.event.pull_request.user.login }} Merged PR ${{ github.event.pull_request.title }}
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "node-agent-dev"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: "#4B0082"
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
