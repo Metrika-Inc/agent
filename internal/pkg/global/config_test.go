@@ -106,6 +106,6 @@ platform:
 	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
 	require.Equal(t, "foobar:9000", AgentConf.Runtime.HTTPAddr)
 	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
-	require.Equal(t, false, AgentConf.Runtime.HostHeaderValidationEnabled)
+	require.Equal(t, false, *AgentConf.Runtime.HostHeaderValidationEnabled)
 	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
 }
