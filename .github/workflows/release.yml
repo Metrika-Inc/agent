@@ -190,7 +190,7 @@ jobs:
           SLACK_TITLE: GitHub Release Metrika Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-ci-metrika-agent"
           SLACK_COLOR: ${{ job.status }}
           SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
@@ -203,7 +203,7 @@ jobs:
           SLACK_TITLE: GitHub Release Metrika Agent
           SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
           SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-          SLACK_CHANNEL: "metrika-platform-deploy-staging"
+          SLACK_CHANNEL: "cicd-node-agent"
           SLACK_USERNAME: "github-release-metrika-agent"
           SLACK_COLOR: ${{ job.status }}
           SLACK_FOOTER: "Sent by GitHub Release Job from Metrika Agent repo"
