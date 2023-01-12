@@ -26,11 +26,17 @@ const (
 	// onProposingBlockName Validator of interest is proposing block
 	onProposingBlockName = "OnProposingBlock"
 
+	// onOwnProposalName Validator of interest is proposing block (jolteon)
+	onOwnProposalName = "OnOwnProposal"
+
 	// onReceiveProposalName Validator of interest is receiving proposal from other validators
 	onReceiveProposalName = "OnReceiveProposal"
 
 	// onVotingName Validator of interest is voting on block
 	onVotingName = "OnVoting"
+
+	// onOwnVoteName Validator of interest is voting on block (jolten)
+	onOwnVoteName = "OnOwnVote"
 
 	// onBlockVoteReceivedFwdName Block vote received, forwarding block vote to hotstuff vote aggregator.
 	onBlockVoteReceivedFwdName = "block vote received, forwarding block vote to hotstuff vote aggregator"
@@ -49,14 +55,29 @@ var (
 		"block_id", "block_proposer_id", "block_time", "qc_block_view", "qc_block_id", "time",
 		"message",
 	}
+
+	onOwnProposalKeys = []string{
+		"level", "node_role", "node_id", "hotstuff", "chain", "path_id", "view", "block_view",
+		"block_id", "block_proposer_id", "block_time", "qc_view", "qc_block_id", "time",
+		"message",
+	}
+
+	// Jolteon update renames qc_block_view to qc_view, keep both for backwards compatibility
+	// See https://github.com/Metrika-Inc/agent/issues/108 for details.
 	onReceiveProposalKeys = []string{
 		"level", "node_role", "node_id", "hotstuff", "chain", "path_id", "view", "block_view",
 		"block_id", "block_proposer_id", "block_time", "qc_block_view", "qc_block_id", "time",
-		"message",
+		"message", "qc_view",
 	}
+
 	onVotingKeys = []string{
 		"level", "node_role", "node_id", "hotstuff", "chain", "path_id", "view", "voted_block_view",
 		"voted_block_id", "voter_id", "time", "message",
+	}
+
+	onOwnVoteKeys = []string{
+		"level", "node_role", "node_id", "hotstuff", "chain", "path_id", "view", "voted_block_view",
+		"voted_block_id", "time", "message",
 	}
 
 	onBlockVoteReceivedFwdKeys = []string{
@@ -67,8 +88,10 @@ var (
 	eventsFromContext = map[string]model.FromContext{
 		onFinalizedBlockName:       new(onFinalizedBlock),
 		onProposingBlockName:       new(onProposingBlock),
+		onOwnProposalName:          new(onOwnProposal),
 		onReceiveProposalName:      new(onReceiveProposal),
 		onVotingName:               new(onVoting),
+		onOwnVoteName:              new(onOwnVote),
 		onBlockVoteReceivedFwdName: new(onBlockVoteReceivedFwd),
 	}
 )
@@ -268,6 +291,52 @@ func (o *onBlockVoteReceivedFwd) New(v map[string]interface{}, t time.Time) (*mo
 	}
 
 	ev, err := model.NewWithFilteredCtx(v, onBlockVoteReceivedName, t, onBlockVoteReceivedFwdKeys...)
+	if err != nil {
+		return nil, err
+	}
+
+	return ev, nil
+}
+
+type onOwnProposal struct{}
+
+func isOnOwnProposal(v map[string]interface{}) bool {
+	if val, ok := v["message"]; ok && val == onOwnProposalName {
+		return true
+	}
+
+	return false
+}
+
+func (o *onOwnProposal) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+	if !isOnOwnProposal(v) {
+		return nil, nil
+	}
+
+	ev, err := model.NewWithFilteredCtx(v, onOwnProposalName, t, onOwnProposalKeys...)
+	if err != nil {
+		return nil, err
+	}
+
+	return ev, nil
+}
+
+type onOwnVote struct{}
+
+func isOnOwnVote(v map[string]interface{}) bool {
+	if val, ok := v["message"]; ok && val == onOwnVoteName {
+		return true
+	}
+
+	return false
+}
+
+func (o *onOwnVote) New(v map[string]interface{}, t time.Time) (*model.Event, error) {
+	if !isOnOwnVote(v) {
+		return nil, nil
+	}
+
+	ev, err := model.NewWithFilteredCtx(v, onOwnVoteName, t, onOwnVoteKeys...)
 	if err != nil {
 		return nil, err
 	}
