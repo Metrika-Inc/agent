@@ -190,6 +190,11 @@ The agent listens for HTTP requests on the address specified by `runtime.metrics
 curl 127.0.0.1:9999/metrics # when runtime.http_addr=127.0.0.1:9999
 ```
 
+### Host header validation
+When `runtime.http_addr` is set, by default the agent will validate the `Host` header of incoming HTTP requests against a list of allowed hosts configured by `runtime.allowed_hosts`. In this case, a request without an allowed `Host` header will be rejected by the agent with HTTP 400.
+
+Host header validation can be disabled by setting `runtime.host_header_validation_enabled` to `false`, in which case `runtime.allowed_hosts` has no effect.
+
 ### Blockchain Node Discovery Issues
 The Metrika Agent attempts to discover a supported running blockchain node in the system. In case the blockchain node is containerized, Agent attempts to find the container by matching container name or image to a list of regular expressions specified in `/etc/metrikad/configs/{blockchain}.yml`. If the container name is not in the list of common names Metrika Agent is aware of, it can be added to the list of `containerRegex` in the aforementioned configuration file.
 
