@@ -75,9 +75,15 @@ runtime:
   # metrics_enabled: bool, enable prometheus /metrics endpoint. Default is false.
   metrics_enabled: false
 
+  # host_header_validation_enabled: bool, enables host header validation against
+  # values listed under runtime.allowed_hosts. When disabled, runtime.allowed_hosts
+  # is ignored. Default is true.
+  host_header_validation_enabled: true
+
   # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
   # validating HTTP requests processed by the agent such as /metrics. Use
   # comma-separated format when configuring this with an environment variable.
+  # Ignored when runtime.host_header_validation_enabled is false.
   allowed_hosts:
     - 127.0.0.1
 

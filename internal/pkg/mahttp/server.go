@@ -14,6 +14,11 @@ import (
 // handled by the agent itself.
 func ValidationMiddleware(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		if !*global.AgentConf.Runtime.HostHeaderValidationEnabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		if r.Host == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return

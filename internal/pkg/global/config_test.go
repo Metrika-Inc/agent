@@ -84,6 +84,7 @@ platform:
 	err = os.Setenv("MA_RUNTIME_LOGGING_LEVEL", "debug")
 	err = os.Setenv("MA_RUNTIME_DISABLE_FINGERPRINT_VALIDATION", "true")
 	err = os.Setenv("MA_RUNTIME_HTTP_ADDR", "foobar:9000")
+	err = os.Setenv("MA_RUNTIME_HOST_HEADER_VALIDATION_ENABLED", "false")
 	err = os.Setenv("MA_RUNTIME_SAMPLING_INTERVAL", "5s")
 	err = os.Setenv("MA_RUNTIME_WATCHERS", "foo,bar")
 
@@ -105,5 +106,6 @@ platform:
 	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
 	require.Equal(t, "foobar:9000", AgentConf.Runtime.HTTPAddr)
 	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
+	require.Equal(t, false, *AgentConf.Runtime.HostHeaderValidationEnabled)
 	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
 }

@@ -106,6 +106,9 @@ var (
 	// DefaultRuntimeHTTPAddr default address to expose Prometheus metrics
 	DefaultRuntimeHTTPAddr = ""
 
+	// DefaultRuntimeHostHeaderValidationEnabled default HTTP host header validation
+	DefaultRuntimeHostHeaderValidationEnabled = true
+
 	// DefaultRuntimeAllowedHosts default list of allowed HTTP host headers
 	DefaultRuntimeAllowedHosts = []string{"127.0.0.1"}
 
@@ -169,6 +172,7 @@ type WatchConfig struct {
 type RuntimeConfig struct {
 	HTTPAddr                     string                 `yaml:"http_addr"`
 	MetricsEnabled               bool                   `yaml:"metrics_enabled"`
+	HostHeaderValidationEnabled  *bool                  `yaml:"host_header_validation_enabled"`
 	AllowedHosts                 []string               `yaml:"allowed_hosts"`
 	Log                          LogConfig              `yaml:"logging"`
 	SamplingInterval             time.Duration          `yaml:"sampling_interval"`
@@ -309,6 +313,16 @@ func overloadFromEnv() error {
 		AgentConf.Runtime.DisableFingerprintValidation = vBool
 	}
 
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_host_header_validation_enabled"))
+	if v != "" {
+		vBool, err := strconv.ParseBool(v)
+		if err != nil {
+			return errors.Wrapf(err, "runtime_host_header_validation_enabled env parse error")
+		}
+
+		AgentConf.Runtime.HostHeaderValidationEnabled = &vBool
+	}
+
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_http_addr"))
 	if v != "" {
 		AgentConf.Runtime.HTTPAddr = v
@@ -396,6 +410,10 @@ func ensureDefaults() {
 
 	if AgentConf.Runtime.HTTPAddr == "" {
 		AgentConf.Runtime.HTTPAddr = DefaultRuntimeHTTPAddr
+	}
+
+	if AgentConf.Runtime.HostHeaderValidationEnabled == nil {
+		AgentConf.Runtime.HostHeaderValidationEnabled = &DefaultRuntimeHostHeaderValidationEnabled
 	}
 
 	if len(AgentConf.Runtime.AllowedHosts) == 0 {

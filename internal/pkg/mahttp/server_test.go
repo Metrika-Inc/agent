@@ -19,28 +19,40 @@ import (
 // validate host header and reject requests for which validation fails.
 func TestStartHTTPServer_HostHeaderValidation(t *testing.T) {
 	tests := []struct {
-		name         string
-		addr         string
-		endpoint     string
-		hostHeader   string
-		allowedHosts []string
-		expCode      int
+		name                        string
+		addr                        string
+		endpoint                    string
+		hostHeader                  string
+		allowedHosts                []string
+		expCode                     int
+		hostHeaderValidationEnabled bool
 	}{
 		{
-			name:         "valid",
-			addr:         "127.0.0.1:9001",
-			endpoint:     "/metrics",
-			allowedHosts: []string{"127.0.0.1"},
-			hostHeader:   "127.0.0.1",
-			expCode:      200,
+			name:                        "valid",
+			addr:                        "127.0.0.1:9001",
+			endpoint:                    "/metrics",
+			allowedHosts:                []string{"127.0.0.1"},
+			hostHeader:                  "127.0.0.1",
+			hostHeaderValidationEnabled: true,
+			expCode:                     200,
 		},
 		{
-			name:         "invalid host header",
-			addr:         "127.0.0.1:9001",
-			endpoint:     "/metrics",
-			allowedHosts: []string{"127.0.0.1"},
-			hostHeader:   "foobar",
-			expCode:      400,
+			name:                        "invalid host header",
+			addr:                        "127.0.0.1:9001",
+			endpoint:                    "/metrics",
+			allowedHosts:                []string{"127.0.0.1"},
+			hostHeader:                  "foobar",
+			hostHeaderValidationEnabled: true,
+			expCode:                     400,
+		},
+		{
+			name:                        "invalid host header",
+			addr:                        "127.0.0.1:9001",
+			endpoint:                    "/metrics",
+			allowedHosts:                []string{"127.0.0.1"},
+			hostHeader:                  "foobar",
+			hostHeaderValidationEnabled: false,
+			expCode:                     200,
 		},
 	}
 
@@ -53,6 +65,7 @@ func TestStartHTTPServer_HostHeaderValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			global.AgentConf.Runtime.AllowedHosts = tt.allowedHosts
+			global.AgentConf.Runtime.HostHeaderValidationEnabled = &tt.hostHeaderValidationEnabled
 
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
