@@ -636,3 +636,23 @@ func (d *Flow) SetSystemdService(unit *dbus.UnitStatus) {
 func (d *Flow) ConfigUpdateCh() chan global.ConfigUpdate {
 	return d.configUpdatesCh
 }
+
+// DiscoveryDeactivated enabled by default for Flow
+func (d *Flow) DiscoveryDeactivated() bool {
+	return false
+}
+
+// RuntimeDisableFingerprintValidation disabled by default for Flow
+func (d *Flow) RuntimeDisableFingerprintValidation() bool {
+	return false
+}
+
+// RuntimeWatchersInflux default influx watcher configuration
+func (d *Flow) RuntimeWatchersInflux() *global.WatchConfig {
+	return nil
+}
+
+// PlatformEnabled enabled by default for Flow
+func (d *Flow) PlatformEnabled() bool {
+	return true
+}

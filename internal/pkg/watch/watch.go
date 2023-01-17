@@ -15,29 +15,14 @@ package watch
 
 import (
 	"encoding/json"
-	"strings"
 	"sync"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/buf"
 	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
 )
-
-// PrometheusWatchPrefix prefix used for tagging model.Message by
-// all node exporter watches.
-var PrometheusWatchPrefix = "prometheus"
-
-// Type used for determining is data originates by
-// a node exporter watch.
-type Type string
-
-// IsPrometheus returns true if watch collects data from node exporter
-func (w Type) IsPrometheus() bool {
-	return strings.HasPrefix(string(w), PrometheusWatchPrefix)
-}
 
 // Watcher is an interface for implementing metric collection.
 type Watcher interface {
@@ -126,7 +111,7 @@ func (w *Watch) Emit(message interface{}) {
 		case handler <- message:
 		default:
 			zap.S().Warnw("handler channel blocked a metric, discarding it", "handler_no", i)
-			buf.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
+			global.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
 		}
 	}
 }

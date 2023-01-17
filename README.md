@@ -125,7 +125,8 @@ sudo -u metrikad docker ps
 ```
 ### Supported Blockchains
 This is the list of all currently supported blockchains (several coming soon and we welcome contributions!):
-* [flow](https://flow.com/)
+* [Flow](https://flow.com/)
+* [Solana](https://solana.com/). The agent replicates InfluxDB's API `/write` endpoint (v1) and exposes ingested metrics in [Prometheus Exposition Format](https://github.com/Showmax/prometheus-docs/blob/master/content/docs/instrumenting/exposition_formats.md). By default, it will proxy write requests to Solana's upstream InfluxDB server. Node discovery is not supported and the relevant functionality is deactivated by default for Solana specific binaries.
 
 ## Configuration
 The agent loads its configuration by looking at the following sources in order:
@@ -189,10 +190,25 @@ curl -X PUT 127.0.0.1:9999/loglvl -d level=debug
 _Requires_: `runtime.http_addr` and `runtime.metrics_enabled`.
 
 The agent listens for HTTP requests on the address specified by `runtime.metrics_addr`. You can scrape Prometheus metrics by hitting the `/metrics` endpoint, for example:
-
 ```sh
 curl 127.0.0.1:9999/metrics # when runtime.http_addr=127.0.0.1:9999
 ```
+### InfluxDB metrics
+The agent replicates InfluxDB's API `/write` endpoint (v1) and acts as a reverse proxy to a pre-configured InfluxDB server. The endpoint is enabled by default *only* for Solana binaries and for every `/write` request it will:
+- Proxy the request to an InfluxDB server (i.e. https://metrics.solana.com:8086 for Solana binaries)
+- Transform to Prometheus Exposition Format (PEF) and expose it under `/metrics` on the same address.
+
+InfluxDB default configuration can be overridden by configuring the corresponding watcher under `runtime.watchers` section. For example:
+```yaml
+- type: influx
+  # exporter_activated: bool, activates influx watcher.
+  exporter_activated: true
+  # listen_addr: string, address to listen for InfluxDB /write requests. For example: 127.0.0.1:8086.
+  listen_addr: 127.0.0.1:8086
+  # upstream_url: string, URL of upstream InfluDB server to proxy /write requests. For example: https://127.0.0.1:8087. (optional). To deactivate the reverse proxy to forward write requests to an upstream InfluxDB server, `upstream_url` must be explcitly set to an empty value.
+  upstream_url: https://metrics.solana.com:8086
+```
+The agent exposes an HTTP endpoint under `<listen_addr>/write` that serves both as a reverse proxy to an upstream InfluxDB server and as a Prometheus exporter. It uses [influxdb_exporter](https://github.com/prometheus/influxdb_exporter) and exposes `<listen_addr>/metrics` which returns any metrics sent to `/write` endpoint in PEF format.
 
 ### Host header validation
 When `runtime.http_addr` is set, by default the agent will validate the `Host` header of incoming HTTP requests against a list of allowed hosts configured by `runtime.allowed_hosts`. In this case, a request without an allowed `Host` header will be rejected by the agent with HTTP 400.

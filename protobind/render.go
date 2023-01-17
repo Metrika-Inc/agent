@@ -15,9 +15,11 @@ package main
 
 import (
 	"bufio"
-	_ "embed"
 	"flag"
 	"fmt"
+	"go/format"
+	"io/fs"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -25,19 +27,18 @@ import (
 	"text/template"
 )
 
-//go:embed node.go.template
-var nodeTmpl []byte
-
 const (
-	nodeTmplFile = "node.go.template"
+	flowTemplateFile   = "node.go.flow.template"
+	solanaTemplateFile = "node.go.solana.template"
 )
 
 var (
-	blockchain  string
-	defaultPath string
-	outPath     string
-	outDir      string
-	srcPath     string
+	blockchain       string
+	defaultPath      string
+	outPath          string
+	outDir           string
+	srcPath          string
+	nodeTemplateFile string
 )
 
 func init() {
@@ -53,14 +54,17 @@ func init() {
 	case "":
 		log.Fatalf("-blockchain is required (i.e. flow)")
 	case "flow":
+		nodeTemplateFile = flowTemplateFile
+		defaultPath = filepath.Join(srcPath, "protobind", flowTemplateFile)
+	case "solana":
+		nodeTemplateFile = solanaTemplateFile
+		defaultPath = filepath.Join(srcPath, "protobind", solanaTemplateFile)
 	default:
 		log.Fatalf("no bindings available for protocol %q", blockchain)
 	}
 
-	defaultPath = filepath.Join(srcPath, "protobind", "node.go.template")
 	defaultOutDir := filepath.Join(srcPath, "internal", "pkg", "discover")
 
-	outPath = strings.TrimSuffix(nodeTmplFile, ".template")
 	outPath = filepath.Join(defaultOutDir, fmt.Sprintf("node_%s.go", blockchain))
 }
 
@@ -93,4 +97,14 @@ func main() {
 		log.Fatalf("execution failed: %s", err)
 	}
 	w.Flush()
+
+	code, err := ioutil.ReadFile(outPath)
+	fmtedCode, err := format.Source(code)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := ioutil.WriteFile(outPath, fmtedCode, fs.ModePerm); err != nil {
+		log.Fatal(err)
+	}
 }

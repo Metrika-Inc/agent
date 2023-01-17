@@ -134,3 +134,23 @@ func (m *MockBlockchain) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader 
 func (m *MockBlockchain) ConfigUpdateCh() chan global.ConfigUpdate {
 	return nil
 }
+
+// PlatformEnabled enabled by default for Flow
+func (m *MockBlockchain) PlatformEnabled() bool {
+	return true
+}
+
+// DiscoveryDeactivated enabled by default for Flow
+func (m *MockBlockchain) DiscoveryDeactivated() bool {
+	return false
+}
+
+// RuntimeDisableFingerprintValidation disabled by default for Flow
+func (m *MockBlockchain) RuntimeDisableFingerprintValidation() bool {
+	return false
+}
+
+// RuntimeWatchersInflux default influx watcher configuration
+func (m *MockBlockchain) RuntimeWatchersInflux() *global.WatchConfig {
+	return nil
+}

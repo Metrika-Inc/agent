@@ -38,9 +38,4 @@ var (
 		Help:    "Histogram of buffer drain() duration in seconds",
 		Buckets: buckets,
 	})
-
-	// MetricsDropCnt tracked metrics dropped by agent
-	MetricsDropCnt = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "agent_metrics_drop_total_count", Help: "The total number of metrics dropped",
-	}, []string{"reason"})
 )

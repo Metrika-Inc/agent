@@ -1,9 +1,9 @@
 PROTOBIND = protobind
 PROTOBIND_BIN = $(shell which $(PROTOBIND))
 
-.PHONY: install
-install:
-	@go install
+.PHONY: install-%
+install-%:
+	@go install -tags ${*}
 
 .PHONY: clean
 clean:

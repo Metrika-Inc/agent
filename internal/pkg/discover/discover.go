@@ -14,9 +14,13 @@
 package discover
 
 import (
-	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"os/user"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	"agent/internal/pkg/global"
 
@@ -29,36 +33,189 @@ var (
 	configPath string
 )
 
+// ensureRequired ensures global agent configuration has loaded required configuration
+func ensureRequired(c *global.AgentConfig) error {
+	// Platform variables are only required if Platform Exporter is enabled
+	if c.Platform.IsEnabled() {
+		if c.Platform.Addr == "" || c.Platform.Addr == global.PlatformAddrConfigPlaceholder {
+			return fmt.Errorf("platform.addr is missing from loaded config")
+		}
+
+		if c.Platform.APIKey == "" || c.Platform.APIKey == global.PlatformAPIKeyConfigPlaceholder {
+			return fmt.Errorf("platform.api_key is missing from loaded config")
+		}
+	}
+
+	return nil
+}
+
+// userLookup is interface to enable mocking os/user package.
+type userLookup interface {
+	Current() (*user.User, error)
+	LookupGroupID(gid string) (*user.Group, error)
+}
+
+type osUserLookup struct {
+	*user.User
+}
+
+func (o *osUserLookup) Current() (*user.User, error) {
+	return user.Current()
+}
+
+func (o *osUserLookup) LookupGroupID(gid string) (*user.Group, error) {
+	return user.LookupGroupId(gid)
+}
+
+var getUserGroupIds = func(u *user.User) ([]string, error) {
+	return u.GroupIds()
+}
+
+// systemdCanBeActivated returns true if agent user is part of systemd-journal group. Returns false
+// and the error if one occurs. Used to deactivate systemd node discovery path.
+func systemdCanBeActivated(usr userLookup, targetGrp string) (bool, error) {
+	u, err := usr.Current()
+	if err != nil {
+		return false, err
+	}
+
+	gids, err := getUserGroupIds(u)
+	if err != nil {
+		return false, err
+	}
+
+	for _, gid := range gids {
+		grp, err := usr.LookupGroupID(gid)
+		if err != nil {
+			continue
+		}
+		if grp.Name == targetGrp {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func clearDeactivatedDiscoveryConfig(c *global.AgentConfig) {
+	if c.Discovery.Docker.Deactivated {
+		c.Discovery.Docker.Regex = []string{}
+	}
+
+	if c.Discovery.Systemd.Deactivated {
+		c.Discovery.Systemd.Glob = []string{}
+	}
+}
+
+// ensureSystemdDeactivated force sets discovery.systemd.deactivated to true
+// if agent user is not part of systemd-journal group.
+func ensureSystemdDeactivated(c *global.AgentConfig) error {
+	usr := &osUserLookup{}
+
+	act, err := systemdCanBeActivated(usr, "systemd-journal")
+	if err != nil {
+		return err
+	}
+
+	if !act {
+		c.Discovery.Systemd.Deactivated = true
+	}
+
+	return nil
+}
+
 // AutoConfig initializes the blockchain node for the agent runtime.
-func AutoConfig(reset bool) global.Chain {
+func AutoConfig(c *global.AgentConfig, reset bool) (global.Chain, error) {
 	Init()
-
-	if len(global.AgentConf.Discovery.Systemd.Glob) == 0 {
-		global.AgentConf.Discovery.Systemd.Glob = DefaultDiscoveryHintsSystemd
-	}
-
-	if len(global.AgentConf.Discovery.Docker.Regex) == 0 {
-		global.AgentConf.Discovery.Docker.Regex = DefaultDiscoveryHintsDocker
-	}
 
 	log := zap.S()
 	if reset {
 		if err := chain.ResetConfig(); err != nil {
-			log.Fatalw("failed to reset configuration", zap.Error(err))
+			return nil, fmt.Errorf("failed to reset configuration: %v", err)
 		}
 	}
 
 	chn, ok := chain.(global.Chain)
 	if !ok {
-		log.Fatalw("blockchain package does not implement chain interface")
+		return nil, errors.New("blockchain package does not implement chain interface")
+	}
+
+	if chain.RuntimeDisableFingerprintValidation() {
+		if !c.Runtime.DisableFingerprintValidation {
+			log.Warnw("fingerprint validation disabled by default", "protocol", chain.Protocol())
+		}
+		c.Runtime.DisableFingerprintValidation = true
+	}
+
+	if chain.DiscoveryDeactivated() {
+		if !c.Discovery.Deactivated {
+			log.Warnw("node discovery disabled by default, ignoring discovery.deactivated config", "protocol", chain.Protocol())
+		}
+
+		c.Discovery.Deactivated = true
+	} else {
+		if len(c.Discovery.Systemd.Glob) == 0 {
+			c.Discovery.Systemd.Glob = DefaultDiscoveryHintsSystemd
+		}
+
+		if len(c.Discovery.Docker.Regex) == 0 {
+			c.Discovery.Docker.Regex = DefaultDiscoveryHintsDocker
+		}
+
+		if err := ensureSystemdDeactivated(c); err != nil {
+			return nil, errors.Wrapf(err, "error checking systemd user group")
+		}
+	}
+
+	clearDeactivatedDiscoveryConfig(c)
+
+	// check if influx watcher has been explcitly configured in agent.yml
+	hasInfluxConfigured := false
+	for _, wc := range c.Runtime.Watchers {
+		wt := global.WatchType(wc.Type)
+		if wt.IsInflux() {
+			hasInfluxConfigured = true
+			break
+		}
+	}
+
+	// if not configured in agent.yml ask the Chain interface if it must always be activated for that protocol
+	if ixconf := chain.RuntimeWatchersInflux(); !hasInfluxConfigured && ixconf != nil {
+		c.Runtime.Watchers = append(c.Runtime.Watchers, ixconf)
+		for _, wc := range global.AgentConf.Runtime.Watchers {
+			wt := global.WatchType(wc.Type)
+			if wt.IsInflux() {
+				wc.ExporterActivated = true
+				v := os.Getenv(strings.ToUpper(global.ConfigEnvPrefix + "_" + "runtime_watchers_influx_upstream_url"))
+				if v != "" {
+					wc.UpstreamURL = v
+				}
+				v = os.Getenv(strings.ToUpper(global.ConfigEnvPrefix + "_" + "runtime_watchers_influx_listen_addr"))
+				if v != "" {
+					wc.ListenAddr = v
+				}
+			}
+		}
+	}
+
+	if !chain.PlatformEnabled() {
+		if *c.Platform.Enabled {
+			log.Warnw("platform exporter is deactivated by default, ignoring platform.enabled config", "protocol", chain.Protocol())
+		}
+		*c.Platform.Enabled = false
+	} else {
+		if err := ensureRequired(c); err != nil {
+			return nil, err
+		}
 	}
 
 	if ok := chain.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
-		return chn
+
+		return chn, nil
 	}
 
-	return chn
+	return chn, nil
 }
 
 // ResetConfig removes the protocol's configuration files.
