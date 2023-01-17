@@ -18,7 +18,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -116,9 +115,37 @@ var (
 	// DefaultRuntimeAllowedHosts default list of allowed HTTP host headers
 	DefaultRuntimeAllowedHosts = []string{"127.0.0.1"}
 
+	// DefaultRuntimeWatchersInfluxListenAddr default address to listen for InfluxDB writes
+	DefaultRuntimeWatchersInfluxListenAddr = "127.0.0.1:8086"
+
+	// DefaultRuntimeWatchersInfluxUpstreamURL default URL to push InfluxDB metrics to
+	DefaultRuntimeWatchersInfluxUpstreamURL = ""
+
 	// ConfigEnvPrefix prefix used for agent specific env vars
 	ConfigEnvPrefix = "MA"
 )
+
+const (
+	// PrometheusWatchPrefix prefix used for tagging model.Message by all node exporter watches.
+	PrometheusWatchPrefix = "prometheus"
+
+	// InfluxWatchPrefix prefix used for tagging messages collected by the influx watcher
+	InfluxWatchPrefix = "influx"
+)
+
+// WatchType used for determining is data originates by
+// a node exporter watch.
+type WatchType string
+
+// IsPrometheus returns true if watch collects data from node exporter
+func (w WatchType) IsPrometheus() bool {
+	return strings.HasPrefix(string(w), PrometheusWatchPrefix)
+}
+
+// IsInflux returns true watch collects influx data
+func (w WatchType) IsInflux() bool {
+	return strings.HasPrefix(string(w), InfluxWatchPrefix)
+}
 
 var (
 	// DefaultRuntimeLoggingOutputs default log outputs
@@ -170,6 +197,11 @@ type BufferConfig struct {
 type WatchConfig struct {
 	Type             string        `yaml:"type"`
 	SamplingInterval time.Duration `yaml:"sampling_interval"`
+
+	// influx watch
+	ListenAddr        string `yaml:"listen_addr"`
+	UpstreamURL       string `yaml:"upstream_url"`
+	ExporterActivated bool   `yaml:"exporter_activated"`
 }
 
 // RuntimeConfig configuration related to the agent runtime.
@@ -205,8 +237,9 @@ type DiscoveryDocker struct {
 
 // DiscoveryConfig configuration related to node discovery.
 type DiscoveryConfig struct {
-	Docker  DiscoveryDocker  `yaml:"docker"`
-	Systemd DiscoverySystemd `yaml:"systemd"`
+	Deactivated bool             `yaml:"deactivated"`
+	Docker      DiscoveryDocker  `yaml:"docker"`
+	Systemd     DiscoverySystemd `yaml:"systemd"`
 }
 
 // AgentConfig wraps all config used by the agent
@@ -383,6 +416,15 @@ func overloadFromEnv(c *AgentConfig) error {
 		c.Runtime.Watchers = watchers
 	}
 
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_deactivated"))
+	if v != "" {
+		vBool, err := strconv.ParseBool(v)
+		if err != nil {
+			return errors.Wrapf(err, "discovery_deactivated env parse error")
+		}
+		AgentConf.Discovery.Deactivated = vBool
+	}
+
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_systemd_glob"))
 	if v != "" {
 		patterns := []string{}
@@ -477,97 +519,16 @@ func ensureDefaults(c *AgentConfig) {
 	if len(c.Runtime.Watchers) == 0 {
 		c.Runtime.Watchers = DefaultRuntimeWatchers
 	}
-}
 
-// userLookup is interface to enable mocking os/user package.
-type userLookup interface {
-	Current() (*user.User, error)
-	LookupGroupID(gid string) (*user.Group, error)
-}
-
-type osUserLookup struct {
-	*user.User
-}
-
-func (o *osUserLookup) Current() (*user.User, error) {
-	return user.Current()
-}
-
-func (o *osUserLookup) LookupGroupID(gid string) (*user.Group, error) {
-	return user.LookupGroupId(gid)
-}
-
-var getUserGroupIds = func(u *user.User) ([]string, error) {
-	return u.GroupIds()
-}
-
-// systemdCanBeActivated returns true if agent user is part of systemd-journal group. Returns false
-// and the error if one occurs. Used to deactivate systemd node discovery path.
-func systemdCanBeActivated(usr userLookup, targetGrp string) (bool, error) {
-	u, err := usr.Current()
-	if err != nil {
-		return false, err
-	}
-
-	gids, err := getUserGroupIds(u)
-	if err != nil {
-		return false, err
-	}
-
-	for _, gid := range gids {
-		grp, err := usr.LookupGroupID(gid)
-		if err != nil {
-			continue
-		}
-		if grp.Name == targetGrp {
-			return true, nil
+	for _, wc := range AgentConf.Runtime.Watchers {
+		if wc.Type == "influx" {
+			// if upstream addr is set but listen_addr is not, automatically set
+			// listen addr to a default
+			if (len(wc.UpstreamURL) > 0 && len(wc.ListenAddr) == 0) || len(wc.ListenAddr) == 0 {
+				wc.ListenAddr = DefaultRuntimeWatchersInfluxListenAddr
+			}
 		}
 	}
-
-	return false, nil
-}
-
-func clearDeactivatedDiscoveryConfig(c *AgentConfig) {
-	if c.Discovery.Docker.Deactivated {
-		c.Discovery.Docker.Regex = []string{}
-	}
-
-	if c.Discovery.Systemd.Deactivated {
-		c.Discovery.Systemd.Glob = []string{}
-	}
-}
-
-// ensureSystemdActivated force sets discovery.systemd.deactivated to true
-// if agent user is not part of systemd-journal group.
-func ensureSystemdActivated(c *AgentConfig) error {
-	usr := &osUserLookup{}
-
-	act, err := systemdCanBeActivated(usr, "systemd-journal")
-	if err != nil {
-		return err
-	}
-
-	if !act {
-		c.Discovery.Systemd.Deactivated = true
-	}
-
-	return nil
-}
-
-// ensureRequired ensures global agent configuration has loaded required configuration
-func ensureRequired(c *AgentConfig) error {
-	// Platform variables are only required if Platform Exporter is enabled
-	if c.Platform.IsEnabled() {
-		if c.Platform.Addr == "" || c.Platform.Addr == PlatformAddrConfigPlaceholder {
-			return fmt.Errorf("platform.addr is missing from loaded config")
-		}
-
-		if c.Platform.APIKey == "" || c.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
-			return fmt.Errorf("platform.api_key is missing from loaded config")
-		}
-	}
-
-	return nil
 }
 
 // LoadAgentConfig loads agent configuration in the following priority:
@@ -596,19 +557,9 @@ func LoadAgentConfig(c *AgentConfig) error {
 
 	ensureDefaults(c)
 
-	if err := ensureSystemdActivated(c); err != nil {
-		return errors.Wrapf(err, "error checking systemd user group")
-	}
-
-	if err := ensureRequired(c); err != nil {
-		return errors.Wrapf(err, "loaded configuration is missing a required parameter")
-	}
-
 	if err := createLogFolders(c); err != nil {
 		return err
 	}
-
-	clearDeactivatedDiscoveryConfig(c)
 
 	return nil
 }

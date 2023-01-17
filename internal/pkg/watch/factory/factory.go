@@ -14,6 +14,8 @@
 package factory
 
 import (
+	"net/url"
+
 	"agent/internal/pkg/global"
 	"agent/internal/pkg/watch"
 	"agent/pkg/collector"
@@ -24,26 +26,39 @@ import (
 
 // NewWatcherByType builds and registers a new watcher to the
 // default watcher registry.
-func NewWatcherByType(conf global.WatchConfig) watch.Watcher {
+func NewWatcherByType(conf global.WatchConfig) (watch.Watcher, error) {
 	var w watch.Watcher
-	wt := watch.Type(conf.Type)
+	wt := global.WatchType(conf.Type)
 	switch {
 	case wt.IsPrometheus(): // prometheus
 		var clr prometheus.Collector
 		clr = prometheusCollectorsFactory(collector.Name(wt))
 		registry := prometheus.NewPedanticRegistry()
 		w = watch.NewCollectorWatch(watch.CollectorWatchConf{
-			Type:      watch.Type(conf.Type),
+			Type:      global.WatchType(conf.Type),
 			Collector: clr,
 			Gatherer:  registry,
 			Interval:  conf.SamplingInterval,
 		})
 		registry.MustRegister(clr)
+	case wt.IsInflux(): // influx
+		influxdbURL, err := url.Parse(conf.UpstreamURL)
+		if err != nil {
+			return nil, err
+		}
+
+		w = watch.NewInfluxExporterWatch(watch.InfluxExporterWatchConf{
+			Type:              global.WatchType(conf.Type),
+			UpstreamURL:       influxdbURL,
+			ListenAddr:        conf.ListenAddr,
+			PlatformEnabled:   *global.AgentConf.Platform.Enabled,
+			ExporterActivated: conf.ExporterActivated,
+		})
 	default:
 		zap.S().Fatalw("specified collector type not found", "collector", conf.Type)
 	}
 
-	return w
+	return w, nil
 }
 
 // prometheusCollectorsFactory creates watchers backed by pkg/collector.

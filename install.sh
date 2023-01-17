@@ -11,7 +11,7 @@ APP_INSTALL_DIR="/opt/$APP_NAME"
 KNOWN_DISTRIBUTION="(Scientific Linux|Linux Mint|openSUSE|CentOS|Arch|Debian|Ubuntu|Pop\!_OS|Fedora|Red Hat)"
 AGENT_CONFIG_NAME="agent.yml"
 INSTALLER_VERSION="0.1"
-SUPPORTED_BLOCKCHAINS=("flow")
+SUPPORTED_BLOCKCHAINS=("flow solana")
 SUPPORTED_ARCHS=("arm64 x86_64")
 HOST_ARCH=""
 HOST_OS=""
@@ -23,6 +23,8 @@ NO_DOCKER_GRP_REQUESTED=0
 NO_SYSTEMD_JOURNAL_GRP_REQUESTED=0
 HAS_SYSTEMD=0
 INSTALL_ID=$(date +%s)
+USE_PRERELEASE=0
+DEFAULT_INFLUX_UPSTREAM_URL=""
 
 function goodbye {
 	echo -e ""
@@ -55,6 +57,7 @@ options:
   --upgrade                 Upgrade the Metrika agent to the latest version.
   --reinstall               Reinstall/refresh the Metrika Agent installation.
   --uninstall               Stop and remove the Metrika Agent.
+  --prerelease              Install latest pre-release.
   --purge                   Stop, remove the Metrika Agent, including any agent configuration/data.
   --no-docker-grp	        Do NOT add to the system docker group (requires docker proxy for containerized nodes!).
   --no-systemd-journal-grp  Do NOT add to the systemd-journal log. Use this to disable systemd node discovery.
@@ -113,13 +116,20 @@ function verlte {
 	outvar=$?
 }
 
+function determine_latest_prerelease_version {
+	local -n outvar=$1
+	echo "Determining the latest prerelease version of the Metrika agent..."
+	gh_releases="$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/Metrika-Inc/agent/releases)"
+    gh_response=$(echo "${gh_releases}" | jq -r 'map(select(.prerelease)) | first')
+	outvar=$(echo "$gh_response" | jq -r '.tag_name')
+}
+
 function determine_latest_version {
 	local -n outvar=$1
 	log_info "Determining the latest version of the Metrika agent..."
 	gh_response="$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/Metrika-Inc/agent/releases/latest)"
 	if [ -n "$gh_response" ] && ! echo "$gh_response" | grep -qi "not found"; then
 		LATEST_RELEASE=$(echo "${gh_response} " | grep "tag_name" | cut -f 2 -d ":" | tr -d 'v",' | xargs)
-		log_info "Latest Release: ${LATEST_RELEASE}"
 		outvar=${LATEST_RELEASE}
 	else
 		goodbye "Could not determine the latest version of the Metrika Agent. Ensure your system can connect to Github." 80
@@ -128,9 +138,16 @@ function determine_latest_version {
 
 function check_can_update {
 	local newer_version_out=0
-	determine_latest_version LATEST_RELEASE
+
+	if [ "$USE_PRERELEASE" -ne 1 ] ; then
+		determine_latest_version LATEST_RELEASE
+	else
+		determine_latest_prerelease_version LATEST_RELEASE
+	fi
+
+	log_info "Latest Release: ${LATEST_RELEASE}"
 	if test -f "${APP_INSTALL_DIR}/${BIN_NAME}"; then
-		current_release="$(${APP_INSTALL_DIR}/${BIN_NAME} --version | tr -d 'v')" || "0.0.0"
+		current_release=$("${APP_INSTALL_DIR}/${BIN_NAME}" --version | tr -d 'v') || "0.0.0"
 		log_info "Latest version: ${LATEST_RELEASE}, Current version: ${current_release}."
 		verlte "${LATEST_RELEASE}" "${current_release}" newer_version_out
 		IS_UPDATABLE=$newer_version_out
@@ -144,7 +161,7 @@ function download_agent {
 		# This is not a custom install. We'll check and get the binary from Github.
 		case $IS_UPDATABLE in
 		1)
-			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${MA_BLOCKCHAIN}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
+			download_url=$(echo "${gh_response}" | grep "url" | grep "browser_download_url" | grep "${APP_NAME}-${MA_BLOCKCHAIN}" | grep "${LATEST_RELEASE}" | cut -f 4 -d "\"" | tr -d '",' | grep ${HOST_ARCH} | grep -v "sha256" | xargs)
 
 			binary="$BIN_NAME-$HOST_OS-$HOST_ARCH"
 			log_info "Downloading the latest version (${LATEST_RELEASE}) of the Metrika Agent for ${MA_BLOCKCHAIN} from GitHub ${download_url}"
@@ -172,13 +189,18 @@ function download_agent {
 			# Rename to metrikad-flow
 			mv "$binary" "$BIN_NAME"
 
+			LATEST_RELEASE_DOWNLOAD_URL="v${LATEST_RELEASE}"
+			if [ "$USE_PRERELEASE" -eq 1 ] ; then
+				LATEST_RELEASE_DOWNLOAD_URL="${LATEST_RELEASE}"
+			fi
+
 			if [ $UPGRADE_REQUESTED -ne 1 ]; then
 				log_info "Downloading additional configuration for the Metrika agent."
 				mkdir configs
-				if ! curl -s https://raw.githubusercontent.com/Metrika-Inc/agent/v${LATEST_RELEASE}/configs/agent.yml -o configs/${AGENT_CONFIG_NAME}; then
+				if ! curl -s "https://raw.githubusercontent.com/Metrika-Inc/agent/${LATEST_RELEASE_DOWNLOAD_URL}/configs/agent.yml" -o configs/${AGENT_CONFIG_NAME}; then
 					goodbye "Failed downloading agent default configuration and templates for ${MA_BLOCKCHAIN}. Try again later." 61
 				fi
-				if ! curl -s https://raw.githubusercontent.com/Metrika-Inc/agent/v${LATEST_RELEASE}/configs/${BLOCKCHAIN_CONFIG_TEMPLATE_NAME} -o "configs/${BLOCKCHAIN_CONFIG_TEMPLATE_NAME}"; then
+				if ! curl -s "https://raw.githubusercontent.com/Metrika-Inc/agent/${LATEST_RELEASE_DOWNLOAD_URL}/configs/${BLOCKCHAIN_CONFIG_TEMPLATE_NAME}" -o "configs/${BLOCKCHAIN_CONFIG_TEMPLATE_NAME}"; then
 					goodbye "Failed downloading agent default configuration and templates for ${MA_BLOCKCHAIN}. Try again later." 62
 				fi
 			fi
@@ -237,6 +259,15 @@ function sanity_check {
 
 	case $MA_BLOCKCHAIN in
 	flow)
+		# MA_API_KEY envvar
+		if [[ -z "${MA_API_KEY}" ]]; then
+			goodbye "MA_API_KEY environment variable must be set before running the installation script. Goodbye." 3
+		fi
+
+		true
+		;;
+	solana)
+		DEFAULT_INFLUX_UPSTREAM_URL="https://metrics.solana.com:8086"
 		true
 		;;
 	*)
@@ -245,10 +276,6 @@ function sanity_check {
 		;;
 	esac
 
-	# MA_API_KEY envvar
-	if [[ -z "${MA_API_KEY}" ]]; then
-		goodbye "MA_API_KEY environment variable must be set before running the installation script. Goodbye." 3
-	fi
 
 	# Linux check.
 	l=$(uname -s)
@@ -341,6 +368,16 @@ function create_systemd_service {
 		fi
 	fi
 
+	# Setup MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL if present to configure
+	# the agent's upstream influx address.
+	local maRuntimeWatchersInfluxUpstreamURL=""
+	if [ -n "$MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL" ]; then
+		maRuntimeWatchersInfluxUpstreamURL="MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL=$MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL"
+	else
+		maRuntimeWatchersInfluxUpstreamURL="MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL=$DEFAULT_INFLUX_UPSTREAM_URL"
+	fi
+	log_info "Agent will activate InfluxDB reverse proxy to upstream: $maRuntimeWatchersInfluxUpstreamURL"
+
 	service=$(
 		envsubst <<EOF
 [Unit]
@@ -354,6 +391,7 @@ RestartSec=5
 User=$MA_USER
 Environment="$dockerHostEnv"
 Environment="$dockerApiVersionEnv"
+Environment="$maRuntimeWatchersInfluxUpstreamURL"
 ExecStart=/usr/bin/env $APP_INSTALL_DIR/$BIN_NAME
 
 [Install]
@@ -463,6 +501,9 @@ for arg in "$@"; do
 	"--no-docker-grp")
 		NO_DOCKER_GRP_REQUESTED=1
 		;;
+	"--prerelease")
+		USE_PRERELEASE=1
+		;;
 	"--reinstall")
 		uninstall
 		;;
@@ -508,8 +549,14 @@ if [ $UPGRADE_REQUESTED -ne 1 ]; then
 	create_directories
 fi
 
-# add user groups to enable access to system facilities (i.e. docker, journald).
-add_user_groups
+case $MA_BLOCKCHAIN in
+flow)
+	# add user groups to enable access to system facilities (i.e. docker, journald).
+	add_user_groups
+	;;
+*)
+	;;
+esac
 
 # install the agent.
 install_agent

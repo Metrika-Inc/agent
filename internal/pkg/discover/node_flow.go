@@ -7,9 +7,9 @@ package discover
 // Use the following code to bootstrap a new node_example.go file:
 // ```go
 // //go:build example
-// 
+//
 // package discover
-// 
+//
 // //go:generate protobind -blockchain example ./...
 // ```
 
@@ -21,7 +21,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 var (
 	// DefaultDiscoveryHintsSystemd default glob pattern to detect Flow nodes run by systemd
 	DefaultDiscoveryHintsSystemd = []string{"flow-*"}
@@ -29,7 +28,6 @@ var (
 	// DefaultDiscoveryHintsDocker default regular expression to detect Flow nodes run by docker
 	DefaultDiscoveryHintsDocker = []string{"flow-go"}
 )
-
 
 func Init() {
 	var err error

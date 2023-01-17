@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/global"
 	"agent/pkg/timesync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +29,7 @@ const namespace = "node"
 
 // CollectorWatchConf CollectorWatch configuration.
 type CollectorWatchConf struct {
-	Type      Type
+	Type      global.WatchType
 	Collector prometheus.Collector
 	Gatherer  prometheus.Gatherer
 	Interval  time.Duration

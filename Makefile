@@ -30,7 +30,8 @@ OPENMETRICS_VERSION := 1.0.0
 
 # List of supported blockchains by the agent
 FLOW := flow
-PROTOS = $(FLOW)
+SOLANA := solana
+PROTOS = $(FLOW) $(SOLANA)
 
 GOOS := linux
 GOARCH := amd64
@@ -80,14 +81,14 @@ test: $(foreach b,$(PROTOS),test-$(b))
 cover-%: test-%
 	go tool cover -html cover.out -o coverage.html
 
-.PHONY: $(PROTOBIND)
-$(PROTOBIND):
-	@cd $(PROTOBIND) && $(MAKE) install
+.PHONY: $(PROTOBIND)-%
+$(PROTOBIND)-%:
+	@cd $(PROTOBIND) && $(MAKE) install-${*}
 
 .PHONY: generate-%
-generate-%: $(PROTOBIND)
+generate-%: $(PROTOBIND)-%
 	MA_SRC_PATH=$(dir $(abspath $(lastword $(MAKEFILE_LIST)))) \
-		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go generate -tags=$* ./...
+		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go generate -tags=${*} ./...
 
 .PHONY: build-%-dbg
 build-%-dbg: generate-%
@@ -153,25 +154,25 @@ fmt:
 
 .PHONY: build-all-echo
 build-all-echo:
-	echo "protogen $(PROTOBIND) $(foreach o,$(OSAR),$(foreach a,$($(o)_GOARCHAR),$(foreach p,$(PROTOS),$(shell echo $(o) | tr A-Z a-z)-$(a)-env build-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p) checksum-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p))))"
+	echo "protogen $(foreach o,$(OSAR),$(foreach a,$($(o)_GOARCHAR),$(foreach p,$(PROTOS),$(PROTOBIND)-$(p) $(shell echo $(o) | tr A-Z a-z)-$(a)-env build-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p) checksum-$(shell echo $(o) | tr A-Z a-z)-$(a)-$(p))))"
 
 .PHONY: build-linux-amd64
-build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),build-$(b)-strip checksum-$(b))
+build-linux-amd64: linux-amd64-env $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) build-$(b)-strip checksum-$(b))
 
 .PHONY: build-linux-arm64
-build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),build-$(b)-strip checksum-$(b))
+build-linux-arm64: linux-arm64-env $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) build-$(b)-strip checksum-$(b))
 
 .PHONY: build
-build: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-strip)
+build: $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) build-$(b)-strip)
 
 .PHONY: build-dbg
-build-dbg: $(PROTOBIND) $(foreach b,$(PROTOS),build-$(b)-dbg)
+build-dbg: $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) build-$(b)-dbg)
 
 .PHONY: docker-build-linux-amd64
-docker-build-linux-amd64: $(PROTOBIND) linux-amd64-env $(foreach b,$(PROTOS),docker-build-$(b))
+docker-build-linux-amd64: linux-amd64-env $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) docker-build-$(b))
 
 .PHONY: docker-build-linux-arm64
-docker-build-linux-arm64: $(PROTOBIND) linux-arm64-env $(foreach b,$(PROTOS),docker-build-$(b))
+docker-build-linux-arm64: linux-arm64-env $(foreach b,$(PROTOS),$(PROTOBIND)-$(b) docker-build-$(b))
 
 .PHONY: clean-%
 clean-%:
@@ -181,3 +182,8 @@ clean-%:
 clean: $(foreach b,$(PROTOS),clean-$(b))
 	@cd $(PROTOBIND) && $(MAKE) clean
 
+define make-build-blockchain
+build-$1-linux-$2: linux-$2-env $(PROTOBIND)-$1 build-$1-strip
+endef
+
+$(foreach b,$(PROTOS),$(foreach a,$(LINUX_GOARCHAR),$(eval $(call make-build-blockchain,$(b),$(a)))))

@@ -193,13 +193,13 @@ func (c *Controller) checkMemStats() error {
 // BufInsert inserts an item in the backing buffer.
 func (c *Controller) BufInsert(item Item) error {
 	if err := c.checkMemStats(); err != nil {
-		MetricsDropCnt.WithLabelValues("memstats_error").Inc()
+		global.MetricsDropCnt.WithLabelValues("memstats_error").Inc()
 
 		return err
 	}
 
 	if err := c.B.Insert(item); err != nil {
-		MetricsDropCnt.WithLabelValues("buffer_full").Inc()
+		global.MetricsDropCnt.WithLabelValues("buffer_full").Inc()
 
 		return err
 	}

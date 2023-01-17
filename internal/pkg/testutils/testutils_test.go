@@ -78,10 +78,15 @@ func GetMetricFamilySamples(t *testing.T, collectorConfigs []*global.WatchConfig
 	watchersEnabled := []*watch.CollectorWatch{}
 
 	for _, collectorConf := range collectorConfigs {
-		w := factory.NewWatcherByType(*collectorConf)
-		if w == nil {
-			zap.S().Fatalf("watcher factory returned nil for type: %v", collectorConf.Type)
+		w, err := factory.NewWatcherByType(*collectorConf)
+		if err != nil {
+			zap.S().Fatalw("watcher factory returned error", "type", collectorConf.Type, zap.Error(err))
 		}
+
+		if w == nil {
+			zap.S().Fatalw("watcher factory returned nil", "type", collectorConf.Type)
+		}
+
 		if w, ok := w.(*watch.CollectorWatch); ok {
 			watchersEnabled = append(watchersEnabled, w)
 			w.StartUnsafe()
