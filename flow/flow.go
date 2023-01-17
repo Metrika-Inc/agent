@@ -15,10 +15,10 @@ package flow
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -30,6 +30,7 @@ import (
 	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/global"
 
+	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
 )
@@ -46,6 +47,7 @@ const (
 	// tailLinesStr is the default number of lines to fetch
 	// when peeking the logfile for network/chain or node role data.
 	tailLinesStr = "100"
+	tailLinesInt = 100
 
 	// Valid node roles
 	nodeRoleAccess       = "access"
@@ -68,14 +70,16 @@ var recognizedNodeRoles = map[string]struct{}{
 // of the agent's flow-related configuration.
 // Implements global.Chain.
 type Flow struct {
-	config       flowConfig
-	renderNeeded bool // if any config value was empty but got updated
-	container    *types.Container
-	env          map[string]string
-	nodeRole     string
-	network      string
-	nodeVersion  string
-	mutex        *sync.RWMutex
+	config         flowConfig
+	renderNeeded   bool // if any config value was empty but got updated
+	container      *types.Container
+	systemdService *dbus.UnitStatus
+	env            map[string]string
+	nodeRole       string
+	network        string
+	nodeVersion    string
+	mutex          *sync.RWMutex
+	runScheme      global.NodeRunScheme
 }
 
 // NewFlow flow chain constructor.
@@ -126,84 +130,6 @@ func (d *Flow) isPEFConfigured() bool {
 	}
 
 	return len(d.config.PEFEndpoints[0].URL) != 0
-}
-
-// DiscoverContainer discovers the node's container based on loaded config.
-func (d *Flow) DiscoverContainer() (*types.Container, error) {
-	log := zap.S()
-	log.Info("flow not fully configured, starting discovery")
-
-	errs := &utils.AutoConfigError{}
-	containers, err := utils.GetRunningContainers()
-	if err != nil {
-		log.Warnw("cannot access docker daemon, discovery failed", zap.Error(err))
-		errs.Append(err)
-	} else {
-		container, err := utils.MatchContainer(containers, d.config.ContainerRegex)
-		if err != nil {
-			log.Warnw("unable to find running flow-go docker container, will attempt to auto-configure anyway")
-			errs.Append(err)
-		} else {
-			log.Infow("discovered container with names", "names", container.Names)
-			d.mutex.Lock()
-			d.container = &container
-			d.mutex.Unlock()
-		}
-	}
-
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	if err := d.configureClient(); err != nil {
-		log.Warn("could not find client name")
-
-		errs.Append(err)
-	}
-
-	if _, err := d.configureNodeIDFromDocker(); err != nil {
-		log.Warnw("could not find node ID in docker container cmd args", zap.Error(err))
-		errs.Append(err)
-
-		// fall back to environment file
-		if _, err := d.configureNodeIDFromEnvFile(); err != nil {
-			log.Warnw("could not find node ID in env file", zap.Error(err))
-			errs.Append(err)
-		}
-	}
-
-	if d.container != nil && len(d.container.Names) > 0 {
-		if err := d.updateFromLogs(d.container.Names[0]); err != nil {
-			log.Warnw("error while getting node metadata from logs", zap.Error(err))
-			errs.Append(err)
-		}
-	}
-
-	if _, err := d.updateNodeVersion(); err != nil {
-		log.Warn("could not find node version")
-		// errs.Append(err)
-	}
-
-	if err := d.configurePEFEndpoints(); err != nil {
-		log.Warn("could not find PEF metric endpoints")
-		errs.Append(err)
-	}
-
-	if d.renderNeeded {
-		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath,
-			DefaultFlowPath, d.config); err != nil {
-			log.Errorw("failed to generate the template", zap.Error(err))
-			errs.Append(err)
-		}
-		d.renderNeeded = false
-		flowConf = &d.config
-	}
-
-	err = errs.ErrIfAny()
-	if err == nil {
-		log.Info("flow node discovery successful")
-	}
-
-	return d.container, err
 }
 
 // NodeID returns the discovered node id.
@@ -353,7 +279,7 @@ func (d *Flow) PEFEndpoints() []global.PEFEndpoint {
 	return d.config.PEFEndpoints
 }
 
-// ContainerRegex regex to match against container names on discovery
+// ContainerRegex Deprecated: use discovery.hints.docker instead.
 func (d *Flow) ContainerRegex() []string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -387,34 +313,42 @@ func (d *Flow) Network() string {
 	return d.network
 }
 
-// updateFromLogs consumes a container's logs for at most 5 seconds
-// until it discovers both node role and network properties.
-func (d *Flow) updateFromLogs(containerName string) error {
-	if d.nodeRole != "" && d.network != "" {
-		return nil
-	}
-
-	reader, err := utils.DockerLogs(
-		context.Background(),
-		containerName,
-		types.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Tail:       tailLinesStr,
-		},
-	)
-	if err != nil {
+func (d *Flow) updateMetadataFromJSON(b []byte) error {
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	defer reader.Close()
 
+	if role, ok := m["node_role"]; ok && d.nodeRole == "" {
+		nodeRole, ok := role.(string)
+		if !ok {
+			return fmt.Errorf("type assertion failed for node role: %v", role)
+		}
+		nodeRole = strings.ToLower(nodeRole)
+
+		if _, ok := recognizedNodeRoles[nodeRole]; !ok {
+			return fmt.Errorf("unsupported node role detected: %s", nodeRole)
+		}
+
+		d.nodeRole = nodeRole
+	}
+
+	d.updateNetworkFromJSONLog(m)
+
+	return nil
+}
+
+func (d *Flow) updateFromLogs(reader io.ReadCloser, hdrLen int) error {
 	// We can't assume a single log line will have all the keys we need. Watch the log
 	// at most for 5 seconds until all metadata has been extracted,
 	started := time.Now()
 	scan := bufio.NewScanner(reader)
 	for time.Since(started) < 5*time.Second {
 		got, err := utils.GetLogLine(scan)
+		if errors.Is(err, bufio.ErrTooLong) || errors.Is(err, utils.ErrEmptyLogFile) {
+			continue
+		}
+
 		if err != nil {
 			return err
 		}
@@ -422,33 +356,26 @@ func (d *Flow) updateFromLogs(containerName string) error {
 		// stdout/stderr are multiplexed on the same stream and 8-byte header
 		// precedes each line. We don't need to parse the header since we are
 		// using scanner.Bytes().
-		if got == nil || len(got) < 8 {
+		if got == nil || (hdrLen > 0 && len(got) < hdrLen) {
 			return fmt.Errorf("empty log line")
 		}
 
+		got = got[hdrLen:]
+
+		if string(got[0]) != "{" {
+			continue
+		}
+
 		m := map[string]interface{}{}
-		if err := json.Unmarshal(got[8:], &m); err != nil {
+		if err := json.Unmarshal(got, &m); err != nil {
 			return err
 		}
 
-		if role, ok := m["node_role"]; ok && d.nodeRole == "" {
-			nodeRole, ok := role.(string)
-			if !ok {
-				return fmt.Errorf("type assertion failed for node role: %v", role)
-			}
-			nodeRole = strings.ToLower(nodeRole)
-
-			if _, ok := recognizedNodeRoles[nodeRole]; !ok {
-				return fmt.Errorf("unsupported node role detected: %s", nodeRole)
-			}
-
-			d.nodeRole = nodeRole
+		if err := d.updateMetadataFromJSON(got); err != nil {
+			return err
 		}
 
-		d.updateNetworkFromJSONLog(m)
-
 		if d.network != "" && d.nodeRole != "" {
-			zap.S().Debugw("found both node_role and network", "node_role", d.nodeRole, "network", d.network)
 			break
 		}
 	}
@@ -458,7 +385,6 @@ func (d *Flow) updateFromLogs(containerName string) error {
 	if d.network == "" || d.nodeRole == "" {
 		return fmt.Errorf("could not discover node role or network")
 	}
-
 	return nil
 }
 
@@ -498,7 +424,7 @@ func (d *Flow) NodeVersion() string {
 	return d.nodeVersion
 }
 
-func (d *Flow) updateNodeVersion() (string, error) {
+func (d *Flow) updateNodeVersionFromDocker() (string, error) {
 	if d.container == nil {
 		return "", errors.New("node version: container not configured")
 	}
@@ -524,4 +450,166 @@ func (d *Flow) Protocol() string {
 // Note: if node type is not yet discovered, LogWatchEnabled will return false.
 func (d *Flow) LogWatchEnabled() bool {
 	return d.nodeRole == nodeRoleConsensus
+}
+
+func (d *Flow) reconfigureSystemd(reader io.ReadCloser) error {
+	log := zap.S()
+	errs := &utils.AutoConfigError{}
+
+	if _, err := d.configureNodeIDFromEnvFile(); err != nil {
+		log.Warnw("could not find node ID in env file", zap.Error(err))
+		errs.Append(err)
+	}
+
+	if err := d.configurePEFEndpoints(); err != nil {
+		log.Warn("could not find PEF metric endpoints")
+		errs.Append(err)
+	}
+
+	if d.systemdService != nil && d.systemdService.SubState == "running" {
+		if err := d.updateFromLogs(reader, 0); err != nil {
+			log.Warnw("error getting node metadata from journal logs", zap.Error(err))
+			errs.Append(err)
+		}
+	}
+
+	// TODO: get node version from prometheus metric
+
+	if d.renderNeeded {
+		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, DefaultFlowPath, d.config); err != nil {
+			log.Errorw("failed to generate the template", zap.Error(err))
+			// errs.Append(err)
+		}
+		d.renderNeeded = false
+		flowConf = &d.config
+	}
+
+	err := errs.ErrIfAny()
+	if err != nil {
+		return err
+	}
+
+	log.Infow("node configuration successful (systemd)", "network", d.network, "node_role", d.nodeRole)
+
+	return nil
+}
+
+func (d *Flow) reconfigureDocker(reader io.ReadCloser) error {
+	errs := &utils.AutoConfigError{}
+	log := zap.S()
+
+	if err := d.configureClient(); err != nil {
+		log.Warn("could not find client name")
+
+		errs.Append(err)
+	}
+
+	if _, err := d.configureNodeIDFromDocker(); err != nil {
+		log.Warnw("could not find node ID in docker container cmd args", zap.Error(err))
+		errs.Append(err)
+
+		// fall back to environment file
+		if _, err := d.configureNodeIDFromEnvFile(); err != nil {
+			log.Warnw("could not find node ID in env file", zap.Error(err))
+			errs.Append(err)
+		}
+	}
+
+	if _, err := d.updateNodeVersionFromDocker(); err != nil {
+		log.Warn("could not find node version")
+		// errs.Append(err)
+	}
+
+	if err := d.configurePEFEndpoints(); err != nil {
+		log.Warn("could not find PEF metric endpoints")
+		errs.Append(err)
+	}
+
+	if d.container != nil && len(d.container.Names) > 0 {
+		if err := d.updateFromLogs(reader, 8); err != nil {
+			log.Warnw("error getting node metadata from docker logs", zap.Error(err))
+			errs.Append(err)
+		}
+	}
+
+	if d.renderNeeded {
+		if err := global.GenerateConfigFromTemplate(DefaultTemplatePath,
+			DefaultFlowPath, d.config); err != nil {
+			log.Errorw("failed to generate the template", zap.Error(err))
+			// errs.Append(err)
+		}
+		d.renderNeeded = false
+		flowConf = &d.config
+	}
+
+	err := errs.ErrIfAny()
+	if err != nil {
+		return err
+	}
+
+	log.Infow("node configuration successful (docker)", "network", d.network, "node_role", d.nodeRole)
+
+	return nil
+}
+
+// ReconfigureByDockerContainer re-runs the configuration process for all node
+// metadata (i.e. node version) using container metadata and logs.
+func (d *Flow) ReconfigureByDockerContainer(container *types.Container, reader io.ReadCloser) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.network != "" && d.nodeRole != "" {
+		return nil
+	}
+
+	d.container = container
+
+	if err := d.reconfigureDocker(reader); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ReconfigureBySystemdUnit re-runs the configuration process for all node
+// metadata (i.e. node version) using unit metadata and journal logs.
+func (d *Flow) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadCloser) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.network != "" && d.nodeRole != "" {
+		return nil
+	}
+
+	d.systemdService = unit
+
+	if err := d.reconfigureSystemd(reader); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetRunScheme sets the node run scheme
+func (d *Flow) SetRunScheme(s global.NodeRunScheme) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	d.runScheme = s
+}
+
+// SetDockerContainer sets the node's container object
+func (d *Flow) SetDockerContainer(container *types.Container) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	d.container = container
+}
+
+// SetSystemdService sets the node's systemd service unit
+func (d *Flow) SetSystemdService(unit *dbus.UnitStatus) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	d.systemdService = unit
 }

@@ -75,9 +75,15 @@ runtime:
   # metrics_enabled: bool, enable prometheus /metrics endpoint. Default is false.
   metrics_enabled: false
 
+  # host_header_validation_enabled: bool, enables host header validation against
+  # values listed under runtime.allowed_hosts. When disabled, runtime.allowed_hosts
+  # is ignored. Default is true.
+  host_header_validation_enabled: true
+
   # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
   # validating HTTP requests processed by the agent such as /metrics. Use
   # comma-separated format when configuring this with an environment variable.
+  # Ignored when runtime.host_header_validation_enabled is false.
   allowed_hosts:
     - 127.0.0.1
 
@@ -110,3 +116,16 @@ runtime:
     - type: prometheus.time
     - type: prometheus.uname
     - type: prometheus.vmstat
+
+discovery:
+  systemd:
+    # glob: list[string], pattern used in systemctl list-units command. Use whitespace (" ") delimiter to
+    # specify a list of patterns when configuring with an environment variable.
+    # For syntax, see https://www.freedesktop.org/software/systemd/man/systemctl.html#Parameter%20Syntax.
+    glob:
+
+  docker:
+    # regex: list[string], RE2 regular expressions to match for running containers. Use comma (",") delimiter
+    # to specify a list of patterns when configuring with an environment variable.
+    # For syntax, see: https://github.com/google/re2/wiki/Syntax.
+    regex:

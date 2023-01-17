@@ -14,10 +14,13 @@
 package discover
 
 import (
-	"agent/api/v1/model"
-	"agent/internal/pkg/global"
+	"io"
 	"sync"
 
+	"agent/api/v1/model"
+	"agent/internal/pkg/global"
+
+	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/docker/docker/api/types"
 )
 
@@ -86,11 +89,6 @@ func (m *MockBlockchain) NodeVersion() string {
 	return "mock-node-version"
 }
 
-// DiscoverContainer returns the container discovered or an error if any occurs
-func (m *MockBlockchain) DiscoverContainer() (*types.Container, error) {
-	return &types.Container{Names: []string{"/flow-private-network_consensus_3_1"}}, nil
-}
-
 // Network ...
 func (m *MockBlockchain) Network() string {
 	return "mock-node-network"
@@ -108,4 +106,26 @@ func (m *MockBlockchain) SetLogWatchEnabled(val bool) {
 	m.Lock()
 	defer m.Unlock()
 	m.logWatchEnabled = val
+}
+
+// SetRunScheme ...
+func (m *MockBlockchain) SetRunScheme(s global.NodeRunScheme) {
+}
+
+// SetDockerContainer ...
+func (m *MockBlockchain) SetDockerContainer(c *types.Container) {
+}
+
+// SetSystemdService ...
+func (m *MockBlockchain) SetSystemdService(u *dbus.UnitStatus) {
+}
+
+// ReconfigureByDockerContainer ...
+func (m *MockBlockchain) ReconfigureByDockerContainer(container *types.Container, reader io.ReadCloser) error {
+	return nil
+}
+
+// ReconfigureBySystemdUnit ...
+func (m *MockBlockchain) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadCloser) error {
+	return nil
 }

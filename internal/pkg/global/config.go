@@ -45,6 +45,9 @@ var (
 	// DefaultAgentConfigName config filename
 	DefaultAgentConfigName = "agent.yml"
 
+	// LocalAgentConfigName ./configs/agent.yml mostly used for testing
+	LocalAgentConfigName = filepath.Join("configs", DefaultAgentConfigName)
+
 	// DefaultAgentConfigPath file path to load agent config from
 	DefaultAgentConfigPath = filepath.Join(AppEtcPath, "configs", DefaultAgentConfigName)
 
@@ -181,11 +184,34 @@ type RuntimeConfig struct {
 	Exporters                    map[string]interface{} `yaml:"exporters"`
 }
 
+// Hints node discovery hints
+type Hints struct {
+	Systemd []string `yaml:"systemd"`
+	Docker  []string `yaml:"docker"`
+}
+
+// DiscoverySystemd systemd discovery configuration
+type DiscoverySystemd struct {
+	Glob []string `yaml:"glob"`
+}
+
+// DiscoveryDocker docker discovery configuration
+type DiscoveryDocker struct {
+	Regex []string `yaml:"regex"`
+}
+
+// DiscoveryConfig configuration related to node discovery.
+type DiscoveryConfig struct {
+	Docker  DiscoveryDocker  `yaml:"docker"`
+	Systemd DiscoverySystemd `yaml:"systemd"`
+}
+
 // AgentConfig wraps all config used by the agent
 type AgentConfig struct {
-	Platform PlatformConfig `yaml:"platform"`
-	Buffer   BufferConfig   `yaml:"buffer"`
-	Runtime  RuntimeConfig  `yaml:"runtime"`
+	Platform  PlatformConfig  `yaml:"platform"`
+	Buffer    BufferConfig    `yaml:"buffer"`
+	Runtime   RuntimeConfig   `yaml:"runtime"`
+	Discovery DiscoveryConfig `yaml:"discovery"`
 }
 
 // LogConfig agent logging configuration.
@@ -209,6 +235,7 @@ func (l LogConfig) Level() zapcore.Level {
 // ConfigFilePriority list of paths to check for agent configuration
 var ConfigFilePriority = []string{
 	DefaultAgentConfigName,
+	LocalAgentConfigName,
 	DefaultAgentConfigPath,
 }
 
@@ -351,6 +378,26 @@ func overloadFromEnv() error {
 		}
 
 		AgentConf.Runtime.Watchers = watchers
+	}
+
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_systemd_glob"))
+	if v != "" {
+		patterns := []string{}
+		vpatterns := strings.Split(v, " ")
+		for _, pat := range vpatterns {
+			patterns = append(patterns, pat)
+		}
+		AgentConf.Discovery.Systemd.Glob = patterns
+	}
+
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_docker_regex"))
+	if v != "" {
+		patterns := []string{}
+		vpatterns := strings.Split(v, ",")
+		for _, pat := range vpatterns {
+			patterns = append(patterns, pat)
+		}
+		AgentConf.Discovery.Docker.Regex = patterns
 	}
 
 	return nil

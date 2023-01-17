@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
 
 	"agent/api/v1/model"
@@ -85,9 +86,6 @@ type Chain interface {
 	// NodeVersion returns the blockchain node version
 	NodeVersion() string
 
-	// DiscoverContainer returns the container discovered or an error if any occurs
-	DiscoverContainer() (*types.Container, error)
-
 	// Protocol protocol name to use for the platform
 	Protocol() string
 
@@ -97,6 +95,12 @@ type Chain interface {
 	// LogWatchEnabled specifies if the specific the logs of
 	// a specific node need to be watched or not.
 	LogWatchEnabled() bool
+
+	ReconfigureByDockerContainer(container *types.Container, reader io.ReadCloser) error
+	ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadCloser) error
+	SetRunScheme(NodeRunScheme)
+	SetDockerContainer(*types.Container)
+	SetSystemdService(*dbus.UnitStatus)
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint
@@ -105,6 +109,20 @@ type PEFEndpoint struct {
 	URL     string   `json:"url" yaml:"URL"`
 	Filters []string `json:"filters" yaml:"filters"`
 }
+
+// NodeRunScheme describes how the node process is managed on the host system
+type NodeRunScheme int
+
+const (
+	// NodeDocker blockchain node is run by docker
+	NodeDocker NodeRunScheme = 1
+
+	// NodeSystemd blockchain node is run by systemd
+	NodeSystemd NodeRunScheme = 2
+)
+
+// ErrNodeRunSchemeNotSet error used when the node run scheme is required for operational reasons
+var ErrNodeRunSchemeNotSet = errors.New("node run scheme has not been set")
 
 // NewFingerprintWriter opens a file for writing fingerprint values.
 func NewFingerprintWriter(path string) *os.File {

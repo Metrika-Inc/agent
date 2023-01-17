@@ -77,6 +77,9 @@ jobs:
           sudo chown -R ${USER} /etc/metrikad
           cp -r configs /etc/metrikad/
 
+      - name: Install libsystemd-dev
+        run: sudo apt-get install -y libsystemd-dev
+
       - name: Run go test
         if: success()
         id: tests

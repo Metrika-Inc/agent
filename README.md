@@ -11,7 +11,7 @@ The Metrika Agent can be installed either as a systemd service or as a Docker co
 ### Systemd
 To install and run the agent as a systemd service you can download and run the [Installation Script](install.sh) using this one-liner:
 ```bash
-MA_PLATFORM={platform_endpoint} MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)"
+MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -L https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)"
 ```
 The script serves as installer by default, but can also be used with flags `--upgrade` or `--uninstall`. In its default mode it does the following:
 * Determines the latest version published on Github and downloads its binary for `{blockchain}`.
@@ -26,7 +26,7 @@ The script serves as installer by default, but can also be used with flags `--up
 The agent can run as a standalone binary, as long as configuration files are set up correctly.
 
 ### Systemd (non-root)
-These instructions require running Caddyserver as Docker proxy. Before proceeding, make sure a proxy is listening on a `DOCKER_HOST` address and forwards requests to the host Docker daemon non-networked socket. You can find instructions about a recommended setup [here](#using-a-docker-reverse-proxy).
+These instructions require running Caddy server as Docker proxy. Before proceeding, make sure a proxy is listening on a `DOCKER_HOST` address and forwards requests to the host Docker daemon non-networked socket. You can find instructions about a recommended setup [here](#using-a-docker-reverse-proxy).
 
 To install and run the agent as a systemd service without adding `metrikad` user to `docker` group, use the following one-liner:
 ```bash
@@ -128,15 +128,12 @@ The agent loads its configuration by looking at the following sources in order:
 4. Ensure loaded configuration has all required parameters set.
 
 Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation. All configuration parameters (except `runtime.exporters`) can be overloaded by environment variables prefixed by `MA`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
+### Node discovery
+By default, the agent uses sensible defaults to detect the blockchain node by probing all supported daemons or service managers. Currently the agent can detect nodes that are run as:
+- Docker container. Requires write access to daemon's UNIX socket.
+- Systemd service. Requires access to journald via Dbus connection.
 
-### Parameter details
-This covers a subset of configuration options that are most likely to be changed:
-* `platform.api_key` - configured during install, an API key used for communicating with Metrika Platform. It maps the agent with your account.
-* `buffer.max_heap_alloc` - maximum allowed allocations in heap (in bytes). Acts as a limit to prevent unlimited buffering. Default: `50MB`.
-* `runtime.logging.outputs` - where Metrika outputs logs, can specify multiple sources. Default: `stdout` (journalctl). **Warning**: Metrika Agent does not take care of rotating the logs.
-* `runtime.logging.level` - verbosity of the logs. Default - `info`. Recommended to increase to `debug` when troubleshooting.
-* `runtime.exporters` **(work in progress)** - enable other exporters. More on this in [Exporter API](#exporter-api). Default: `false`.
-* `runtime.watchers` - list of enabled watchers (collectors). More on this in [Watchers](#watchers).
+`discovery.hints` is required and is used to hint the agent how to detect the node according to its execution scheme.
 
 ## Agent internals
 ### Watchers

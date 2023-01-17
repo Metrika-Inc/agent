@@ -408,6 +408,9 @@ function create_users_and_groups {
 		{ $sudo_cmd usermod -L "$MA_USER" ||
 			log_warn "Cannot lock the 'metrika-agent' user account"; }
 
+   	# enable journald access for log tailing
+   	$sudo_cmd usermod -aG systemd-journal $MA_USER
+
 	if [ $NO_DOCKER_GRP_REQUESTED -ne 1 ]; then
 		$sudo_cmd usermod -aG docker $MA_USER
 	else
