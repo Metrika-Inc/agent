@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -254,7 +253,7 @@ func TestControllerClose(t *testing.T) {
 
 	cancelFunc()
 
-	assert.Equal(t, 0, pb.Len())
+	require.Equal(t, 0, pb.Len())
 }
 
 func TestController_HeapAllocLimitError(t *testing.T) {

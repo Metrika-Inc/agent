@@ -15,6 +15,7 @@ package emit
 
 import (
 	"agent/api/v1/model"
+	"agent/internal/pkg/global"
 
 	"go.uber.org/zap"
 )
@@ -36,7 +37,12 @@ func (s *simpleEmitter) Emit(message interface{}) {
 		return
 	}
 
-	s.emitch <- message
+	select {
+	case s.emitch <- message:
+	default:
+		zap.S().Warn("handler channel block an event, discarding it")
+		global.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
+	}
 }
 
 type multiEmitter struct {
@@ -58,6 +64,7 @@ func (m *multiEmitter) Emit(message interface{}) {
 		case m.emitChs[i] <- message:
 		default:
 			zap.S().Warnw("handler channel block an event, discarding it", "handler_no", i)
+			global.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
 		}
 
 	}
@@ -83,9 +90,8 @@ func Ev(w Emitter, ev *model.Event) error {
 		Value: &model.Message_Event{Event: ev},
 	}
 
-	zap.S().Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
-
 	w.Emit(&message)
+	zap.S().Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
 
 	return nil
 }

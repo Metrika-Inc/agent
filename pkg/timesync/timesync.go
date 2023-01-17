@@ -21,6 +21,7 @@ import (
 	"agent/api/v1/model"
 
 	"agent/internal/pkg/emit"
+	"agent/internal/pkg/global"
 
 	"github.com/beevik/ntp"
 	"go.uber.org/zap"
@@ -271,5 +272,10 @@ func (t *TimeSync) Emit(message interface{}) {
 		return
 	}
 
-	t.emitch <- message
+	select {
+	case t.emitch <- message:
+	default:
+		zap.S().Warn("handler channel block an event, discarding it")
+		global.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
+	}
 }

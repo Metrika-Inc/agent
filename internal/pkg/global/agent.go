@@ -127,11 +127,34 @@ type Chain interface {
 	// a specific node need to be watched or not.
 	LogWatchEnabled() bool
 
+	// ReconfigureByDockerContainer reconfigures the node using container metadata
+	// and by reading data from a given stream.
 	ReconfigureByDockerContainer(container *types.Container, reader io.ReadCloser) error
+
+	// ReconfigureBySystemdUnit reconfigures the node using sytemd unit metadata
+	// and by reading data from a given stream.
 	ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadCloser) error
+
+	// SetRunScheme sets the currently detected node execution scheme (i.e docker, systemd)
 	SetRunScheme(NodeRunScheme)
+
+	// SetDockerContainer sets the discovered container object.
 	SetDockerContainer(*types.Container)
+
+	// SetSystemdService sets the discovered systemd object.
 	SetSystemdService(*dbus.UnitStatus)
+
+	// PlatformEnabled returns default value for platform.enabled
+	PlatformEnabled() bool
+
+	// DiscoveryDeactivated returns default value for runtime.discovery.deactivated
+	DiscoveryDeactivated() bool
+
+	// RuntimeDisableFingerprintValidation returns default value for runtime.disable_fingerprint_validation
+	RuntimeDisableFingerprintValidation() bool
+
+	// RuntimeWatchersInflux returns default configuration for influx watch.
+	RuntimeWatchersInflux() *WatchConfig
 }
 
 // PEFEndpoint is a configuration for a single HTTP endpoint
@@ -284,10 +307,10 @@ func AgentPrepareStartup() error {
 		return errors.Wrap(err, "error setting agent hostname")
 	}
 
-	// Fingerprint validation and caching persisted in the cache directory
-	_, err = FingerprintSetup()
-	if err != nil {
-		if !AgentConf.Runtime.DisableFingerprintValidation {
+	if !AgentConf.Runtime.DisableFingerprintValidation {
+		// Fingerprint validation and caching persisted in the cache directory
+		_, err = FingerprintSetup()
+		if err != nil {
 			return errors.Wrap(err, "fingerprint initialization error")
 		}
 	}

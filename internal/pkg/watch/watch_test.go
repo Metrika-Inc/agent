@@ -116,6 +116,22 @@ func (m *mockBlockchain) ConfigUpdateCh() chan global.ConfigUpdate {
 	return nil
 }
 
+func (m *mockBlockchain) DiscoveryDeactivated() bool {
+	return false
+}
+
+func (m *mockBlockchain) RuntimeDisableFingerprintValidation() bool {
+	return false
+}
+
+func (m *mockBlockchain) PlatformEnabled() bool {
+	return true
+}
+
+func (m *mockBlockchain) RuntimeWatchersInflux() *global.WatchConfig {
+	return nil
+}
+
 func TestWatch_EmitAgentNodeEvents(t *testing.T) {
 	tests := []struct {
 		name        string

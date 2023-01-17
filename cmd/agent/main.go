@@ -173,14 +173,26 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 	watchersEnabled := []watch.Watcher{}
 
 	for _, watcherConf := range global.AgentConf.Runtime.Watchers {
-		w := factory.NewWatcherByType(*watcherConf)
+		w, err := factory.NewWatcherByType(*watcherConf)
+		if err != nil {
+			zap.S().Fatalw("watcher factory returned error", "type", watcherConf.Type, zap.Error(err))
+		}
 		if w == nil {
-			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+			zap.S().Fatalw("watcher factory returned nil", "type", watcherConf.Type)
 		}
 
 		watchersEnabled = append(watchersEnabled, w)
 	}
 
+	if global.AgentConf.Discovery.Deactivated {
+		if err := watch.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// from now on configure discovery related watchers
 	// PEF Watch
 	urlResetCh := make(chan global.ConfigUpdate, 1)
 	eps := blockchain.PEFEndpoints()
@@ -325,21 +337,25 @@ func main() {
 		os.Exit(1)
 	}
 	zapLevelHandler := setupZapLogger()
-	zap.S().Debugw("loaded agent config", "config", global.AgentConf)
 
-	if err := global.AgentPrepareStartup(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-
-		os.Exit(1)
+	chain, err := discover.AutoConfig(&global.AgentConf, reset)
+	if err != nil {
+		zap.S().Fatalw("configuration error", zap.Error(err))
 	}
+	global.SetBlockchainNode(chain)
 
-	global.SetBlockchainNode(discover.AutoConfig(reset))
 	if configureOnly {
 		zap.S().Info("configure only mode on, exiting")
 
 		os.Exit(0)
 	}
 	blockchain = global.BlockchainNode()
+
+	if err := global.AgentPrepareStartup(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v", err)
+
+		os.Exit(1)
+	}
 
 	ctx, cancel = context.WithCancel(context.Background())
 	// setup config update stream
@@ -365,7 +381,8 @@ func main() {
 	var httpsrv *http.Server
 	if global.AgentConf.Runtime.HTTPAddr != "" {
 		httpwg.Add(1)
-		httpsrv = mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr)
+		mux := http.NewServeMux()
+		httpsrv = mahttp.StartHTTPServer(httpwg, global.AgentConf.Runtime.HTTPAddr, mux)
 		if global.AgentConf.Runtime.MetricsEnabled {
 			// attempt register NetDev collector for network metrics
 			netdev, err := collector.NewNetDevCollector()
@@ -374,9 +391,9 @@ func main() {
 			} else {
 				prometheus.MustRegister(netdev)
 			}
-			http.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
+			mux.Handle("/metrics", mahttp.ValidationMiddleware(promHandler))
 		}
-		http.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
+		mux.Handle("/loglvl", mahttp.ValidationMiddleware(zapLevelHandler))
 	}
 
 	log := zap.S()
@@ -415,12 +432,15 @@ func main() {
 	if err := registerWatchers(ctx, cupdStream); err != nil {
 		log.Fatal(err)
 	}
-	defer discoverer.Close()
+	if discoverer != nil {
+		defer discoverer.Close()
+	}
 
 	if err := watch.DefaultWatchRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
 	}
 
+	log.Infof("finished agent setup")
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigs

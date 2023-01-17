@@ -84,7 +84,8 @@ func TestNewWatcherByType(t *testing.T) {
 				SamplingInterval: 50 * time.Millisecond,
 			}
 
-			w := NewWatcherByType(conf)
+			w, err := NewWatcherByType(conf)
+			require.Nil(t, err)
 			require.Implements(t, new(watch.Watcher), w)
 
 			w.Subscribe(testch)

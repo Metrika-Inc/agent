@@ -118,6 +118,9 @@ runtime:
     - type: prometheus.vmstat
 
 discovery:
+  # deactivated: bool, deactivates node discovery completely. Default: false.
+  deactivated: false
+
   systemd:
     # deactivated: bool, explicitly disables systemd discovery. Default is false. Note, on startup, the
     # agent will check if metrikad user is in systemd-journal group, and if not will automatically deactivate
