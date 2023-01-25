@@ -1,7 +1,16 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM golang:1.18.6 as builder
+FROM --platform=$BUILDPLATFORM golang:1.18.6 as builder-amd64
+ENV CC "gcc"
 
-WORKDIR /build
+FROM --platform=$BUILDPLATFORM golang:1.18.6 as builder-arm64
+ENV CC "aarch64-linux-gnu-gcc"
+ENV CGO_ENABLED "1"
+
+# journald
+RUN apt-get update
+RUN apt-get -y install gcc-aarch64-linux-gnu
+
+FROM builder-$TARGETARCH as builder
 
 # build args
 ARG MA_VERSION
@@ -9,15 +18,17 @@ ARG MA_PROTOCOL
 ARG TARGETARCH
 ARG BUILDOS
 
+# journald
+RUN apt-get update
+RUN apt-get -y install libsystemd-dev
+
+WORKDIR /build
+
 # Note: git clone is not required when building locally.
 RUN git clone --depth=1 --branch ${MA_VERSION} --single-branch https://github.com/Metrika-Inc/agent.git
 
 # Note: uncomment to build from local source.
 # COPY . ./agent
-
-# journald
-RUN apt-get update
-RUN apt-get -y install libsystemd-dev
 
 WORKDIR /build/agent
 RUN make build-$BUILDOS-$TARGETARCH
