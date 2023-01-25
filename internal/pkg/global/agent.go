@@ -30,6 +30,7 @@ import (
 	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/equinix"
 	"agent/internal/pkg/cloudproviders/gce"
+	"agent/internal/pkg/cloudproviders/vultr"
 	"agent/internal/pkg/fingerprint"
 
 	"go.uber.org/zap"
@@ -239,6 +240,19 @@ func setAgentHostname() error {
 			hostname, err := ec2.Hostname()
 			if err != nil {
 				zap.S().Debug("agent not running on AWS EC2")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if vultr.IsRunningOn() { // Vultr
+			hostname, err := vultr.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on Vultr")
 				return
 			}
 			hostnameCh <- hostname
