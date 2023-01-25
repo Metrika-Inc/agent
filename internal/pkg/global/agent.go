@@ -201,7 +201,7 @@ func setAgentHostname() error {
 		if gce.IsRunningOn() {
 			hostname, err := gce.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on GCE")
+				zap.S().Debugw("error getting hostname on GCE", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
@@ -214,7 +214,7 @@ func setAgentHostname() error {
 		if do.IsRunningOn() {
 			hostname, err := do.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on Digital Ocean")
+				zap.S().Debugw("error getting hostname on DO", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
@@ -227,7 +227,7 @@ func setAgentHostname() error {
 		if equinix.IsRunningOn() { // Equinix
 			hostname, err := equinix.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on Equinix Metal")
+				zap.S().Debugw("error getting hostname on Equinix Metal", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
@@ -240,7 +240,7 @@ func setAgentHostname() error {
 		if ec2.IsRunningOn() { // AWS EC2
 			hostname, err := ec2.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on AWS EC2")
+				zap.S().Debugw("error getting hostname on AWS EC2", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
@@ -253,7 +253,7 @@ func setAgentHostname() error {
 		if vultr.IsRunningOn() { // Vultr
 			hostname, err := vultr.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on Vultr")
+				zap.S().Debugw("error getting hostname on Vultr", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
@@ -266,7 +266,7 @@ func setAgentHostname() error {
 		if azure.IsRunningOn() { // Azure
 			hostname, err := azure.Hostname()
 			if err != nil {
-				zap.S().Debug("agent not running on Azure")
+				zap.S().Debugw("error getting hostname on Azure", zap.Error(err))
 				return
 			}
 			hostnameCh <- hostname
