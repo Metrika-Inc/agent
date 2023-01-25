@@ -21,6 +21,16 @@ import (
 	"go.uber.org/zap"
 )
 
+
+var (
+	// DefaultDiscoveryHintsSystemd default glob pattern to detect Flow nodes run by systemd
+	DefaultDiscoveryHintsSystemd = []string{"flow-*"}
+
+	// DefaultDiscoveryHintsDocker default regular expression to detect Flow nodes run by docker
+	DefaultDiscoveryHintsDocker = []string{"flow-go"}
+)
+
+
 func Init() {
 	var err error
 	log := zap.S()

@@ -125,9 +125,14 @@ func TestContainerWatch_happy(t *testing.T) {
 	deferme := overrideDockerAdapter(ts.URL, mockad)
 	defer deferme()
 
-	w := NewContainerWatch(ContainerWatchConf{
-		Regex: []string{"flow-private-network_consensus_3_1"},
+	dsc, err := utils.NewNodeDiscoverer(utils.NodeDiscovererConfig{ContainerRegex: []string{"consensus_3_1"}})
+	require.Nil(t, err)
+
+	w, err := NewContainerWatch(ContainerWatchConf{
+		Discoverer: dsc,
 	})
+	require.Nil(t, err)
+
 	defer w.wg.Wait()
 	defer w.Stop()
 
@@ -212,10 +217,17 @@ func TestContainerWatch_error(t *testing.T) {
 	deferme := overrideDockerAdapter(ts.URL, mockad)
 	defer deferme()
 
-	w := NewContainerWatch(ContainerWatchConf{
-		Regex:     []string{"flow-private-network_consensus_3_1"},
-		RetryIntv: 10 * time.Millisecond,
+	dsc, err := utils.NewNodeDiscoverer(utils.NodeDiscovererConfig{ContainerRegex: []string{"consensus_3_1"}})
+	require.Nil(t, err)
+
+	w, err := NewContainerWatch(ContainerWatchConf{
+		RetryIntv:  10 * time.Millisecond,
+		Discoverer: dsc,
+		DockerLogsReaderFunc: func(name string) (io.ReadCloser, error) {
+			return os.Open("./testdata/docker_logs.json")
+		},
 	})
+	require.Nil(t, err)
 	defer w.wg.Wait()
 	defer w.Stop()
 

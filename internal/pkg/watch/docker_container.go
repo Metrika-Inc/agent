@@ -15,15 +15,15 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
-	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
-	"agent/pkg/timesync"
 
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
@@ -41,45 +41,18 @@ const (
 	defaultNodeDownFreq = 5 * time.Second
 )
 
-// newNodeEventCtx creates a map with the context for agent.node.* events.
-// Properties with empty values are omitted.
-func newNodeEventCtx() map[string]interface{} {
-	ctx := map[string]interface{}{}
-
-	nodeID := global.BlockchainNode.NodeID()
-	if nodeID != "" {
-		ctx[model.NodeIDKey] = nodeID
-	}
-
-	nodeType := global.BlockchainNode.NodeRole()
-	if nodeType != "" {
-		ctx[model.NodeTypeKey] = nodeType
-	}
-
-	nodeVersion := global.BlockchainNode.NodeVersion()
-	if nodeVersion != "" {
-		ctx[model.NodeVersionKey] = nodeVersion
-	}
-
-	network := global.BlockchainNode.Network()
-	if network != "" {
-		ctx[model.NetworkKey] = network
-	}
-
-	return ctx
-}
-
 // ContainerWatchConf ContainerWatch configuration struct
 type ContainerWatchConf struct {
-	Regex             []string
-	RetryIntv         time.Duration
-	NodeUpEventFreq   time.Duration
-	NodeDownEventFreq time.Duration
+	RetryIntv            time.Duration
+	NodeUpEventFreq      time.Duration
+	NodeDownEventFreq    time.Duration
+	Discoverer           *utils.NodeDiscoverer
+	DockerLogsReaderFunc func(name string) (io.ReadCloser, error)
 }
 
 // ContainerWatch uses the docker daemon to monitor the availability of
-// a container matching a given regex. It relies on `docker ls` to discover
-// the container and `docker events` to subscribe and receive
+// a container managed by a discoverer instance. It relies on `docker ls`
+// to discover the container and `docker events` to subscribe and receive
 // real-time start/stop/restart events of the discovered container. In case
 // the container disappears, the watch will infinitely poll the docker daemon
 // until the container with the expected name is back up.
@@ -87,14 +60,16 @@ type ContainerWatch struct {
 	ContainerWatchConf
 	Watch
 
-	watchCh       chan interface{}
-	stopListCh    chan interface{}
-	stopEventsch  chan interface{}
-	containerGone bool
+	watchCh      chan interface{}
+	stopListCh   chan interface{}
+	stopEventsch chan interface{}
 }
 
+// ErrContainerWatchConf container watch configuration error
+var ErrContainerWatchConf = errors.New("container watch configuration error, missing discoverer?")
+
 // NewContainerWatch ContainerWatch constructor
-func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
+func NewContainerWatch(conf ContainerWatchConf) (*ContainerWatch, error) {
 	w := new(ContainerWatch)
 	w.Watch = NewWatch()
 	w.ContainerWatchConf = conf
@@ -114,22 +89,37 @@ func NewContainerWatch(conf ContainerWatchConf) *ContainerWatch {
 		w.RetryIntv = defaultRetryIntv
 	}
 
-	return w
+	if conf.Discoverer == nil {
+		return nil, ErrContainerWatchConf
+	}
+
+	if w.DockerLogsReaderFunc == nil {
+		dockerLogsReaderFunc := func(name string) (io.ReadCloser, error) {
+			reader, err := utils.NewDockerLogsReader(name)
+			if err != nil {
+				return nil, err
+			}
+
+			return reader, nil
+		}
+
+		w.DockerLogsReaderFunc = dockerLogsReaderFunc
+	}
+	return w, nil
 }
 
 func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	<-chan events.Message, <-chan error, error,
 ) {
-	container, err := global.BlockchainNode.DiscoverContainer()
-	if err != nil {
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
+	container, err := w.Discoverer.DetectDockerContainer(ctx)
+	if err != nil {
 		return nil, nil, err
 	}
 
 	if container == nil || len(container.Names) == 0 {
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
-
 		return nil, nil, fmt.Errorf("got nil container or container with empty names, without an error")
 	}
 
@@ -150,8 +140,16 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 	msgchan, errchan, err := utils.DockerEvents(ctx, options)
 	if err != nil {
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+		return nil, nil, err
+	}
 
+	reader, err := w.DockerLogsReaderFunc(container.Names[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	defer reader.Close()
+
+	if err := global.BlockchainNode.ReconfigureByDockerContainer(container, reader); err != nil {
 		return nil, nil, err
 	}
 	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
@@ -159,49 +157,26 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	return msgchan, errchan, nil
 }
 
-func (w *ContainerWatch) parseDockerEvent(m events.Message) (*model.Event, error) {
-	var ev *model.Event
-	var err error
-	ctx := map[string]interface{}{
-		model.NodeIDKey:      global.BlockchainNode.NodeID(),
-		model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
-		model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-	}
-
+func (w *ContainerWatch) parseDockerEvent(m events.Message) (string, error) {
 	switch m.Status {
 	case "start":
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeUpName, timesync.Now())
-		w.containerGone = false
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
+		return model.AgentNodeUpName, nil
 	case "restart":
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeRestartName, timesync.Now())
-		w.containerGone = false
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
+		return model.AgentNodeRestartName, nil
 	case "die", "stop", "kill":
-		exitCode, ok := m.Actor.Attributes["exit_code"]
-		if ok {
-			ctx["exit_code"] = exitCode
-		}
-
-		ev, err = model.NewWithCtx(ctx, model.AgentNodeDownName, timesync.Now())
-		w.containerGone = true
+		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+		return model.AgentNodeDownName, nil
+	default:
+		return "", fmt.Errorf("unknown docker event status: %v", m.Status)
 	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ev, nil
 }
 
 // StartUnsafe starts the goroutine for maintaining discovery and
 // emitting events about a container's state.
 func (w *ContainerWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
-
-	if len(w.Regex) < 1 {
-		w.Log.Error("missing required argument 'regex', nothing to watch")
-
-		return
-	}
 
 	var (
 		msgchan        <-chan events.Message
@@ -236,49 +211,24 @@ func (w *ContainerWatch) StartUnsafe() {
 			default:
 			}
 
-			var (
-				ev    *model.Event
-				evCtx = newNodeEventCtx()
-				evErr error
-			)
 			ctx, cancel = context.WithCancel(context.Background())
 
 			w.Log.Debugw("repairing docker event stream")
 			if msgchan, errchan, err = w.repairEventStream(ctx); err != nil {
 				w.Log.Warnw("getting docker event stream failed", zap.Error(err))
-				w.containerGone = true
+				global.BlockchainNode.SetDockerContainer(nil)
+				global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
-				ev, evErr = model.NewWithCtx(evCtx, model.AgentNodeDownName, timesync.Now())
-				if evErr != nil {
-					zap.S().Errorw("error creating event", zap.Error(err))
-
-					continue
-				}
-
-				if err := emit.Ev(w, ev); err != nil {
-					zap.S().Errorw("error emitting event", zap.Error(err))
-				} else {
-					resetTimers()
-				}
+				w.emitAgentNodeEvent(model.AgentNodeDownName)
+				resetTimers()
 
 				continue
 			}
 
 			w.Log.Info("docker event stream ready")
-			w.containerGone = false
+			w.emitAgentNodeEvent(model.AgentNodeUpName)
 
-			ev, evErr = model.NewWithCtx(evCtx, model.AgentNodeUpName, timesync.Now())
-			if evErr != nil {
-				zap.S().Errorw("error creating event", zap.Error(err))
-
-				continue
-			}
-
-			if err := emit.Ev(w, ev); err != nil {
-				zap.S().Errorw("error emitting event", zap.Error(err))
-			} else {
-				resetTimers()
-			}
+			resetTimers()
 
 			break
 		}
@@ -291,7 +241,7 @@ func (w *ContainerWatch) StartUnsafe() {
 		defer w.wg.Done()
 
 		for {
-			if w.containerGone {
+			if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
 				cancel()
 				newEventStream()
 			}
@@ -301,60 +251,45 @@ func (w *ContainerWatch) StartUnsafe() {
 				w.Log.Debugf("docker event message: ID:%s, status:%s, signal:%s",
 					m.ID, m.Status, m.Actor.Attributes["signal"])
 
-				ev, err := w.parseDockerEvent(m)
+				evName, err := w.parseDockerEvent(m)
 				if err != nil {
 					w.Log.Error("error parsing docker event", err)
 
 					continue
 				}
 
-				if ev == nil {
+				if evName == "" {
 					// nothing to do
 					continue
 				}
 
-				if err := emit.Ev(w, ev); err != nil {
-					w.Log.Error("error emitting docker event", err)
-				} else {
-					resetTimers()
-				}
+				w.emitAgentNodeEvent(evName)
+				resetTimers()
 			case <-nodeUpTicker.C:
 				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
 					// do nothing if node is down
 
 					continue
 				}
-
-				ctx := newNodeEventCtx()
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeUpName, timesync.Now())
-				if err != nil {
-					w.Log.Errorw("failed to create node up event", zap.Error(err))
-					continue
-				}
-
-				if err := emit.Ev(w, ev); err != nil {
-					zap.S().Errorw("error emitting node up event", zap.Error(err))
-					continue
-				}
+				w.emitAgentNodeEvent(model.AgentNodeUpName)
 			case <-nodeDownTicker.C:
 				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoverySuccess {
 					// do nothing if node is up
 
 					continue
 				}
-
-				ctx := newNodeEventCtx()
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeDownName, timesync.Now())
-				if err != nil {
-					w.Log.Errorw("failed to create node down event", zap.Error(err))
-					continue
-				}
-
-				if err := emit.Ev(w, ev); err != nil {
-					zap.S().Errorw("error emitting node down event", zap.Error(err))
-					continue
-				}
+				w.emitAgentNodeEvent(model.AgentNodeDownName)
 			case err := <-errchan:
+				ctxDone := false
+				switch err {
+				case context.DeadlineExceeded, context.Canceled, nil:
+					ctxDone = true
+				}
+
+				if ctxDone {
+					continue
+				}
+
 				w.Log.Debugf("docker event error: %v, will try to recover the stream", err)
 				cancel()
 

@@ -16,7 +16,6 @@ package watch
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -24,9 +23,7 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
-	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
-	"agent/pkg/timesync"
 
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
@@ -41,7 +38,7 @@ const (
 
 // DockerLogWatchConf DockerLogWatch configuration struct.
 type DockerLogWatchConf struct {
-	Regex                []string
+	ContainerName        string
 	Events               map[string]model.FromContext
 	RetryIntv            time.Duration
 	PendingStartInterval time.Duration
@@ -80,55 +77,14 @@ func (w *DockerLogWatch) repairLogStream(ctx context.Context) (io.ReadCloser, er
 		Tail:       "0",
 	}
 
-	var rc io.ReadCloser
-	var err error
-	for _, regex := range w.Regex {
-		rc, err = utils.DockerLogs(ctx, regex, options)
-		if err == nil {
-			// successfully matched with container, exit early
-			return rc, nil
-		}
-
+	rc, err := utils.DockerLogs(ctx, w.ContainerName, options)
+	if err == nil {
+		// successfully matched with container, exit early
+		return rc, nil
 	}
-	zap.S().Errorw("failed getting docker logs", "container_regex_list", w.Regex, "last_error", err)
+
+	zap.S().Errorw("failed getting docker logs", "container", w.ContainerName, "last_error", err)
 	return nil, fmt.Errorf("failed repairing the log stream, last error: %w", err)
-}
-
-func (w *DockerLogWatch) parseJSON(body []byte) (map[string]interface{}, error) {
-	var jsonResult map[string]interface{}
-	err := json.Unmarshal(body, &jsonResult)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonResult, nil
-}
-
-func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
-	// search for & emit events
-	for _, ev := range w.Events {
-		newev, err := ev.New(body, timesync.Now())
-		if err != nil {
-			zap.S().Warnf("event construction error %v", err)
-
-			continue
-		}
-
-		if newev == nil {
-			// nothing to do
-			continue
-		}
-
-		if err := emit.Ev(w, newev); err != nil {
-			zap.S().Error(err)
-
-			continue
-		}
-
-		// stop if at least one event was emitted
-		// for the same buffer
-		break
-	}
 }
 
 // StartUnsafe starts the goroutine for discovering and tailing a
@@ -136,8 +92,8 @@ func (w *DockerLogWatch) emitEvents(body map[string]interface{}) {
 func (w *DockerLogWatch) StartUnsafe() {
 	w.Watch.StartUnsafe()
 
-	if len(w.Regex) < 1 {
-		w.Log.Error("missing required container 'regex', nothing to watch")
+	if w.ContainerName == "" {
+		w.Log.Error("missing container name, nothing to tail from docker")
 
 		return
 	}
@@ -214,20 +170,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				w.Log.Error("EOF error while reading header, will try to recover in 5s")
 				time.Sleep(5 * time.Second)
 
-				ctx := map[string]interface{}{
-					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
-					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-				}
-
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
-				if err != nil {
-					w.Log.Errorw("error creating event: ", zap.Error(err))
-				} else {
-					if err := emit.Ev(w, ev); err != nil {
-						w.Log.Errorw("error emitting event: ", zap.Error(err))
-					}
-				}
+				w.emitAgentNodeEvent(model.AgentNodeLogMissingName)
 
 				cancel()
 				if err := rc.Close(); err != nil {
@@ -269,20 +212,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				}
 
 				w.Log.Error("EOF error while reading log data, will try to recover log streaming immediately")
-				ctx := map[string]interface{}{
-					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
-					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-				}
-
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogMissingName, timesync.Now())
-				if err != nil {
-					w.Log.Errorw("error creating event: ", zap.Error(err))
-				} else {
-					if err := emit.Ev(w, ev); err != nil {
-						w.Log.Errorw("error emitting event: ", zap.Error(err))
-					}
-				}
+				w.emitAgentNodeEvent(model.AgentNodeLogMissingName)
 
 				cancel()
 				if err := rc.Close(); err != nil {
@@ -304,20 +234,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 			}
 
 			if lastErr != nil {
-				ctx := map[string]interface{}{
-					model.NodeIDKey:      global.BlockchainNode.NodeID(),
-					model.NodeTypeKey:    global.BlockchainNode.NodeRole(),
-					model.NodeVersionKey: global.BlockchainNode.NodeVersion(),
-				}
-				ev, err := model.NewWithCtx(ctx, model.AgentNodeLogFoundName, timesync.Now())
-
-				if err != nil {
-					w.Log.Errorw("error creating event: ", zap.Error(err))
-				} else {
-					if err := emit.Ev(w, ev); err != nil {
-						w.Log.Errorw("error emitting event: ", zap.Error(err))
-					}
-				}
+				w.emitAgentNodeEvent(model.AgentNodeLogFoundName)
 				lastErr = nil
 			}
 
@@ -328,7 +245,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 				continue
 			}
 
-			w.emitEvents(jsonMap)
+			w.emitNodeLogEvents(w.Events, jsonMap)
 		}
 	}()
 }

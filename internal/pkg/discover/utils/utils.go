@@ -181,10 +181,6 @@ func GetLogLine(scan *bufio.Scanner) ([]byte, error) {
 var dockerCLI *client.Client
 
 func getDockerClient() (*client.Client, error) {
-	if dockerCLI != nil {
-		return dockerCLI, nil
-	}
-
 	defaultOpts := []client.Opt{
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),

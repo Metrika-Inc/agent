@@ -61,6 +61,10 @@ func TestLoadConfig_EnvOverride(t *testing.T) {
 platform:
   api_key: <api_key>
   addr: <platform_addr>
+discovery:
+  systemd:
+    glob:
+      - metrikad-*.service
 `)
 
 	_, err = f.Write(testConf)
@@ -87,6 +91,8 @@ platform:
 	err = os.Setenv("MA_RUNTIME_HOST_HEADER_VALIDATION_ENABLED", "false")
 	err = os.Setenv("MA_RUNTIME_SAMPLING_INTERVAL", "5s")
 	err = os.Setenv("MA_RUNTIME_WATCHERS", "foo,bar")
+	err = os.Setenv("MA_DISCOVERY_DOCKER_REGEX", "container-name,foobar")
+	err = os.Setenv("MA_DISCOVERY_SYSTEMD_GLOB", "node.service foobar")
 
 	err = LoadAgentConfig()
 	require.NoError(t, err)
@@ -108,4 +114,8 @@ platform:
 	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
 	require.Equal(t, false, *AgentConf.Runtime.HostHeaderValidationEnabled)
 	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
+	require.Equal(t, "container-name", AgentConf.Discovery.Docker.Regex[0])
+	require.Equal(t, "foobar", AgentConf.Discovery.Docker.Regex[1])
+	require.Equal(t, "node.service", AgentConf.Discovery.Systemd.Glob[0])
+	require.Equal(t, "foobar", AgentConf.Discovery.Systemd.Glob[1])
 }

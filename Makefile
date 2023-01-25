@@ -92,7 +92,7 @@ generate-%: $(PROTOBIND)
 .PHONY: build-%-dbg
 build-%-dbg: generate-%
 	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
 	-X 'agent/internal/pkg/global.Version=${VERSION}' \
 	-X 'agent/internal/pkg/global.CommitHash=${HASH}' \
 	-X 'agent/internal/pkg/global.Blockchain=${*}' \
@@ -101,7 +101,7 @@ build-%-dbg: generate-%
 .PHONY: build-%-strip
 build-%-strip: generate-%
 	echo "Building Metrikad agent: GOOS: $(GOOS) GOARCH: $(GOARCH) PROTO: ${*}"
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -buildmode=pie -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -buildmode=pie -o=metrikad-${*}-$(GOOS)-$(GOARCH) -tags=${*} -ldflags=" \
 	-s \
 	-w \
 	-extldflags=-Wl,-z,relro,-z,now \

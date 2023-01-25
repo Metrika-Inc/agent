@@ -15,6 +15,10 @@ RUN git clone --depth=1 --branch ${MA_VERSION} --single-branch https://github.co
 # Note: uncomment to build from local source.
 # COPY . ./agent
 
+# journald
+RUN apt-get update
+RUN apt-get -y install libsystemd-dev
+
 WORKDIR /build/agent
 RUN make build-$BUILDOS-$TARGETARCH
 

@@ -9,8 +9,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"agent/internal/pkg/discover/utils"
+	"agent/internal/pkg/global"
 
 	"github.com/docker/docker/api/types"
 	dt "github.com/docker/docker/api/types"
@@ -152,7 +154,16 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 			require.Nil(t, err)
 			require.NotNil(t, flow)
 
-			container, err := flow.DiscoverContainer()
+			dsc, err := utils.NewNodeDiscoverer(utils.NodeDiscovererConfig{ContainerRegex: []string{"consensus_3_1"}})
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			container, err := dsc.DetectDockerContainer(ctx)
+			require.Nil(t, err)
+			cancel()
+
+			reader, err := utils.NewDockerLogsReader(container.Names[0])
+			require.Nil(t, err)
+			flow.SetRunScheme(global.NodeDocker)
+			err = flow.ReconfigureByDockerContainer(container, reader)
 			if tt.expErr {
 				require.NotNil(t, err)
 			} else {

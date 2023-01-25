@@ -33,6 +33,14 @@ var (
 func AutoConfig(reset bool) global.Chain {
 	Init()
 
+	if len(global.AgentConf.Discovery.Systemd.Glob) == 0 {
+		global.AgentConf.Discovery.Systemd.Glob = DefaultDiscoveryHintsSystemd
+	}
+
+	if len(global.AgentConf.Discovery.Docker.Regex) == 0 {
+		global.AgentConf.Discovery.Docker.Regex = DefaultDiscoveryHintsDocker
+	}
+
 	log := zap.S()
 	if reset {
 		if err := chain.ResetConfig(); err != nil {
@@ -48,10 +56,6 @@ func AutoConfig(reset bool) global.Chain {
 	if ok := chain.IsConfigured(); ok {
 		log.Info("protocol configuration OK")
 		return chn
-	}
-
-	if _, err := chain.DiscoverContainer(); err != nil {
-		log.Errorw("failed to automatically discover protocol configuration", zap.Error(err))
 	}
 
 	return chn

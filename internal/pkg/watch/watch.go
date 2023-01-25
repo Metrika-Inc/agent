@@ -14,10 +14,14 @@
 package watch
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 
+	"agent/api/v1/model"
 	"agent/internal/pkg/buf"
+	"agent/internal/pkg/global"
+	"agent/pkg/timesync"
 
 	"go.uber.org/zap"
 )
@@ -123,4 +127,80 @@ func (w *Watch) Emit(message interface{}) {
 			buf.MetricsDropCnt.WithLabelValues("channel_blocked").Inc()
 		}
 	}
+}
+
+func (w *Watch) parseJSON(body []byte) (map[string]interface{}, error) {
+	var jsonResult map[string]interface{}
+	err := json.Unmarshal(body, &jsonResult)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonResult, nil
+}
+
+func (w *Watch) emitNodeLogEvents(evs map[string]model.FromContext, body map[string]interface{}) {
+	// search for & emit events
+	for _, event := range evs {
+		ev, err := event.New(body, timesync.Now())
+		if err != nil {
+			zap.S().Warnf("event construction error %v", err)
+
+			continue
+		}
+
+		if ev == nil {
+			// nothing to do
+			continue
+		}
+
+		message := model.Message{
+			Name:  ev.Name,
+			Value: &model.Message_Event{Event: ev},
+		}
+
+		w.Log.Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
+
+		w.Emit(&message)
+	}
+}
+
+func (w *Watch) emitAgentNodeEvent(name string) {
+	ctx := map[string]interface{}{}
+
+	nodeID := global.BlockchainNode.NodeID()
+	if nodeID != "" {
+		ctx[model.NodeIDKey] = nodeID
+	}
+
+	nodeType := global.BlockchainNode.NodeRole()
+	if nodeType != "" {
+		ctx[model.NodeTypeKey] = nodeType
+	}
+
+	nodeVersion := global.BlockchainNode.NodeVersion()
+	if nodeVersion != "" {
+		ctx[model.NodeVersionKey] = nodeVersion
+	}
+
+	network := global.BlockchainNode.Network()
+	if network != "" {
+		ctx[model.NetworkKey] = network
+	}
+
+	ev, err := model.NewWithCtx(ctx, name, timesync.Now())
+	if err != nil {
+		w.Log.Errorw("error creating event: ", zap.Error(err))
+
+		return
+	}
+
+	message := model.Message{
+		Name:  name,
+		Value: &model.Message_Event{Event: ev},
+	}
+
+	w.Log.Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
+
+	w.Emit(&message)
 }

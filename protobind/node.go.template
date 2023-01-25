@@ -21,6 +21,24 @@ import (
 	"go.uber.org/zap"
 )
 
+{{ if eq .Blockchain "flow" }}
+var (
+	// DefaultDiscoveryHintsSystemd default glob pattern to detect Flow nodes run by systemd
+	DefaultDiscoveryHintsSystemd = []string{"flow-*"}
+
+	// DefaultDiscoveryHintsDocker default regular expression to detect Flow nodes run by docker
+	DefaultDiscoveryHintsDocker = []string{"flow-go"}
+)
+{{ else if eq .Blockchain "solana" }}
+var (
+	// DefaultDiscoveryHintsSystemd default glob pattern to detect Solana nodes run by systemd
+	DefaultDiscoveryHintsSystemd = []string{}
+
+	// DefaultDiscoveryHintsDocker default regular expression to detect Solana nodes run by docker
+	DefaultDiscoveryHintsDocker = []string{}
+)
+{{ end }}
+
 func Init() {
 	var err error
 	log := zap.S()

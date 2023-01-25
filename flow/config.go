@@ -33,8 +33,9 @@ var (
 var flowConf *flowConfig
 
 type flowConfig struct {
-	configPath     string
-	Client         string               `yaml:"client"`
+	configPath string
+	Client     string `yaml:"client"`
+	// Deprecated: use discovery.hints.docker instead
 	ContainerRegex []string             `yaml:"containerRegex"`
 	NodeID         string               `yaml:"nodeID"`
 	PEFEndpoints   []global.PEFEndpoint `yaml:"pefEndpoints"`

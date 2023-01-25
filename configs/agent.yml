@@ -116,3 +116,16 @@ runtime:
     - type: prometheus.time
     - type: prometheus.uname
     - type: prometheus.vmstat
+
+discovery:
+  systemd:
+    # glob: list[string], pattern used in systemctl list-units command. Use whitespace (" ") delimiter to
+    # specify a list of patterns when configuring with an environment variable.
+    # For syntax, see https://www.freedesktop.org/software/systemd/man/systemctl.html#Parameter%20Syntax.
+    glob:
+
+  docker:
+    # regex: list[string], RE2 regular expressions to match for running containers. Use comma (",") delimiter
+    # to specify a list of patterns when configuring with an environment variable.
+    # For syntax, see: https://github.com/google/re2/wiki/Syntax.
+    regex:

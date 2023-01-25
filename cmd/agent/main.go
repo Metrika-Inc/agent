@@ -28,6 +28,7 @@ import (
 	"agent/api/v1/model"
 	"agent/internal/pkg/contrib"
 	"agent/internal/pkg/discover"
+	"agent/internal/pkg/discover/utils"
 	"agent/internal/pkg/emit"
 	"agent/internal/pkg/global"
 	"agent/internal/pkg/mahttp"
@@ -58,6 +59,7 @@ var (
 	ctx, pubCtx       context.Context
 	cancel, pubCancel context.CancelFunc
 	promHandler       = promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
+	discoverer        *utils.NodeDiscoverer
 )
 
 func newSubscriptionChan() chan interface{} {
@@ -106,28 +108,76 @@ func setupZapLogger() zap.AtomicLevel {
 	return zapLevelHandler
 }
 
-func defaultWatchers() []watch.Watcher {
+func defaultSystemdWatchers() []watch.Watcher {
+	sdwConf := watch.SystemdServiceWatchConf{Discoverer: discoverer}
+	sdw, err := watch.NewSystemdServiceWatch(sdwConf)
+	if err != nil {
+		zap.S().Fatalw("cannot start node systemd watcher without regular expression or discoverer", zap.Error(err))
+	}
+
+	svc := discoverer.SystemdService()
+	if svc == nil || svc.Name == "" {
+		zap.S().Fatal("got nil systemd service object or empty unit name")
+	}
+
+	dw := []watch.Watcher{sdw}
+
+	// Log watch for event generation
+	logEvs := global.BlockchainNode.LogEventsList()
+
+	// Docker container watch (logs)
+	logWatch, err := watch.NewJournaldLogWatch(watch.JournaldLogWatchConf{
+		UnitName: svc.Name,
+		Events:   logEvs,
+	})
+	if err != nil {
+		zap.S().Fatalw("cannot build journald log watch, this is probably a configuration error", zap.Error(err))
+	}
+
+	// start log watcher independently if conditions for it are met
+	go logWatch.PendingStart(subscriptions...)
+
+	return dw
+}
+
+func defaultDockerWatchers() []watch.Watcher {
 	dw := []watch.Watcher{}
 
 	// Log watch for event generation
 	logEvs := global.BlockchainNode.LogEventsList()
 
-	regex := global.BlockchainNode.ContainerRegex()
-	if len(regex) > 0 {
-		// Docker container watch
-		dw = append(dw, watch.NewContainerWatch(watch.ContainerWatchConf{
-			Regex: regex,
-		}))
+	// Docker container watch
+	conf := watch.ContainerWatchConf{Discoverer: discoverer}
 
-		// Docker container watch (logs)
-		logWatch := watch.NewDockerLogWatch(watch.DockerLogWatchConf{
-			Regex:  regex,
-			Events: logEvs,
-		})
-		// start log watcher independently if conditions for it are met
-		go logWatch.PendingStart(subscriptions...)
+	w, err := watch.NewContainerWatch(conf)
+	if err != nil {
+		zap.S().Fatalw("failed to create watcher", zap.Error(err))
+	}
+	dw = append(dw, w)
 
-		zap.S().Debugf("watching containers %v", regex)
+	// Docker container watch (logs)
+	logWatch := watch.NewDockerLogWatch(watch.DockerLogWatchConf{
+		ContainerName: discoverer.DockerContainer().Names[0],
+		Events:        logEvs,
+	})
+	// start log watcher independently if conditions for it are met
+	go logWatch.PendingStart(subscriptions...)
+
+	zap.S().Debugf("watching containers %v", logWatch.ContainerName)
+
+	return dw
+}
+
+func registerWatchers(ctx context.Context) error {
+	watchersEnabled := []watch.Watcher{}
+
+	for _, watcherConf := range global.AgentConf.Runtime.Watchers {
+		w := factory.NewWatcherByType(*watcherConf)
+		if w == nil {
+			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+		}
+
+		watchersEnabled = append(watchersEnabled, w)
 	}
 
 	// PEF Watch
@@ -142,25 +192,94 @@ func defaultWatchers() []watch.Watcher {
 		httpWatch := watch.NewHTTPWatch(httpConf)
 		filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
 		pefConf := watch.PEFWatchConf{Filter: filter}
-		dw = append(dw, watch.NewPEFWatch(pefConf, httpWatch))
+		watchersEnabled = append(watchersEnabled, watch.NewPEFWatch(pefConf, httpWatch))
 	}
 
-	return dw
-}
+	var containerRegex []string
+	oldRegex := global.BlockchainNode.ContainerRegex()
+	newRegex := global.AgentConf.Discovery.Docker.Regex
 
-func registerWatchers() error {
-	watchersEnabled := []watch.Watcher{}
+	// fallback to node specific config if no discovery hints available (pre v0.10)
+	if len(newRegex) > 0 {
+		containerRegex = newRegex
+	} else if len(oldRegex) > 0 {
+		containerRegex = oldRegex
+	}
 
-	for _, watcherConf := range global.AgentConf.Runtime.Watchers {
-		w := factory.NewWatcherByType(*watcherConf)
-		if w == nil {
-			zap.S().Fatalf("watcher factory returned nil for type: %v", watcherConf.Type)
+	c := utils.NodeDiscovererConfig{
+		UnitGlob:       global.AgentConf.Discovery.Systemd.Glob,
+		ContainerRegex: containerRegex,
+	}
+
+	var err error
+	discoverer, err = utils.NewNodeDiscoverer(c)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			watchersEnabled := []watch.Watcher{}
+			scheme := discoverer.DetectScheme(ctx)
+
+			switch scheme {
+			case global.NodeDocker:
+				container := discoverer.DockerContainer()
+				if container == nil {
+					zap.S().Fatal("got docker scheme but container is nil")
+				}
+
+				reader, err := utils.NewDockerLogsReader(container.Names[0])
+				if err != nil {
+					zap.S().Warnw("error creating journald reader", zap.Error(err))
+				}
+				defer reader.Close()
+
+				if err := global.BlockchainNode.ReconfigureByDockerContainer(container, reader); err != nil {
+					zap.S().Warnw("node metadata configuration failed for docker", zap.Error(err))
+				}
+
+				watchersEnabled = append(watchersEnabled, defaultDockerWatchers()...)
+			case global.NodeSystemd:
+				unit := discoverer.SystemdService()
+				if unit == nil {
+					zap.S().Fatal("got systemd scheme but systemd unit is nil")
+				}
+
+				reader, err := utils.NewJournalReader(unit.Name)
+				if err != nil {
+					zap.S().Warnw("error creating journald reader", zap.Error(err))
+				}
+				defer reader.Close()
+
+				if err := global.BlockchainNode.ReconfigureBySystemdUnit(unit, reader); err != nil {
+					zap.S().Warnw("node metadata configuration failed for systemd", zap.Error(err))
+				}
+
+				watchersEnabled = append(watchersEnabled, defaultSystemdWatchers()...)
+			default:
+				zap.S().Warnw("node discovery returned no errors but scheme is unknown, retrying in 2s", "scheme", scheme)
+				<-time.After(2 * time.Second)
+				continue
+			}
+			global.BlockchainNode.SetRunScheme(scheme)
+
+			if len(watchersEnabled) > 0 {
+				for _, w := range watchersEnabled {
+					if err := watch.DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
+						zap.S().Errorw("error registering node discovery watchers", zap.Error(err))
+					}
+				}
+				break
+			}
 		}
-
-		watchersEnabled = append(watchersEnabled, w)
-	}
-
-	watchersEnabled = append(watchersEnabled, defaultWatchers()...)
+	}()
 
 	if err := watch.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
 		return err
@@ -267,9 +386,10 @@ func main() {
 
 	// we should be (almost) ready to publish at this point
 	// start default and enabled watchers
-	if err := registerWatchers(); err != nil {
+	if err := registerWatchers(ctx); err != nil {
 		log.Fatal(err)
 	}
+	defer discoverer.Close()
 
 	if err := watch.DefaultWatchRegistry.Start(subscriptions...); err != nil {
 		log.Fatal(err)
