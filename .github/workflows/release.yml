@@ -48,6 +48,9 @@ jobs:
           go clean -modcache
           go mod download
 
+      - name: Install libsystemd-dev
+        run: sudo apt-get install -y libsystemd-dev
+
       - name: Build binaries for Linux
         if: success()
         id: build_binaries
