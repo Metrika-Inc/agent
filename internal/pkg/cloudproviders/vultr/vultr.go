@@ -17,25 +17,38 @@ import (
 	"github.com/vultr/metadata"
 )
 
-var client *metadata.Client
+// Search implements cloudproviders.Provider interface
+type Search struct {
+	client *metadata.Client
+}
 
-func init() {
-	client = metadata.NewClient()
+// NewSearch returns a check object for provider metadata checking.
+func NewSearch() *Search {
+	return &Search{client: metadata.NewClient()}
 }
 
 // IsRunningOn returns true if agent runs on Vultr.
-func IsRunningOn() bool {
-	_, err := client.Metadata()
+func (c *Search) IsRunningOn() bool {
+	_, err := c.client.Metadata()
 
 	return err == nil
 }
 
 // Hostname returns the hostname of the current instance.
-func Hostname() (string, error) {
-	meta, err := client.Metadata()
+func (c *Search) Hostname() (string, error) {
+	meta, err := c.client.Metadata()
 	if err != nil {
 		return "", err
 	}
 
 	return meta.InstanceID, nil
+}
+
+const (
+	name = "vultr"
+)
+
+// Name returns the providers name
+func (c *Search) Name() string {
+	return name
 }

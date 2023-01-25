@@ -18,6 +18,15 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"agent/internal/pkg/cloudproviders"
+	"agent/internal/pkg/cloudproviders/do"
+	"agent/internal/pkg/cloudproviders/ec2"
+	"agent/internal/pkg/cloudproviders/equinix"
+	"agent/internal/pkg/cloudproviders/gce"
+	"agent/internal/pkg/cloudproviders/otc"
+	"agent/internal/pkg/cloudproviders/vultr"
 
 	"github.com/stretchr/testify/require"
 )
@@ -73,4 +82,42 @@ func TestAgentPrepareStartup_FingerpintMismatch(t *testing.T) {
 
 	err = AgentPrepareStartup()
 	require.NotNil(t, err)
+}
+
+type MockCheck struct{}
+
+// Name returns the providers name
+func (m *MockCheck) Name() string {
+	return "mock-provider"
+}
+
+// IsRunningOn returns true if the agent is running on a specific provider.
+func (m *MockCheck) IsRunningOn() bool {
+	time.Sleep(10 * time.Millisecond)
+
+	return true
+}
+
+// Hostname returns the hostname as reported by the providers metadata remote store.
+func (m *MockCheck) Hostname() (string, error) {
+	time.Sleep(20 * time.Millisecond)
+
+	return "mock-hostname", nil
+}
+
+func TestAgentSetHostname(t *testing.T) {
+	providers := []cloudproviders.MetadataSearch{
+		gce.NewSearch(),
+		do.NewSearch(),
+		equinix.NewSearch(),
+		ec2.NewSearch(),
+		vultr.NewSearch(),
+		// azure.NewSearch(),
+		otc.NewSearch(),
+		&MockCheck{},
+	}
+
+	err := setAgentHostname(providers)
+	require.Nil(t, err)
+	require.Equal(t, "mock-hostname", AgentHostname)
 }

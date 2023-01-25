@@ -20,15 +20,21 @@ import (
 	"github.com/digitalocean/go-metadata"
 )
 
-var client *metadata.Client
+// Search implements cloudproviders.Provider interface
+type Search struct {
+	client *metadata.Client
+}
 
-func init() {
-	client = metadata.NewClient(metadata.WithHTTPClient(&http.Client{Transport: http.DefaultTransport}))
+// NewSearch returns a check object for provider metadata checking.
+func NewSearch() *Search {
+	return &Search{client: metadata.NewClient(
+		metadata.WithHTTPClient(
+			&http.Client{Transport: http.DefaultTransport}))}
 }
 
 // IsRunningOn returns true if agent runs on AWS EC2.
-func IsRunningOn() bool {
-	mt, err := client.Metadata()
+func (c *Search) IsRunningOn() bool {
+	mt, err := c.client.Metadata()
 	if err != nil {
 		return false
 	}
@@ -41,8 +47,8 @@ func IsRunningOn() bool {
 }
 
 // Hostname returns the hostname of the current instance.
-func Hostname() (string, error) {
-	mt, err := client.Metadata()
+func (c *Search) Hostname() (string, error) {
+	mt, err := c.client.Metadata()
 	if err != nil {
 		return "", err
 	}
@@ -52,4 +58,13 @@ func Hostname() (string, error) {
 	}
 
 	return mt.Hostname, nil
+}
+
+const (
+	name = "do"
+)
+
+// Name returns the providers name
+func (c *Search) Name() string {
+	return name
 }

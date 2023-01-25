@@ -11,41 +11,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ec2
+package otc
 
 import (
-	"context"
+	"fmt"
 	"io"
+	"net/http"
+	"time"
+)
 
-	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+const (
+	metadataReqURL = "http://169.254.169.254/latest/meta-data/hostname"
 )
 
 // Search implements cloudproviders.Provider interface
 type Search struct {
-	client *imds.Client
+	client  *http.Client
+	request *http.Request
 }
 
 // NewSearch returns a check object for provider metadata checking.
 func NewSearch() *Search {
-	return &Search{client: imds.New(imds.Options{})}
+	req, _ := http.NewRequest("GET", metadataReqURL, nil)
+	return &Search{
+		client:  &http.Client{Timeout: 15 * time.Second},
+		request: req,
+	}
 }
 
-// IsRunningOn returns true if agent runs on AWS EC2.
+// IsRunningOn returns true if agent runs on Azure.
 func (c *Search) IsRunningOn() bool {
-	_, err := c.client.GetMetadata(context.TODO(), &imds.GetMetadataInput{Path: "instance-id"})
+	resp, err := c.client.Do(c.request)
+	if err != nil {
+		return false
+	}
 
-	return err == nil
+	if resp.StatusCode == http.StatusOK {
+		return true
+	}
+
+	return false
 }
 
 // Hostname returns the hostname of the current instance.
 func (c *Search) Hostname() (string, error) {
-	// Using 'internal-hostname' as the 'public-hostname' may not exist!
-	ih, err := c.client.GetMetadata(context.TODO(), &imds.GetMetadataInput{Path: "instance-id"})
+	resp, err := c.client.Do(c.request)
 	if err != nil {
 		return "", err
 	}
 
-	b, err := io.ReadAll(ih.Content)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("non-200 response from metadata store")
+	}
+
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -54,7 +73,7 @@ func (c *Search) Hostname() (string, error) {
 }
 
 const (
-	name = "ec2"
+	name = "otc"
 )
 
 // Name returns the providers name

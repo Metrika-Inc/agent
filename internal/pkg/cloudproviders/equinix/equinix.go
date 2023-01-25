@@ -17,21 +17,37 @@ import (
 	"github.com/packethost/packngo/metadata"
 )
 
-var deviceData *metadata.CurrentDevice
+// Search implements cloudproviders.Provider interface
+type Search struct {
+	deviceData *metadata.CurrentDevice
+}
+
+// NewSearch returns a check object for provider metadata checking.
+func NewSearch() *Search {
+	return &Search{}
+}
 
 // IsRunningOn returns true if agent runs on Equinix Metal
 // ⚠ Layer 3 or Hybrid Bonded networking modes ONLY.
-func IsRunningOn() bool {
-
+func (c *Search) IsRunningOn() bool {
 	var err error
 
 	// save the metadata to deviceData when getting it from the Equinix API,
 	// so as to eliminate the second call.
-	deviceData, err = metadata.GetMetadata()
-	return err == nil && deviceData != nil
+	c.deviceData, err = metadata.GetMetadata()
+	return err == nil && c.deviceData != nil
 }
 
 // Hostname returns the hostname of the current instance.
-func Hostname() (string, error) {
-	return deviceData.ID, nil
+func (c *Search) Hostname() (string, error) {
+	return c.deviceData.ID, nil
+}
+
+const (
+	name = "equinix"
+)
+
+// Name returns the providers name
+func (c *Search) Name() string {
+	return name
 }
