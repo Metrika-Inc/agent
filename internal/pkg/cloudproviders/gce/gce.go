@@ -19,18 +19,31 @@ import (
 	"cloud.google.com/go/compute/metadata"
 )
 
-var client *metadata.Client
+// Search implements cloudproviders.Provider interface
+type Search struct {
+	client *metadata.Client
+}
 
-func init() {
-	client = metadata.NewClient(&http.Client{Transport: http.DefaultTransport})
+// NewSearch returns a check object for provider metadata checking.
+func NewSearch() *Search {
+	return &Search{client: metadata.NewClient(&http.Client{Transport: http.DefaultTransport})}
 }
 
 // IsRunningOn returns true if agent runs on GCE.
-func IsRunningOn() bool {
+func (c *Search) IsRunningOn() bool {
 	return metadata.OnGCE()
 }
 
 // Hostname returns the hostname of the current instance.
-func Hostname() (string, error) {
-	return client.Hostname()
+func (c *Search) Hostname() (string, error) {
+	return c.client.Hostname()
+}
+
+const (
+	name = "gce"
+)
+
+// Name returns the providers name
+func (c *Search) Name() string {
+	return name
 }

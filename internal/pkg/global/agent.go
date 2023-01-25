@@ -19,18 +19,19 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/cloudproviders"
 	"agent/internal/pkg/cloudproviders/azure"
 	"agent/internal/pkg/cloudproviders/do"
 	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/equinix"
 	"agent/internal/pkg/cloudproviders/gce"
+	"agent/internal/pkg/cloudproviders/otc"
 	"agent/internal/pkg/cloudproviders/vultr"
 	"agent/internal/pkg/fingerprint"
 
@@ -190,88 +191,27 @@ func FingerprintSetup() (string, error) {
 	return fp.Hash(), nil
 }
 
-func setAgentHostname() error {
+func setAgentHostname(providers []cloudproviders.MetadataSearch) error {
 	var err error
-	wg := &sync.WaitGroup{}
-	hostnameCh := make(chan string)
 
-	wg.Add(1)
-	go func() { // GCE
-		defer wg.Done()
-		if gce.IsRunningOn() {
-			hostname, err := gce.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on GCE", zap.Error(err))
-				return
-			}
-			hostnameCh <- hostname
-		}
-	}()
+	hostnameCh := make(chan string, len(providers))
 
-	wg.Add(1)
-	go func() { // Digital Ocean
-		defer wg.Done()
-		if do.IsRunningOn() {
-			hostname, err := do.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on DO", zap.Error(err))
-				return
-			}
-			hostnameCh <- hostname
-		}
-	}()
+	for _, provider := range providers {
+		go func(provider cloudproviders.MetadataSearch) {
+			if provider.IsRunningOn() {
+				hostname, err := provider.Hostname()
+				if err != nil {
+					zap.S().Debugw("error getting hostname", "provider", provider.Name(), zap.Error(err))
+					return
+				}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if equinix.IsRunningOn() { // Equinix
-			hostname, err := equinix.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on Equinix Metal", zap.Error(err))
-				return
+				if hostname != "" {
+					zap.S().Debugw("hostname found", "provider", provider.Name(), "hostname", hostname)
+					hostnameCh <- hostname
+				}
 			}
-			hostnameCh <- hostname
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if ec2.IsRunningOn() { // AWS EC2
-			hostname, err := ec2.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on AWS EC2", zap.Error(err))
-				return
-			}
-			hostnameCh <- hostname
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if vultr.IsRunningOn() { // Vultr
-			hostname, err := vultr.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on Vultr", zap.Error(err))
-				return
-			}
-			hostnameCh <- hostname
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if azure.IsRunningOn() { // Azure
-			hostname, err := azure.Hostname()
-			if err != nil {
-				zap.S().Debugw("error getting hostname on Azure", zap.Error(err))
-				return
-			}
-			hostnameCh <- hostname
-		}
-	}()
+		}(provider)
+	}
 
 	select {
 	case AgentHostname = <-hostnameCh:
@@ -304,8 +244,17 @@ func AgentPrepareStartup() error {
 		return errors.Wrapf(err, "error creating cache directory: %s", AgentCacheDir)
 	}
 
-	// Agent UUID
-	if err := setAgentHostname(); err != nil {
+	// Set the agent hostname by one of the supported providers
+	providers := []cloudproviders.MetadataSearch{
+		gce.NewSearch(),
+		do.NewSearch(),
+		equinix.NewSearch(),
+		ec2.NewSearch(),
+		vultr.NewSearch(),
+		azure.NewSearch(),
+		otc.NewSearch(),
+	}
+	if err := setAgentHostname(providers); err != nil {
 		return errors.Wrap(err, "error setting agent hostname")
 	}
 

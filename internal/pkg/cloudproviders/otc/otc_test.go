@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package azure
+package otc
 
 import (
 	"net/http"
@@ -31,9 +31,9 @@ func TestHostname(t *testing.T) {
 	ts := httptest.NewServer(handleFunc)
 	defer ts.Close()
 
-	c := NewSearch()
-	c.request, _ = http.NewRequest("GET", ts.URL, nil)
-	got, err := c.Hostname()
+	otc := NewSearch()
+	otc.request, _ = http.NewRequest("GET", ts.URL, nil)
+	got, err := otc.Hostname()
 	require.Nil(t, err)
 
 	require.Equal(t, "02aab8a4-74ef-476e-8182-f6d2ba4166a6", got)
