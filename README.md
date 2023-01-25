@@ -133,7 +133,7 @@ By default, the agent uses sensible defaults to detect the blockchain node by pr
 - Docker container. Requires write access to daemon's UNIX socket.
 - Systemd service. Requires access to journald via Dbus connection.
 
-`discovery.hints` is required and is used to hint the agent how to detect the node according to its execution scheme.
+`discovery.systemd` and `discover.docker` are required and used to hint the node discovery process executed by the agent.
 
 ## Agent internals
 ### Watchers
@@ -193,7 +193,7 @@ When `runtime.http_addr` is set, by default the agent will validate the `Host` h
 Host header validation can be disabled by setting `runtime.host_header_validation_enabled` to `false`, in which case `runtime.allowed_hosts` has no effect.
 
 ### Blockchain Node Discovery Issues
-The Metrika Agent attempts to discover a supported running blockchain node in the system. In case the blockchain node is containerized, Agent attempts to find the container by matching container name or image to a list of regular expressions specified in `/etc/metrikad/configs/{blockchain}.yml`. If the container name is not in the list of common names Metrika Agent is aware of, it can be added to the list of `containerRegex` in the aforementioned configuration file.
+The Metrika Agent attempts to discover a supported running blockchain node in the system. In case the blockchain node is containerized, Agent attempts to find the container by matching container name or image to a list of regular expressions specified in `discovery` configuration key. If the container name is not in the list of common names Metrika Agent is aware of, it can be added to the list of `discovery.docker.regex`.
 
 Please note that for containerized blockchain nodes, the agent needs to either:
 1. Be added to the `docker` group OR
