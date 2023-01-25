@@ -49,14 +49,14 @@ jobs:
           go mod download
 
       - name: Install libsystemd-dev
-        run: sudo apt-get install -y libsystemd-dev
+        run: sudo apt-get install -y libsystemd-dev gcc-aarch64-linux-gnu
 
       - name: Build binaries for Linux
         if: success()
         id: build_binaries
         run: |
           make build-linux-amd64
-          make build-linux-arm64
+          CC=aarch64-linux-gnu-gcc make build-linux-arm64
 
       - name: Get latest release tag
         id: git_last_tag
