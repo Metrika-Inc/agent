@@ -14,27 +14,16 @@
 package azure
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
 )
 
-var (
-	client     *http.Client
-	request, _ = http.NewRequest("GET", "http://169.254.169.254/metadata/instance?api-version=2021-02-01", nil)
+const (
+	metadataReqURL = "http://169.254.169.254/metadata/instance/compute/vmId?api-version=2021-02-01"
 )
 
-// Compute compute section in metadata response.
-type Compute struct {
-	VMID string `json:"vmId"`
-}
-
-// Metadata struct to hold unmarshal metadata response.
-type Metadata struct {
-	Compute Compute `json:"compute"`
-}
+var client *http.Client
 
 func init() {
 	transport := http.DefaultTransport
@@ -42,16 +31,24 @@ func init() {
 	client = &http.Client{Timeout: 15 * time.Second}
 }
 
+// https://learn.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=linux#sample-1-tracking-vm-running-on-azure
+var newRequest = func() *http.Request {
+	req, _ := http.NewRequest("GET", metadataReqURL, nil)
+	req.Header.Add("Metadata", "true")
+
+	return req
+}
+
 // IsRunningOn returns true if agent runs on Azure.
 func IsRunningOn() bool {
-	_, err := client.Do(request)
+	_, err := client.Do(newRequest())
 
 	return err == nil
 }
 
 // Hostname returns the hostname of the current instance.
 func Hostname() (string, error) {
-	resp, err := client.Do(request)
+	resp, err := client.Do(newRequest())
 	if err != nil {
 		return "", err
 	}
@@ -61,14 +58,5 @@ func Hostname() (string, error) {
 		return "", err
 	}
 
-	var md Metadata
-	if err := json.Unmarshal(b, &md); err != nil {
-		return "", err
-	}
-
-	if md.Compute.VMID == "" {
-		return "", fmt.Errorf("got empty compute.vmId from metadata store")
-	}
-
-	return md.Compute.VMID, nil
+	return string(b), nil
 }

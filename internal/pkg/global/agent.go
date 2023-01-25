@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 
 	"agent/api/v1/model"
+	"agent/internal/pkg/cloudproviders/azure"
 	"agent/internal/pkg/cloudproviders/do"
 	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/equinix"
@@ -253,6 +254,19 @@ func setAgentHostname() error {
 			hostname, err := vultr.Hostname()
 			if err != nil {
 				zap.S().Debug("agent not running on Vultr")
+				return
+			}
+			hostnameCh <- hostname
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if azure.IsRunningOn() { // Azure
+			hostname, err := azure.Hostname()
+			if err != nil {
+				zap.S().Debug("agent not running on Azure")
 				return
 			}
 			hostnameCh <- hostname
