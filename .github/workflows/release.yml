@@ -56,7 +56,7 @@ jobs:
         id: build_binaries
         run: |
           make build-linux-amd64
-          CC=aarch64-linux-gnu-gcc make build-linux-arm64
+          CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc make build-linux-arm64
 
       - name: Get latest release tag
         id: git_last_tag
