@@ -31,7 +31,6 @@ import (
 	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/equinix"
 	"agent/internal/pkg/cloudproviders/gce"
-	"agent/internal/pkg/cloudproviders/otc"
 	"agent/internal/pkg/cloudproviders/vultr"
 	"agent/internal/pkg/fingerprint"
 
@@ -57,7 +56,7 @@ var (
 const (
 	// cloudProviderDiscoveryTimeout max time to wait until at least
 	// one provider metadata sever responds.
-	cloudProviderDiscoveryTimeout = 1 * time.Second
+	cloudProviderDiscoveryTimeout = 2 * time.Second
 )
 
 // Chain provides necessary configuration information
@@ -252,7 +251,6 @@ func AgentPrepareStartup() error {
 		ec2.NewSearch(),
 		vultr.NewSearch(),
 		azure.NewSearch(),
-		otc.NewSearch(),
 	}
 	if err := setAgentHostname(providers); err != nil {
 		return errors.Wrap(err, "error setting agent hostname")
