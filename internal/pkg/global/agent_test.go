@@ -25,7 +25,6 @@ import (
 	"agent/internal/pkg/cloudproviders/ec2"
 	"agent/internal/pkg/cloudproviders/equinix"
 	"agent/internal/pkg/cloudproviders/gce"
-	"agent/internal/pkg/cloudproviders/otc"
 	"agent/internal/pkg/cloudproviders/vultr"
 
 	"github.com/stretchr/testify/require"
@@ -113,7 +112,6 @@ func TestAgentSetHostname(t *testing.T) {
 		ec2.NewSearch(),
 		vultr.NewSearch(),
 		// azure.NewSearch(),
-		otc.NewSearch(),
 		&MockCheck{},
 	}
 
