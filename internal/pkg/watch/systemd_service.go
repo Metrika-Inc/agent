@@ -30,6 +30,9 @@ import (
 const (
 	// defaultSystemdStatusIntv default time to wait between status checks
 	defaultSystemdStatusIntv = 5 * time.Second
+
+	// defaultSystemdDiscoveryTimeout default to wait discovering the systemd unit
+	defaultSystemdDiscoveryTimeout = 3 * time.Second
 )
 
 // ErrSystemdWatchConf error indicating a watch configuration error
@@ -114,7 +117,7 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 
 				return
 			case <-statusTicker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), defaultSystemdDiscoveryTimeout)
 				svc, err := w.Discoverer.DetectSystemdService(ctx)
 				cancel()
 
