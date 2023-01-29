@@ -141,14 +141,14 @@ func TestDockerLogs_disabled(t *testing.T) {
 
 func disableDockerLogWatch(t *testing.T) {
 	t.Helper()
-	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
+	mockChain, ok := global.BlockchainNode().(*discover.MockBlockchain)
 	require.True(t, ok)
 	mockChain.SetLogWatchEnabled(false)
 }
 
 func enableDockerLogWatch(t *testing.T) {
 	t.Helper()
-	mockChain, ok := global.BlockchainNode.(*discover.MockBlockchain)
+	mockChain, ok := global.BlockchainNode().(*discover.MockBlockchain)
 	require.True(t, ok)
 	mockChain.SetLogWatchEnabled(true)
 }

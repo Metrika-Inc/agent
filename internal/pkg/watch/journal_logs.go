@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"agent/api/v1/model"
-	"agent/internal/pkg/global"
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"go.uber.org/zap"
@@ -228,13 +227,13 @@ func (w *JournaldLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
 		case <-w.StopKey:
 			return
 		case <-ticker.C:
-			nodeType := global.BlockchainNode.NodeRole()
+			nodeType := w.blockchain.NodeRole()
 			if nodeType == "" {
 				continue
 			}
 
 			log := w.Log.With("node_type", nodeType)
-			if global.BlockchainNode.LogWatchEnabled() {
+			if w.blockchain.LogWatchEnabled() {
 				if err := DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
 					log.Errorw("failed to register journal log watcher", zap.Error(err))
 					return

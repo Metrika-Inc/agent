@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -40,9 +41,10 @@ import (
 )
 
 var (
-	// BlockchainNode global used by agent to bind
-	// implementations of the Chain interface (i.e. flow package)
-	BlockchainNode Chain
+	// blockchain used by agent to bind implementations of the Chain
+	// interface (i.e. flow package)
+	blockchain       Chain
+	blockchainNodeMu = &sync.RWMutex{}
 
 	// Modified at runtime
 
@@ -52,6 +54,22 @@ var (
 	// CommitHash commit hash computed at build time.
 	CommitHash = ""
 )
+
+// BlockchainNode returns the global object that implements the Chain interface (thread-safe)
+func BlockchainNode() Chain {
+	blockchainNodeMu.RLock()
+	defer blockchainNodeMu.RUnlock()
+
+	return blockchain
+}
+
+// SetBlockchainNode sets the BlockchainNode (thread-safe)
+func SetBlockchainNode(c Chain) {
+	blockchainNodeMu.Lock()
+	defer blockchainNodeMu.Unlock()
+
+	blockchain = c
+}
 
 const (
 	// cloudProviderDiscoveryTimeout max time to wait until at least

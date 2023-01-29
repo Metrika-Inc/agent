@@ -60,6 +60,7 @@ var (
 	cancel, pubCancel context.CancelFunc
 	promHandler       = promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{EnableOpenMetrics: true})
 	discoverer        *utils.NodeDiscoverer
+	blockchain        global.Chain
 )
 
 func newSubscriptionChan() chan interface{} {
@@ -123,7 +124,7 @@ func defaultSystemdWatchers() []watch.Watcher {
 	dw := []watch.Watcher{sdw}
 
 	// Log watch for event generation
-	logEvs := global.BlockchainNode.LogEventsList()
+	logEvs := blockchain.LogEventsList()
 
 	// Docker container watch (logs)
 	logWatch, err := watch.NewJournaldLogWatch(watch.JournaldLogWatchConf{
@@ -144,7 +145,7 @@ func defaultDockerWatchers() []watch.Watcher {
 	dw := []watch.Watcher{}
 
 	// Log watch for event generation
-	logEvs := global.BlockchainNode.LogEventsList()
+	logEvs := blockchain.LogEventsList()
 
 	// Docker container watch
 	conf := watch.ContainerWatchConf{Discoverer: discoverer}
@@ -181,7 +182,7 @@ func registerWatchers(ctx context.Context) error {
 	}
 
 	// PEF Watch
-	eps := global.BlockchainNode.PEFEndpoints()
+	eps := blockchain.PEFEndpoints()
 	for _, ep := range eps {
 		httpConf := watch.HTTPWatchConf{
 			Interval: global.AgentConf.Runtime.SamplingInterval,
@@ -196,7 +197,7 @@ func registerWatchers(ctx context.Context) error {
 	}
 
 	var containerRegex []string
-	oldRegex := global.BlockchainNode.ContainerRegex()
+	oldRegex := blockchain.ContainerRegex()
 	newRegex := global.AgentConf.Discovery.Docker.Regex
 
 	// fallback to node specific config if no discovery hints available (pre v0.10)
@@ -241,7 +242,7 @@ func registerWatchers(ctx context.Context) error {
 				}
 				defer reader.Close()
 
-				if err := global.BlockchainNode.ReconfigureByDockerContainer(container, reader); err != nil {
+				if err := blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
 					zap.S().Warnw("node metadata configuration failed for docker", zap.Error(err))
 				}
 
@@ -258,7 +259,7 @@ func registerWatchers(ctx context.Context) error {
 				}
 				defer reader.Close()
 
-				if err := global.BlockchainNode.ReconfigureBySystemdUnit(unit, reader); err != nil {
+				if err := blockchain.ReconfigureBySystemdUnit(unit, reader); err != nil {
 					zap.S().Warnw("node metadata configuration failed for systemd", zap.Error(err))
 				}
 
@@ -268,7 +269,7 @@ func registerWatchers(ctx context.Context) error {
 				<-time.After(2 * time.Second)
 				continue
 			}
-			global.BlockchainNode.SetRunScheme(scheme)
+			blockchain.SetRunScheme(scheme)
 
 			if len(watchersEnabled) > 0 {
 				for _, w := range watchersEnabled {
@@ -315,12 +316,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	global.BlockchainNode = discover.AutoConfig(reset)
+	global.SetBlockchainNode(discover.AutoConfig(reset))
 	if configureOnly {
 		zap.S().Info("configure only mode on, exiting")
 
 		os.Exit(0)
 	}
+	blockchain = global.BlockchainNode()
 
 	timesync.Default.Start(ch)
 	if err := timesync.Default.SyncNow(); err != nil {

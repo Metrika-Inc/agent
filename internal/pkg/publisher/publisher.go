@@ -45,10 +45,11 @@ type Publisher struct {
 	conf    Config
 	closeCh chan interface{}
 
-	log     *zap.SugaredLogger
-	bufCtrl *buf.Controller
-	once    sync.Once
-	lastErr error
+	log        *zap.SugaredLogger
+	bufCtrl    *buf.Controller
+	once       sync.Once
+	lastErr    error
+	blockchain global.Chain
 }
 
 func init() {
@@ -58,10 +59,11 @@ func init() {
 // newPublisher is the Publisher constructor.
 func newPublisher(conf Config, bufCtrl *buf.Controller) *Publisher {
 	publisher := &Publisher{
-		conf:    conf,
-		closeCh: make(chan interface{}),
-		log:     zap.S().With("publisher", "transport"),
-		bufCtrl: bufCtrl,
+		conf:       conf,
+		closeCh:    make(chan interface{}),
+		log:        zap.S().With("publisher", "transport"),
+		bufCtrl:    bufCtrl,
+		blockchain: global.BlockchainNode(),
 	}
 
 	return publisher
@@ -106,7 +108,7 @@ func (t *Publisher) forceSendAgentUp(uptime time.Time) {
 	t.once.Do(func() {
 		agentUpCtx := map[string]interface{}{
 			model.AgentUptimeKey:   time.Since(uptime).String(),
-			model.AgentProtocolKey: global.BlockchainNode.Protocol(),
+			model.AgentProtocolKey: t.blockchain.Protocol(),
 			model.AgentVersionKey:  global.Version,
 		}
 		if err := t.bufCtrl.EmitEvent(agentUpCtx, model.AgentUpName); err != nil {
@@ -152,7 +154,7 @@ func (t *Publisher) Start(ctx context.Context, wg *sync.WaitGroup) {
 			case <-agentUpTimer.C:
 				// publish periodic update
 				agentUpCtx[model.AgentUptimeKey] = time.Since(agentUppedTime).String()
-				agentUpCtx[model.AgentProtocolKey] = global.BlockchainNode.Protocol()
+				agentUpCtx[model.AgentProtocolKey] = t.blockchain.Protocol()
 				agentUpCtx[model.AgentVersionKey] = global.Version
 				if err := t.bufCtrl.EmitEvent(agentUpCtx, model.AgentUpName); err != nil {
 					log.Warnw("error emitting event", "event", model.AgentUpName, zap.Error(err))

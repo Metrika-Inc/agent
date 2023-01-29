@@ -53,7 +53,7 @@ func bufDialer(context.Context, string) (net.Conn, error) {
 }
 
 func TestPlatformGRPC_Publish(t *testing.T) {
-	global.BlockchainNode = &discover.MockBlockchain{}
+	global.SetBlockchainNode(&discover.MockBlockchain{})
 
 	conf := PlatformGRPCConf{
 		UUID:           "agent-uuid",
@@ -84,6 +84,6 @@ func TestPlatformGRPC_Publish(t *testing.T) {
 	require.NotEmpty(t, mockServer.gotPlatformMessage.Protocol)
 	require.NotEmpty(t, mockServer.gotPlatformMessage.NodeRole)
 
-	require.Equal(t, global.BlockchainNode.Network(), mockServer.gotPlatformMessage.Network)
-	require.Equal(t, global.BlockchainNode.Protocol(), mockServer.gotPlatformMessage.Protocol)
+	require.Equal(t, global.BlockchainNode().Network(), mockServer.gotPlatformMessage.Network)
+	require.Equal(t, global.BlockchainNode().Protocol(), mockServer.gotPlatformMessage.Protocol)
 }

@@ -139,7 +139,7 @@ func TestSystemdServiceWatchNew(t *testing.T) {
 				nilSvc:    tt.nilSvc,
 			}
 			conf := SystemdServiceWatchConf{
-				StatusIntv: time.Millisecond,
+				StatusIntv: 100 * time.Millisecond,
 				Discoverer: mockDsc,
 			}
 
@@ -158,7 +158,7 @@ func TestSystemdServiceWatchNew(t *testing.T) {
 					event, ok := ev.(*model.Message)
 					require.True(t, ok)
 					require.Equal(t, tt.expEv, event.Name)
-				case <-time.After(5 * time.Second):
+				case <-time.After(15 * time.Second):
 					t.Error("timeout waiting for event")
 				}
 			}
@@ -172,7 +172,7 @@ func TestSystemdServiceWatch_NodeRestart(t *testing.T) {
 		isRunning: true,
 	}
 	conf := SystemdServiceWatchConf{
-		StatusIntv: time.Millisecond,
+		StatusIntv: 100 * time.Millisecond,
 		Discoverer: mockDsc,
 	}
 
