@@ -122,6 +122,8 @@ func (n *NodeDiscoverer) DetectSystemdService(ctx context.Context) (*dbus.UnitSt
 		n.dbusConn = conn
 	}
 
+	zap.S().Debugw("listing systemd units", "glob", n.UnitGlob)
+
 	units, err := n.dbusConn.ListUnitsByPatternsContext(ctx, []string{"running"}, n.UnitGlob)
 	if err != nil {
 		n.service = nil
@@ -139,6 +141,8 @@ func (n *NodeDiscoverer) DetectSystemdService(ctx context.Context) (*dbus.UnitSt
 	}
 
 	n.service = &units[0]
+
+	zap.S().Infow("successfully discovered systemd node", "glob", n.UnitGlob)
 
 	return &units[0], nil
 }
