@@ -114,17 +114,19 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 				return
 			case <-statusTicker.C:
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
+				svc, err := w.Discoverer.DetectSystemdService(ctx)
+				cancel()
 
 				dscState := global.AgentRuntimeState.DiscoveryState()
 
-				svc, err := w.Discoverer.DetectSystemdService(ctx)
 				if err != nil {
+					w.Log.Errorw("watch error detecting systemd service", zap.Error(err))
+
 					if dscState == global.NodeDiscoverySuccess || dscState == 0 {
 						global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 						w.emitAgentNodeEvent(model.AgentNodeDownName)
 					}
-					w.Log.Errorw("watch error detecting systemd service", zap.Error(err))
+
 					continue
 				}
 
@@ -151,6 +153,7 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 							w.Log.Errorw("error reconfiguring node from systemd service", zap.Error(err))
 							continue
 						}
+
 						if err := reader.Close(); err != nil {
 							w.Log.Warnw("error closing journal reader", zap.Error(err))
 						}
@@ -167,19 +170,19 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 					// do nothing if node was already down
 				}
 			case <-nodeUpTicker.C:
-				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
-					// do nothing if node is down
-
-					continue
-				}
-				w.emitAgentNodeEvent(model.AgentNodeUpName)
-			case <-nodeDownTicker.C:
 				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoverySuccess {
-					// do nothing if node is up
+					w.emitAgentNodeEvent(model.AgentNodeUpName)
 
 					continue
 				}
-				w.emitAgentNodeEvent(model.AgentNodeDownName)
+				// do nothing if node is down
+			case <-nodeDownTicker.C:
+				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
+					w.emitAgentNodeEvent(model.AgentNodeDownName)
+
+					continue
+				}
+				// do nothing if node is up
 			}
 		}
 	}()
