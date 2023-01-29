@@ -79,9 +79,10 @@ type PlatformGRPCConf struct {
 type PlatformGRPC struct {
 	PlatformGRPCConf
 
-	grpcConn *grpc.ClientConn
-	metadata metadata.MD
-	lock     *sync.RWMutex
+	grpcConn   *grpc.ClientConn
+	metadata   metadata.MD
+	lock       *sync.RWMutex
+	blockchain global.Chain
 }
 
 // NewPlatformGRPC platform transport constructor.
@@ -104,6 +105,7 @@ func NewPlatformGRPC(conf PlatformGRPCConf) (*PlatformGRPC, error) {
 	p := &PlatformGRPC{PlatformGRPCConf: conf, metadata: md, lock: &sync.RWMutex{}}
 
 	p.GrpcErrHandler = p.grpcErrorHandler
+	p.blockchain = global.BlockchainNode()
 
 	return p, nil
 }
@@ -120,9 +122,9 @@ func (t *PlatformGRPC) Publish(data []*model.Message) (int64, error) {
 	metrikaMsg := model.PlatformMessage{
 		AgentUUID: t.UUID,
 		Data:      data,
-		Protocol:  global.BlockchainNode.Protocol(),
-		Network:   global.BlockchainNode.Network(),
-		NodeRole:  global.BlockchainNode.NodeRole(),
+		Protocol:  t.blockchain.Protocol(),
+		Network:   t.blockchain.Network(),
+		NodeRole:  t.blockchain.NodeRole(),
 	}
 
 	if t.AgentService == nil {

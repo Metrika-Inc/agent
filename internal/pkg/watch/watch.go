@@ -64,21 +64,23 @@ type Watch struct {
 	StopKey chan bool
 	wg      *sync.WaitGroup
 
-	startOnce *sync.Once
-	listeners []chan<- interface{}
-	Log       *zap.SugaredLogger
+	startOnce  *sync.Once
+	listeners  []chan<- interface{}
+	Log        *zap.SugaredLogger
+	blockchain global.Chain
 	*sync.Mutex
 }
 
 // NewWatch base watch constructor
 func NewWatch() Watch {
 	return Watch{
-		Running:   false,
-		StopKey:   make(chan bool, 1),
-		startOnce: &sync.Once{},
-		Log:       zap.S(),
-		wg:        &sync.WaitGroup{},
-		Mutex:     &sync.Mutex{},
+		Running:    false,
+		StopKey:    make(chan bool, 1),
+		startOnce:  &sync.Once{},
+		Log:        zap.S(),
+		wg:         &sync.WaitGroup{},
+		Mutex:      &sync.Mutex{},
+		blockchain: global.BlockchainNode(),
 	}
 }
 
@@ -168,22 +170,22 @@ func (w *Watch) emitNodeLogEvents(evs map[string]model.FromContext, body map[str
 func (w *Watch) emitAgentNodeEvent(name string) {
 	ctx := map[string]interface{}{}
 
-	nodeID := global.BlockchainNode.NodeID()
+	nodeID := w.blockchain.NodeID()
 	if nodeID != "" {
 		ctx[model.NodeIDKey] = nodeID
 	}
 
-	nodeType := global.BlockchainNode.NodeRole()
+	nodeType := w.blockchain.NodeRole()
 	if nodeType != "" {
 		ctx[model.NodeTypeKey] = nodeType
 	}
 
-	nodeVersion := global.BlockchainNode.NodeVersion()
+	nodeVersion := w.blockchain.NodeVersion()
 	if nodeVersion != "" {
 		ctx[model.NodeVersionKey] = nodeVersion
 	}
 
-	network := global.BlockchainNode.Network()
+	network := w.blockchain.Network()
 	if network != "" {
 		ctx[model.NetworkKey] = network
 	}

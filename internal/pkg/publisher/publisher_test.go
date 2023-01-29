@@ -36,7 +36,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	global.BlockchainNode = discover.NewMockBlockchain()
+	global.SetBlockchainNode(discover.NewMockBlockchain())
 	timesync.Default.Start(nil)
 	// l, _ := zap.NewProduction()
 	// zap.ReplaceGlobals(l)

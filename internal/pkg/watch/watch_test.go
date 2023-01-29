@@ -156,14 +156,14 @@ func TestWatch_EmitAgentNodeEvents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			blockchainNodeWas := global.BlockchainNode
-			global.BlockchainNode = &mockBlockchain{
+			blockchainNodeWas := global.BlockchainNode()
+			global.SetBlockchainNode(&mockBlockchain{
 				nodeID:      tt.nodeID,
 				nodeRole:    tt.nodeType,
 				nodeVersion: tt.nodeVersion,
 				network:     tt.network,
-			}
-			defer func() { global.BlockchainNode = blockchainNodeWas }()
+			})
+			defer func() { global.SetBlockchainNode(blockchainNodeWas) }()
 
 			ch := make(chan interface{}, 10)
 			w := NewWatch()

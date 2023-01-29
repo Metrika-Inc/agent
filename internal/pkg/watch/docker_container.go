@@ -149,7 +149,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	}
 	defer reader.Close()
 
-	if err := global.BlockchainNode.ReconfigureByDockerContainer(container, reader); err != nil {
+	if err := w.blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
 		return nil, nil, err
 	}
 	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
@@ -216,7 +216,7 @@ func (w *ContainerWatch) StartUnsafe() {
 			w.Log.Debugw("repairing docker event stream")
 			if msgchan, errchan, err = w.repairEventStream(ctx); err != nil {
 				w.Log.Warnw("getting docker event stream failed", zap.Error(err))
-				global.BlockchainNode.SetDockerContainer(nil)
+				w.blockchain.SetDockerContainer(nil)
 				global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 				w.emitAgentNodeEvent(model.AgentNodeDownName)

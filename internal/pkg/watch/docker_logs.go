@@ -23,7 +23,6 @@ import (
 
 	"agent/api/v1/model"
 	"agent/internal/pkg/discover/utils"
-	"agent/internal/pkg/global"
 
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
@@ -107,7 +106,7 @@ func (w *DockerLogWatch) StartUnsafe() {
 
 	newEventStream := func() bool {
 		// Before initializing a log stream, confirm that we need a log watcher
-		if !global.BlockchainNode.LogWatchEnabled() {
+		if !w.blockchain.LogWatchEnabled() {
 			return true
 		}
 
@@ -266,12 +265,12 @@ func (w *DockerLogWatch) PendingStart(subscriptions ...chan<- interface{}) {
 		case <-w.StopKey:
 			return
 		case <-ticker.C:
-			nodeType := global.BlockchainNode.NodeRole()
+			nodeType := w.blockchain.NodeRole()
 			if nodeType == "" {
 				continue
 			}
 			log := w.Log.With("node_type", nodeType)
-			if global.BlockchainNode.LogWatchEnabled() {
+			if w.blockchain.LogWatchEnabled() {
 				if err := DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
 					log.Errorw("failed to register docker log watcher", zap.Error(err))
 					return

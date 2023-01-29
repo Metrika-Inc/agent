@@ -100,6 +100,7 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 	nodeDownTicker := time.NewTicker(w.NodeDownEventFreq)
 	statusTicker := time.NewTicker(w.StatusIntv)
 
+	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
@@ -121,35 +122,27 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 
 				if err != nil {
 					w.Log.Errorw("watch error detecting systemd service", zap.Error(err))
-
-					if dscState == global.NodeDiscoverySuccess || dscState == 0 {
-						global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
-						w.emitAgentNodeEvent(model.AgentNodeDownName)
-					}
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 					continue
 				}
 
 				if svc == nil {
 					w.Log.Error("got nil systemd service return value")
-
-					if dscState == global.NodeDiscoverySuccess || dscState == 0 {
-						global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
-						w.emitAgentNodeEvent(model.AgentNodeDownName)
-					}
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 
 					continue
 				}
 
 				if svc.SubState == "running" {
-					if dscState == global.NodeDiscoveryError || dscState == 0 {
+					if dscState == global.NodeDiscoveryError {
 						reader, err := w.JournalReaderFunc(svc.Name)
 						if err != nil {
 							w.Log.Errorw("error creating journal reader", zap.Error(err))
 							continue
 						}
 
-						if err := global.BlockchainNode.ReconfigureBySystemdUnit(svc, reader); err != nil {
+						if err := w.blockchain.ReconfigureBySystemdUnit(svc, reader); err != nil {
 							w.Log.Errorw("error reconfiguring node from systemd service", zap.Error(err))
 							continue
 						}
@@ -157,17 +150,14 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 						if err := reader.Close(); err != nil {
 							w.Log.Warnw("error closing journal reader", zap.Error(err))
 						}
-
-						global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 						w.emitAgentNodeEvent(model.AgentNodeUpName)
 					}
-					// do nothing if node was already up
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 				} else {
-					if dscState == global.NodeDiscoverySuccess || dscState == 0 {
-						global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+					if dscState == global.NodeDiscoverySuccess {
 						w.emitAgentNodeEvent(model.AgentNodeDownName)
 					}
-					// do nothing if node was already down
 				}
 			case <-nodeUpTicker.C:
 				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoverySuccess {
