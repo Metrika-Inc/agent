@@ -9,7 +9,7 @@ on:
 jobs:
   release:
     name: Build and release all
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     permissions:
       contents: write
       packages: write
