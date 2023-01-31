@@ -153,7 +153,6 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	if err := w.blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
 		return nil, nil, err
 	}
-	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 
 	return msgchan, errchan, nil
 }
@@ -161,13 +160,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 func (w *ContainerWatch) parseDockerEvent(m events.Message) (string, error) {
 	switch m.Status {
 	case "start":
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 		return model.AgentNodeUpName, nil
 	case "restart":
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 		return model.AgentNodeRestartName, nil
 	case "die", "stop", "kill":
-		global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 		return model.AgentNodeDownName, nil
 	default:
 		return "", fmt.Errorf("unknown docker event status: %v", m.Status)
@@ -219,8 +215,8 @@ func (w *ContainerWatch) StartUnsafe() {
 				w.Log.Warnw("getting docker event stream failed", zap.Error(err))
 				w.blockchain.SetDockerContainer(nil)
 				global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
-
 				w.emitAgentNodeEvent(model.AgentNodeDownName)
+
 				resetTimers()
 
 				continue
@@ -236,6 +232,7 @@ func (w *ContainerWatch) StartUnsafe() {
 	}
 
 	newEventStream()
+	global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 
 	w.wg.Add(1)
 	go func() {
@@ -245,6 +242,7 @@ func (w *ContainerWatch) StartUnsafe() {
 			if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
 				cancel()
 				newEventStream()
+				global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
 			}
 
 			select {
@@ -259,7 +257,12 @@ func (w *ContainerWatch) StartUnsafe() {
 					continue
 				}
 
-				if evName == "" {
+				switch evName {
+				case model.AgentNodeUpName, model.AgentNodeRestartName:
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoverySuccess)
+				case model.AgentNodeDownName:
+					global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
+				case "":
 					// nothing to do
 					continue
 				}
@@ -267,19 +270,19 @@ func (w *ContainerWatch) StartUnsafe() {
 				w.emitAgentNodeEvent(evName)
 				resetTimers()
 			case <-nodeUpTicker.C:
-				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
-					// do nothing if node is down
-
-					continue
-				}
-				w.emitAgentNodeEvent(model.AgentNodeUpName)
-			case <-nodeDownTicker.C:
 				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoverySuccess {
-					// do nothing if node is up
+					w.emitAgentNodeEvent(model.AgentNodeUpName)
 
 					continue
 				}
-				w.emitAgentNodeEvent(model.AgentNodeDownName)
+				// do nothing if node is down
+			case <-nodeDownTicker.C:
+				if global.AgentRuntimeState.DiscoveryState() == global.NodeDiscoveryError {
+					w.emitAgentNodeEvent(model.AgentNodeDownName)
+
+					continue
+				}
+				// do nothing if node is up
 			case err := <-errchan:
 				ctxDone := false
 				switch err {
