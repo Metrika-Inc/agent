@@ -111,10 +111,10 @@ func NewContainerWatch(conf ContainerWatchConf) (*ContainerWatch, error) {
 func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	<-chan events.Message, <-chan error, error,
 ) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	detectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	container, err := w.Discoverer.DetectDockerContainer(ctx)
+	container, err := w.Discoverer.DetectDockerContainer(detectCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,7 +137,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 	options := dt.EventsOptions{Filters: filter}
 
-	msgchan, errchan, err := utils.DockerEvents(context.Background(), options)
+	msgchan, errchan, err := utils.DockerEvents(ctx, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -284,20 +284,13 @@ func (w *ContainerWatch) StartUnsafe() {
 				}
 				// do nothing if node is up
 			case err := <-errchan:
-				ctxDone := false
 				switch err {
-				case context.DeadlineExceeded, context.Canceled, nil:
-					ctxDone = true
-				}
-
-				if ctxDone {
-					continue
+				case context.Canceled:
+					return
 				}
 
 				w.Log.Debugf("docker event error: %v, will try to recover the stream", err)
-				cancel()
-
-				newEventStream()
+				global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
 			case <-w.StopKey:
 				cancel()
 
