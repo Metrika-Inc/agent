@@ -125,10 +125,10 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 
 	filter := filters.NewArgs()
 	filter.Add("type", "container")
-	filter.Add("status", "start")
-	filter.Add("status", "stop")
-	filter.Add("status", "kill")
-	filter.Add("status", "die")
+	filter.Add("event", "start")
+	filter.Add("event", "stop")
+	filter.Add("event", "kill")
+	filter.Add("event", "die")
 
 	// Docker container list api names come with a forward slash
 	// which breaks the container filter below if not stripped.
