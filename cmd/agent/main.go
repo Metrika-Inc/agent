@@ -240,11 +240,11 @@ func registerWatchers(ctx context.Context) error {
 				if err != nil {
 					zap.S().Warnw("error creating journald reader", zap.Error(err))
 				}
-				defer reader.Close()
 
 				if err := blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
 					zap.S().Warnw("node metadata configuration failed for docker", zap.Error(err))
 				}
+				reader.Close()
 
 				watchersEnabled = append(watchersEnabled, defaultDockerWatchers()...)
 			case global.NodeSystemd:
@@ -257,11 +257,11 @@ func registerWatchers(ctx context.Context) error {
 				if err != nil {
 					zap.S().Warnw("error creating journald reader", zap.Error(err))
 				}
-				defer reader.Close()
 
 				if err := blockchain.ReconfigureBySystemdUnit(unit, reader); err != nil {
 					zap.S().Warnw("node metadata configuration failed for systemd", zap.Error(err))
 				}
+				reader.Close()
 
 				watchersEnabled = append(watchersEnabled, defaultSystemdWatchers()...)
 			default:
