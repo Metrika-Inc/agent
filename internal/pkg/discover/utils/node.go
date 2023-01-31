@@ -292,6 +292,12 @@ func (n *NodeDiscoverer) DetectScheme(ctx context.Context) global.NodeRunScheme 
 		zap.S().Debugw("node scheme detected", "scheme", scheme)
 
 		if _, ok := supportedSchemes[scheme]; ok {
+			switch scheme {
+			case global.NodeDocker:
+				n.dbusConn.Close()
+				n.dbusConn = nil
+				n.service = nil
+			}
 			return scheme
 		}
 
