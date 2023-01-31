@@ -136,14 +136,15 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("container", containerName)
 
 	options := dt.EventsOptions{Filters: filter}
-	zap.S().Debugw("subscribing to docker event stream", "filter", filter)
 
-	msgchan, errchan, err := utils.DockerEvents(ctx, options)
+	msgchan, errchan, err := utils.DockerEvents(context.Background(), options)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	reader, err := w.DockerLogsReaderFunc(container.Names[0])
+	zap.S().Debugw("subscribed to docker event stream", "filter", filter)
+
+	reader, err := w.DockerLogsReaderFunc(containerName)
 	if err != nil {
 		return nil, nil, err
 	}
