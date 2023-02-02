@@ -87,14 +87,14 @@ func (m *mockDiscoverer) setErrors(e bool) {
 
 func TestSystemdServiceWatchNew(t *testing.T) {
 	tests := []struct {
-		name                string
-		isRunning           bool
-		errors              bool
-		nilSvc              bool
-		initialRuntimeState int32
-		expEv               string
-		expNodeDownCnt      int
-		expNodeUpCnt        int
+		name           string
+		isRunning      bool
+		errors         bool
+		nilSvc         bool
+		nodeDownFreq   time.Duration
+		expEv          string
+		expNodeDownCnt int
+		expNodeUpCnt   int
 	}{
 		{
 			name:      "success",
@@ -102,17 +102,8 @@ func TestSystemdServiceWatchNew(t *testing.T) {
 			expEv:     model.AgentNodeUpName,
 		},
 		{
-			name:                "success (already up)",
-			isRunning:           true,
-			initialRuntimeState: global.NodeDiscoverySuccess,
-		},
-		{
 			name:  "service not running",
 			expEv: model.AgentNodeDownName,
-		},
-		{
-			name:                "service not running (already down)",
-			initialRuntimeState: global.NodeDiscoveryError,
 		},
 		{
 			name:   "nil service",
@@ -120,18 +111,14 @@ func TestSystemdServiceWatchNew(t *testing.T) {
 			expEv:  model.AgentNodeDownName,
 		},
 		{
-			name:                "nil service (already down)",
-			nilSvc:              true,
-			initialRuntimeState: global.NodeDiscoveryError,
+			name:   "nil service (already down)",
+			nilSvc: true,
+			expEv:  model.AgentNodeDownName,
 		},
 	}
 
-	defer global.AgentRuntimeState.SetDiscoveryState(global.NodeDiscoveryError)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			global.AgentRuntimeState.SetDiscoveryState(tt.initialRuntimeState)
-
 			mockDsc := &mockDiscoverer{
 				errors:    tt.errors,
 				errorsMu:  &sync.RWMutex{},
@@ -145,20 +132,20 @@ func TestSystemdServiceWatchNew(t *testing.T) {
 
 			w, err := NewSystemdServiceWatch(conf)
 			require.Nil(t, err)
-			defer w.Stop()
 
 			ch := make(chan interface{}, 10)
 			w.Subscribe(ch)
 
 			w.StartUnsafe()
+			defer w.Stop()
 
-			if tt.expEv != "" {
-				select {
-				case ev := <-ch:
-					event, ok := ev.(*model.Message)
-					require.True(t, ok)
-					require.Equal(t, tt.expEv, event.Name)
-				case <-time.After(15 * time.Second):
+			select {
+			case ev := <-ch:
+				event, ok := ev.(*model.Message)
+				require.True(t, ok)
+				require.Equal(t, tt.expEv, event.Name)
+			case <-time.After(1 * time.Second):
+				if tt.expEv != "" {
 					t.Error("timeout waiting for event")
 				}
 			}
@@ -172,8 +159,10 @@ func TestSystemdServiceWatch_NodeRestart(t *testing.T) {
 		isRunning: true,
 	}
 	conf := SystemdServiceWatchConf{
-		StatusIntv: 100 * time.Millisecond,
-		Discoverer: mockDsc,
+		StatusIntv:        100 * time.Millisecond,
+		Discoverer:        mockDsc,
+		NodeDownEventFreq: 100 * time.Millisecond,
+		NodeUpEventFreq:   100 * time.Millisecond,
 	}
 
 	w, err := NewSystemdServiceWatch(conf)
