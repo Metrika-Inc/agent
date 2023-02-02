@@ -207,7 +207,7 @@ func (n *NodeDiscoverer) detect(ctx context.Context) (global.NodeRunScheme, erro
 		activeSchemes++
 		go func() {
 			log.Debugw("starting docker container detection", "regex", n.ContainerRegex)
-			container, err := n.DetectDockerContainer(context.Background())
+			container, err := n.DetectDockerContainer(context.TODO())
 			if err != nil {
 				if err == ErrContainerNotFound {
 					log.Warnw("no docker container found", "containerRegex", n.ContainerRegex)
@@ -291,13 +291,16 @@ func (n *NodeDiscoverer) DetectScheme(ctx context.Context) global.NodeRunScheme 
 		}
 		zap.S().Debugw("node scheme detected", "scheme", scheme)
 
-		if _, ok := supportedSchemes[scheme]; ok {
-			switch scheme {
-			case global.NodeDocker:
+		switch scheme {
+		case global.NodeDocker:
+			if n.dbusConn != nil {
 				n.dbusConn.Close()
 				n.dbusConn = nil
-				n.service = nil
 			}
+			n.service = nil
+		}
+
+		if _, ok := supportedSchemes[scheme]; ok {
 			return scheme
 		}
 

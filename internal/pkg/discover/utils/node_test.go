@@ -51,6 +51,8 @@ func TestNodeDiscovererNewError(t *testing.T) {
 }
 
 func TestNodeDiscovererDetectSystemdService(t *testing.T) {
+	defer DefaultDockerAdapter.Close()
+
 	conf := NodeDiscovererConfig{UnitGlob: []string{"dbus.service"}}
 	dsc, err := NewNodeDiscoverer(conf)
 
@@ -68,6 +70,8 @@ func TestNodeDiscovererDetectSystemdService(t *testing.T) {
 }
 
 func TestNodeDiscovererDetectDockerContainer(t *testing.T) {
+	defer DefaultDockerAdapter.Close()
+
 	out, err := ioutil.ReadFile("testcases/containers.json")
 	require.NoError(t, err)
 
@@ -98,6 +102,8 @@ func TestNodeDiscovererDetectDockerContainer(t *testing.T) {
 }
 
 func TestNodeDiscovererDetectSchemeOnlyDocker(t *testing.T) {
+	defer DefaultDockerAdapter.Close()
+
 	out, err := ioutil.ReadFile("testcases/containers.json")
 	require.NoError(t, err)
 
@@ -135,6 +141,8 @@ func TestNodeDiscovererDetectSchemeOnlyDocker(t *testing.T) {
 }
 
 func TestNodeDiscovererDetectSchemeOnlySystemd(t *testing.T) {
+	defer DefaultDockerAdapter.Close()
+
 	conf := NodeDiscovererConfig{UnitGlob: []string{"dbus.service"}}
 	dsc, err := NewNodeDiscoverer(conf)
 
@@ -159,6 +167,8 @@ func TestNodeDiscovererDetectSchemeOnlySystemd(t *testing.T) {
 }
 
 func TestNodeDiscovererDetectScheme(t *testing.T) {
+	defer DefaultDockerAdapter.Close()
+
 	out, err := ioutil.ReadFile("testcases/containers.json")
 	require.NoError(t, err)
 

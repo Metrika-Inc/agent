@@ -54,6 +54,10 @@ type DockerMockAdapterHealthy struct {
 	logFile string
 }
 
+func (d *DockerMockAdapterHealthy) Close() error {
+	return nil
+}
+
 func (d *DockerMockAdapterHealthy) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
 		{Names: []string{"/flow-private-network_consensus_3_1"}},

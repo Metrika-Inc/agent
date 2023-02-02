@@ -70,6 +70,7 @@ func overrideDockerAdapter(url string, mock utils.DockerAdapter) func() {
 
 type DockerMockAdapterHealthy struct{}
 
+func (d *DockerMockAdapterHealthy) Close() error { return nil }
 func (d *DockerMockAdapterHealthy) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
 		{Names: []string{"/flow-private-network_consensus_3_1"}},
@@ -174,6 +175,7 @@ type DockerMockAdapterError struct {
 	errch chan error
 }
 
+func (d *DockerMockAdapterError) Close() error { return nil }
 func (d *DockerMockAdapterError) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
 		{Names: []string{"/flow-private-network_consensus_3_1"}},

@@ -70,15 +70,15 @@ runtime:
   #
   # Default value is empty string which disables HTTP across the agent. Enabling
   # any agent local endpoints, requires setting this value (i.e. 127.0.0.1:9999)
-  http_addr:
+  http_addr: 127.0.0.1:9999
 
   # metrics_enabled: bool, enable prometheus /metrics endpoint. Default is false.
-  metrics_enabled: false
+  metrics_enabled: true
 
   # host_header_validation_enabled: bool, enables host header validation against
   # values listed under runtime.allowed_hosts. When disabled, runtime.allowed_hosts
   # is ignored. Default is true.
-  host_header_validation_enabled: true
+  host_header_validation_enabled: false
 
   # allowed_hosts: list[string], list of allowed Host HTTP headers to check when
   # validating HTTP requests processed by the agent such as /metrics. Use
@@ -129,3 +129,4 @@ discovery:
     # to specify a list of patterns when configuring with an environment variable.
     # For syntax, see: https://github.com/google/re2/wiki/Syntax.
     regex:
+      - dapper-private-network-consensus_1-1
