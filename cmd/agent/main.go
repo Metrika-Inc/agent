@@ -438,6 +438,9 @@ func main() {
 	watch.DefaultWatchRegistry.Stop()
 	watch.DefaultWatchRegistry.Wait()
 
+	// stop docker client
+	utils.DefaultDockerAdapter.Close()
+
 	// stop platform publisher if running
 	if pubCancel != nil {
 		pubCancel()

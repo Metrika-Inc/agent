@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -42,7 +43,7 @@ var (
 	DefaultDockerHost = ""
 
 	// DefaultDockerAdapter default docker adapter for container discovery.
-	DefaultDockerAdapter = DockerAdapter(&DockerProductionAdapter{})
+	DefaultDockerAdapter = DockerAdapter(&DockerProductionAdapter{climu: &sync.Mutex{}})
 )
 
 // DockerAdapter container discovery interface.
@@ -60,25 +61,62 @@ type DockerAdapter interface {
 
 	DockerEvents(ctx context.Context, options types.EventsOptions) (
 		<-chan events.Message, <-chan error, error)
+
+	Close() error
 }
 
 // DockerProductionAdapter adapter for accessing the host docker daemon
-type DockerProductionAdapter struct{}
+type DockerProductionAdapter struct {
+	cli   *client.Client
+	climu *sync.Mutex
+}
+
+// Close closes the underlying http connection
+func (a *DockerProductionAdapter) Close() error {
+	a.climu.Lock()
+	defer a.climu.Unlock()
+
+	if a.cli != nil {
+		cli := a.cli
+		a.cli = nil
+		return cli.Close()
+	}
+	return nil
+}
+
+func (a *DockerProductionAdapter) resetClient() error {
+	cli, err := getDockerClient()
+	if err != nil {
+		a.cli = nil
+
+		return err
+	}
+	a.cli = cli
+	return nil
+}
 
 // GetRunningContainers returns a slice of all
 // currently running Docker containers
 func (a *DockerProductionAdapter) GetRunningContainers() ([]dt.Container, error) {
-	cli, err := getDockerClient()
-	if err != nil {
-		return nil, err
+	a.climu.Lock()
+	if a.cli == nil {
+		if err := a.resetClient(); err != nil {
+			return nil, err
+		}
 	}
-	defer cli.Close()
+	a.climu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	containers, err := cli.ContainerList(ctx, dt.ContainerListOptions{})
+	containers, err := a.cli.ContainerList(ctx, dt.ContainerListOptions{})
 	if err != nil {
+		if !errors.Is(ErrContainerNotFound, err) {
+			a.climu.Lock()
+			a.cli.Close()
+			a.cli = nil
+			a.climu.Unlock()
+		}
 		return nil, err
 	}
 
@@ -114,24 +152,41 @@ func (a *DockerProductionAdapter) MatchContainer(containers []dt.Container, iden
 
 // DockerLogs returns a container's logs
 func (a *DockerProductionAdapter) DockerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
-	cli, err := getDockerClient()
+	a.climu.Lock()
+	if a.cli == nil {
+		if err := a.resetClient(); err != nil {
+			return nil, err
+		}
+	}
+	a.climu.Unlock()
+
+	reader, err := a.cli.ContainerLogs(ctx, container, options)
 	if err != nil {
+		if !strings.Contains(err.Error(), "No such container") {
+			a.climu.Lock()
+			a.cli.Close()
+			a.cli = nil
+			a.climu.Unlock()
+		}
 		return nil, err
 	}
 
-	return cli.ContainerLogs(ctx, container, options)
+	return reader, nil
 }
 
 // DockerEvents gets channels for consuming docker events subscription messages and errors
 func (a *DockerProductionAdapter) DockerEvents(ctx context.Context, options types.EventsOptions) (
 	<-chan events.Message, <-chan error, error,
 ) {
-	cli, err := getDockerClient()
-	if err != nil {
-		return nil, nil, err
+	a.climu.Lock()
+	if a.cli == nil {
+		if err := a.resetClient(); err != nil {
+			return nil, nil, err
+		}
 	}
+	a.climu.Unlock()
 
-	msgchan, errchan := cli.Events(ctx, options)
+	msgchan, errchan := a.cli.Events(ctx, options)
 	return msgchan, errchan, nil
 }
 
@@ -178,8 +233,6 @@ func GetLogLine(scan *bufio.Scanner) ([]byte, error) {
 	return scan.Bytes(), nil
 }
 
-var dockerCLI *client.Client
-
 func getDockerClient() (*client.Client, error) {
 	defaultOpts := []client.Opt{
 		client.FromEnv,
@@ -197,8 +250,7 @@ func getDockerClient() (*client.Client, error) {
 			}))
 	}
 
-	var err error
-	dockerCLI, err = client.NewClientWithOpts(defaultOpts...)
+	dockerCLI, err := client.NewClientWithOpts(defaultOpts...)
 	if err != nil {
 		return nil, err
 	}
