@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"agent/api/v1/model"
@@ -130,9 +129,7 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("event", "kill")
 	filter.Add("event", "die")
 
-	// Docker container list api names come with a forward slash
-	// which breaks the container filter below if not stripped.
-	containerName := strings.TrimPrefix(container.Names[0], "/")
+	containerName := container.Names[0]
 	filter.Add("container", containerName)
 
 	options := dt.EventsOptions{Filters: filter}
