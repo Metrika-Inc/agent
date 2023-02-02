@@ -98,7 +98,7 @@ func TestNodeDiscovererDetectDockerContainer(t *testing.T) {
 	require.Nil(t, err)
 
 	require.NotNil(t, container)
-	require.Equal(t, "/ctlptl-registry", container.Names[0])
+	require.Equal(t, "ctlptl-registry", container.Names[0])
 }
 
 func TestNodeDiscovererDetectSchemeOnlyDocker(t *testing.T) {

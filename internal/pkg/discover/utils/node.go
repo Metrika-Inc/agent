@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"agent/internal/pkg/global"
@@ -106,6 +107,12 @@ func (n *NodeDiscoverer) DetectDockerContainer(ctx context.Context) (*types.Cont
 		return nil, err
 	}
 
+	// Docker container list api names may come with a forward slash
+	// which is not compatible to use with --filter or for finding docker logs.
+	for i, name := range container.Names {
+		container.Names[i] = strings.TrimPrefix(name, "/")
+	}
+
 	n.container = &container
 
 	return &container, nil
@@ -137,7 +144,7 @@ func (n *NodeDiscoverer) DetectSystemdService(ctx context.Context) (*dbus.UnitSt
 	}
 
 	if len(units) > 1 {
-		zap.S().Warnw("more than systemd units found", "len", len(units))
+		zap.S().Warnw("more than one systemd units found", "len", len(units))
 	}
 
 	n.service = &units[0]

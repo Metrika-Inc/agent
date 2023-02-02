@@ -227,6 +227,7 @@ func registerWatchers(ctx context.Context) error {
 			}
 
 			watchersEnabled := []watch.Watcher{}
+			startWatchers := []watch.Watcher{}
 			scheme := discoverer.DetectScheme(ctx)
 
 			switch scheme {
@@ -239,14 +240,15 @@ func registerWatchers(ctx context.Context) error {
 				reader, err := utils.NewDockerLogsReader(container.Names[0])
 				if err != nil {
 					zap.S().Warnw("error creating docker log reader", zap.Error(err))
+				} else {
+					if err := blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
+						zap.S().Warnw("node metadata configuration failed for docker", zap.Error(err))
+					}
+					reader.Close()
 				}
 
-				if err := blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
-					zap.S().Warnw("node metadata configuration failed for docker", zap.Error(err))
-				}
-				reader.Close()
-
-				watchersEnabled = append(watchersEnabled, defaultDockerWatchers()...)
+				zap.S().Infow("starting docker watchers")
+				startWatchers = defaultDockerWatchers()
 			case global.NodeSystemd:
 				unit := discoverer.SystemdService()
 				if unit == nil {
@@ -256,14 +258,15 @@ func registerWatchers(ctx context.Context) error {
 				reader, err := utils.NewJournalReader(unit.Name)
 				if err != nil {
 					zap.S().Warnw("error creating journald log reader", zap.Error(err))
+				} else {
+					if err := blockchain.ReconfigureBySystemdUnit(unit, reader); err != nil {
+						zap.S().Warnw("node metadata configuration failed for systemd", zap.Error(err))
+					}
+					reader.Close()
 				}
 
-				if err := blockchain.ReconfigureBySystemdUnit(unit, reader); err != nil {
-					zap.S().Warnw("node metadata configuration failed for systemd", zap.Error(err))
-				}
-				reader.Close()
-
-				watchersEnabled = append(watchersEnabled, defaultSystemdWatchers()...)
+				zap.S().Infow("starting systemd watchers")
+				startWatchers = defaultSystemdWatchers()
 			default:
 				zap.S().Warnw("node discovery returned no errors but scheme is unknown, retrying in 2s", "scheme", scheme)
 				<-time.After(2 * time.Second)
@@ -271,6 +274,7 @@ func registerWatchers(ctx context.Context) error {
 			}
 			blockchain.SetRunScheme(scheme)
 
+			watchersEnabled = append(watchersEnabled, startWatchers...)
 			if len(watchersEnabled) > 0 {
 				for _, w := range watchersEnabled {
 					if err := watch.DefaultWatchRegistry.RegisterAndStart(w, subscriptions...); err != nil {
