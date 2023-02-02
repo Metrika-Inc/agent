@@ -238,7 +238,7 @@ func registerWatchers(ctx context.Context) error {
 
 				reader, err := utils.NewDockerLogsReader(container.Names[0])
 				if err != nil {
-					zap.S().Warnw("error creating journald reader", zap.Error(err))
+					zap.S().Warnw("error creating docker log reader", zap.Error(err))
 				}
 
 				if err := blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
@@ -255,7 +255,7 @@ func registerWatchers(ctx context.Context) error {
 
 				reader, err := utils.NewJournalReader(unit.Name)
 				if err != nil {
-					zap.S().Warnw("error creating journald reader", zap.Error(err))
+					zap.S().Warnw("error creating journald log reader", zap.Error(err))
 				}
 
 				if err := blockchain.ReconfigureBySystemdUnit(unit, reader); err != nil {
