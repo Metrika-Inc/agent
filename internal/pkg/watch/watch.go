@@ -161,7 +161,7 @@ func (w *Watch) emitNodeLogEvents(evs map[string]model.FromContext, body map[str
 			Value: &model.Message_Event{Event: ev},
 		}
 
-		w.Log.Debugw("emitting event", "event", ev.Name, "map", ev.Values.AsMap())
+		w.Log.Debugw("emitting event", "event", ev.Name, "time", ev.Values.AsMap()["time"])
 
 		w.Emit(&message)
 	}
