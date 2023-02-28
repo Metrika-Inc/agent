@@ -169,7 +169,7 @@ func defaultDockerWatchers() []watch.Watcher {
 	return dw
 }
 
-func registerWatchers(ctx context.Context) error {
+func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream) error {
 	watchersEnabled := []watch.Watcher{}
 
 	for _, watcherConf := range global.AgentConf.Runtime.Watchers {
@@ -182,15 +182,25 @@ func registerWatchers(ctx context.Context) error {
 	}
 
 	// PEF Watch
+	urlResetCh := make(chan global.ConfigUpdate, 1)
 	eps := blockchain.PEFEndpoints()
-	for _, ep := range eps {
+	for i, ep := range eps {
 		httpConf := watch.HTTPWatchConf{
-			Interval: global.AgentConf.Runtime.SamplingInterval,
-			URL:      ep.URL,
-			Timeout:  global.AgentConf.Platform.TransportTimeout,
-			Headers:  nil,
+			Interval:    global.AgentConf.Runtime.SamplingInterval,
+			URL:         ep.URL,
+			URLUpdateCh: urlResetCh,
+			URLIndex:    i,
+			Timeout:     global.AgentConf.Platform.TransportTimeout,
+			Headers:     nil,
 		}
 		httpWatch := watch.NewHTTPWatch(httpConf)
+		if cupdStream != nil {
+			err := cupdStream.Subscribe(global.PEFEndpointsKey, urlResetCh)
+			if err != nil {
+				zap.S().Fatalw("error subscribing to config update stream", zap.Error(err))
+			}
+		}
+
 		filter := &openmetrics.PEFFilter{ToMatch: ep.Filters}
 		pefConf := watch.PEFWatchConf{Filter: filter}
 		watchersEnabled = append(watchersEnabled, watch.NewPEFWatch(pefConf, httpWatch))
@@ -328,6 +338,15 @@ func main() {
 	}
 	blockchain = global.BlockchainNode()
 
+	ctx, cancel = context.WithCancel(context.Background())
+	// setup config update stream
+	updCh := blockchain.ConfigUpdateCh()
+	var cupdStream *global.ConfigUpdateStream
+	if updCh != nil {
+		cupdStream = global.NewConfigUpdateStream(global.ConfigUpdateStreamConf{UpdatesCh: updCh})
+		cupdStream.Run(ctx)
+	}
+
 	timesync.Default.Start(ch)
 	if err := timesync.Default.SyncNow(); err != nil {
 		zap.S().Errorw("could not sync with NTP server", zap.Error(err))
@@ -384,15 +403,13 @@ func main() {
 		}
 	}
 
-	ctx, cancel = context.WithCancel(context.Background())
-
 	multiEmitter := emit.NewMultiEmitter(subscriptions)
 
 	global.DefaultExporterRegisterer.Start(ctx, wg)
 
 	// we should be (almost) ready to publish at this point
 	// start default and enabled watchers
-	if err := registerWatchers(ctx); err != nil {
+	if err := registerWatchers(ctx, cupdStream); err != nil {
 		log.Fatal(err)
 	}
 	defer discoverer.Close()

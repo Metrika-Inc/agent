@@ -14,6 +14,7 @@
 package global
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -77,6 +78,12 @@ const (
 	cloudProviderDiscoveryTimeout = 2 * time.Second
 )
 
+// ConfigUpdate represents the update of a key and its new val
+type ConfigUpdate struct {
+	Key ConfigUpdateKey
+	Val interface{}
+}
+
 // Chain provides necessary configuration information
 // for the agent core. These methods represent currently
 // supported sampler configurations per blockchain protocol.
@@ -86,6 +93,9 @@ type Chain interface {
 
 	// PEFEndpoints returns a list of HTTP endpoints with PEF data to be sampled.
 	PEFEndpoints() []PEFEndpoint
+
+	// ConfigUpdateCh returns a channel where the node will be pushing
+	ConfigUpdateCh() chan ConfigUpdate
 
 	// ContainerRegex returns a regex-compatible strings to identify the blockchain node
 	// if it is running as a docker container.
@@ -283,4 +293,84 @@ func AgentPrepareStartup() error {
 	}
 
 	return nil
+}
+
+// ConfigUpdateKey type to use when pushing/parsing config updates
+type ConfigUpdateKey string
+
+const (
+	// PEFEndpointsKey update key to use for updates on the pef endpoints
+	PEFEndpointsKey ConfigUpdateKey = "pef_endpoints"
+)
+
+// ErrConfigUpdateKeyUnsupported config update key not supported
+var ErrConfigUpdateKeyUnsupported = errors.New("config update key not supported")
+
+// ConfigUpdateStreamConf ConfigUpdateStream configuration.
+type ConfigUpdateStreamConf struct {
+	UpdatesCh chan ConfigUpdate
+}
+
+// ConfigUpdateStream streams configuration changes to set of subscribers.
+type ConfigUpdateStream struct {
+	ConfigUpdateStreamConf
+	subscriptionsStr map[ConfigUpdateKey][]chan ConfigUpdate
+	subscriptionsMu  *sync.RWMutex
+}
+
+// NewConfigUpdateStream initializes and returns a ConfigUpdateStream instance.
+func NewConfigUpdateStream(conf ConfigUpdateStreamConf) *ConfigUpdateStream {
+	return &ConfigUpdateStream{
+		ConfigUpdateStreamConf: conf,
+		subscriptionsStr:       make(map[ConfigUpdateKey][]chan ConfigUpdate),
+		subscriptionsMu:        &sync.RWMutex{},
+	}
+}
+
+// Subscribe adds a channel to the updates subscription map for a given key.
+func (c *ConfigUpdateStream) Subscribe(key ConfigUpdateKey, ch chan ConfigUpdate) error {
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
+
+	switch key {
+	case PEFEndpointsKey:
+		subs, ok := c.subscriptionsStr[key]
+		if !ok {
+			subs = []chan ConfigUpdate{}
+		}
+		subs = append(subs, ch)
+		c.subscriptionsStr[key] = subs
+	default:
+		return ErrConfigUpdateKeyUnsupported
+	}
+
+	return nil
+}
+
+// Run starts a goroutine which forwards updates received from supported keys
+func (c *ConfigUpdateStream) Run(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+			case upd := <-c.UpdatesCh:
+				c.subscriptionsMu.Lock()
+				subs, ok := c.subscriptionsStr[PEFEndpointsKey]
+				if !ok {
+					// nothing to do
+					c.subscriptionsMu.Unlock()
+					continue
+				}
+
+				for _, sub := range subs {
+					select {
+					case sub <- upd:
+					default:
+						zap.S().Warnw("subscription channel blocked config update, dropping", "key", PEFEndpointsKey)
+					}
+				}
+				c.subscriptionsMu.Unlock()
+			}
+		}
+	}()
 }

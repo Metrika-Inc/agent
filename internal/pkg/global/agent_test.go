@@ -14,6 +14,7 @@
 package global
 
 import (
+	"context"
 	"io/fs"
 	"io/ioutil"
 	"path/filepath"
@@ -118,4 +119,36 @@ func TestAgentSetHostname(t *testing.T) {
 	err := setAgentHostname(providers)
 	require.Nil(t, err)
 	require.Equal(t, "mock-hostname", AgentHostname)
+}
+
+func TestConfigUpdateStream(t *testing.T) {
+	updCh := make(chan ConfigUpdate, 1)
+	conf := ConfigUpdateStreamConf{UpdatesCh: make(chan ConfigUpdate, 1)}
+	cus := NewConfigUpdateStream(conf)
+	require.NotNil(t, cus)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cus.Run(ctx)
+
+	resch := make(chan ConfigUpdate, 1)
+	go func() {
+		select {
+		case resch <- <-updCh:
+		}
+	}()
+	err := cus.Subscribe(PEFEndpointsKey, updCh)
+	require.Nil(t, err)
+
+	expUpd := ConfigUpdate{Key: "testkey", Val: "new-val"}
+	conf.UpdatesCh <- expUpd
+
+	gotVal := ConfigUpdate{}
+	select {
+	case gotVal = <-resch:
+	case <-time.After(5 * time.Second):
+		t.Error("timeout waiting for config update")
+	}
+
+	require.Equal(t, expUpd, gotVal)
 }

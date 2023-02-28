@@ -70,16 +70,17 @@ var recognizedNodeRoles = map[string]struct{}{
 // of the agent's flow-related configuration.
 // Implements global.Chain.
 type Flow struct {
-	config         flowConfig
-	renderNeeded   bool // if any config value was empty but got updated
-	container      *types.Container
-	systemdService *dbus.UnitStatus
-	env            map[string]string
-	nodeRole       string
-	network        string
-	nodeVersion    string
-	mutex          *sync.RWMutex
-	runScheme      global.NodeRunScheme
+	config          flowConfig
+	renderNeeded    bool // if any config value was empty but got updated
+	container       *types.Container
+	systemdService  *dbus.UnitStatus
+	env             map[string]string
+	nodeRole        string
+	network         string
+	nodeVersion     string
+	mutex           *sync.RWMutex
+	runScheme       global.NodeRunScheme
+	configUpdatesCh chan global.ConfigUpdate
 }
 
 // NewFlow flow chain constructor.
@@ -97,6 +98,8 @@ func NewFlow() (*Flow, error) {
 	} else if err != nil {
 		return nil, err
 	}
+
+	flow.configUpdatesCh = make(chan global.ConfigUpdate, 1)
 
 	return flow, nil
 }
@@ -464,6 +467,14 @@ func (d *Flow) reconfigureSystemd(reader io.ReadCloser) error {
 	if err := d.configurePEFEndpoints(); err != nil {
 		log.Warn("could not find PEF metric endpoints")
 		errs.Append(err)
+	} else {
+		// push config update
+		upd := global.ConfigUpdate{Key: global.PEFEndpointsKey, Val: d.config.PEFEndpoints}
+		select {
+		case d.configUpdatesCh <- upd:
+		default:
+			log.Warnw("config update chan blocked update, dropping", upd)
+		}
 	}
 
 	if d.systemdService != nil && d.systemdService.SubState == "running" {
@@ -612,4 +623,9 @@ func (d *Flow) SetSystemdService(unit *dbus.UnitStatus) {
 	defer d.mutex.Unlock()
 
 	d.systemdService = unit
+}
+
+// ConfigUpdateCh returns the channel used to emit configuration updates
+func (d *Flow) ConfigUpdateCh() chan global.ConfigUpdate {
+	return d.configUpdatesCh
 }
