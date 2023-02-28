@@ -112,6 +112,10 @@ func (m *mockBlockchain) SetDockerContainer(_ *types.Container) {
 func (m *mockBlockchain) SetSystemdService(_ *dbus.UnitStatus) {
 }
 
+func (m *mockBlockchain) ConfigUpdateCh() chan global.ConfigUpdate {
+	return nil
+}
+
 func TestWatch_EmitAgentNodeEvents(t *testing.T) {
 	tests := []struct {
 		name        string

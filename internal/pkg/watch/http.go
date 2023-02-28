@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"time"
 
+	"agent/internal/pkg/global"
+
 	"go.uber.org/zap"
 )
 
@@ -26,10 +28,12 @@ import (
 
 // HTTPWatchConf HttpGetWatch configuration struct.
 type HTTPWatchConf struct {
-	URL      string
-	Interval time.Duration
-	Headers  map[string]string
-	Timeout  time.Duration
+	URL         string
+	URLIndex    int
+	URLUpdateCh chan global.ConfigUpdate
+	Interval    time.Duration
+	Headers     map[string]string
+	Timeout     time.Duration
 }
 
 // HTTPWatch implements the Watcher interface for collecting
@@ -72,6 +76,34 @@ func (h *HTTPWatch) StartUnsafe() {
 
 		for {
 			select {
+			case ui := <-h.URLUpdateCh:
+				eps, ok := ui.Val.([]global.PEFEndpoint)
+				if !ok {
+					zap.S().Error("type assertion failed for url update")
+				}
+
+				if len(eps) == 0 {
+					zap.S().Warnw("got empty pef endpoints slice, will ignore", "url", h.URL)
+					continue
+				}
+
+				if len(eps)+1 <= h.URLIndex {
+					zap.S().Warnw("endpoints slice smaller than watch index, will ignore", "len", len(eps), "index", h.URLIndex)
+
+					continue
+				}
+
+				// We don't have a way to dynamically schedule HTTP
+				// watchers depending on the length of discovered endpoints.
+				// Use the watcher's assigned index to pick the corresponding
+				// index from the endpoints slice.
+				ep := eps[h.URLIndex]
+
+				if ep.URL != h.URL {
+					zap.S().Infow("updating HTTP watch URL", "prev", h.URL, "new", ep.URL)
+					h.URL = ep.URL
+					h.Log = h.Log.With("url", h.URL)
+				}
 			case <-time.After(h.Interval):
 				ctx, cancel := context.WithTimeout(context.Background(), h.Timeout)
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.URL, nil)

@@ -129,3 +129,8 @@ func (m *MockBlockchain) ReconfigureByDockerContainer(container *types.Container
 func (m *MockBlockchain) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadCloser) error {
 	return nil
 }
+
+// ConfigUpdateCh ...
+func (m *MockBlockchain) ConfigUpdateCh() chan global.ConfigUpdate {
+	return nil
+}
