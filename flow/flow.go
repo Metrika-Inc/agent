@@ -455,6 +455,15 @@ func (d *Flow) LogWatchEnabled() bool {
 	return d.nodeRole == nodeRoleConsensus
 }
 
+func (d *Flow) pushConfigUpdate(upd global.ConfigUpdate) {
+	// push config update
+	select {
+	case d.configUpdatesCh <- upd:
+	default:
+		zap.S().Warnw("config update chan blocked update, dropping", upd)
+	}
+}
+
 func (d *Flow) reconfigureSystemd(reader io.ReadCloser) error {
 	log := zap.S()
 	errs := &utils.AutoConfigError{}
@@ -468,13 +477,8 @@ func (d *Flow) reconfigureSystemd(reader io.ReadCloser) error {
 		log.Warn("could not find PEF metric endpoints")
 		errs.Append(err)
 	} else {
-		// push config update
 		upd := global.ConfigUpdate{Key: global.PEFEndpointsKey, Val: d.config.PEFEndpoints}
-		select {
-		case d.configUpdatesCh <- upd:
-		default:
-			log.Warnw("config update chan blocked update, dropping", upd)
-		}
+		d.pushConfigUpdate(upd)
 	}
 
 	if d.systemdService != nil && d.systemdService.SubState == "running" {
@@ -534,6 +538,9 @@ func (d *Flow) reconfigureDocker(reader io.ReadCloser) error {
 	if err := d.configurePEFEndpoints(); err != nil {
 		log.Warn("could not find PEF metric endpoints")
 		errs.Append(err)
+	} else {
+		upd := global.ConfigUpdate{Key: global.PEFEndpointsKey, Val: d.config.PEFEndpoints}
+		d.pushConfigUpdate(upd)
 	}
 
 	if d.container != nil && len(d.container.Names) > 0 {
