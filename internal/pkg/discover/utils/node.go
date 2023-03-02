@@ -115,6 +115,8 @@ func (n *NodeDiscoverer) DetectDockerContainer(ctx context.Context) (*types.Cont
 
 	n.container = &container
 
+	zap.S().Infow("discovered container", "names", n.container.Names)
+
 	return &container, nil
 }
 
@@ -149,7 +151,7 @@ func (n *NodeDiscoverer) DetectSystemdService(ctx context.Context) (*dbus.UnitSt
 
 	n.service = &units[0]
 
-	zap.S().Infow("successfully discovered systemd node", "glob", n.UnitGlob)
+	zap.S().Infow("discovered systemd unit", "glob", n.UnitGlob)
 
 	return &units[0], nil
 }
