@@ -159,6 +159,9 @@ func (w *SystemdServiceWatch) StartUnsafe() {
 						}
 
 						if err := w.blockchain.ReconfigureBySystemdUnit(svc, reader); err != nil {
+							if err := reader.Close(); err != nil {
+								w.Log.Warnw("error closing journal reader", zap.Error(err))
+							}
 							w.Log.Errorw("error reconfiguring node from systemd service", zap.Error(err))
 							continue
 						}
