@@ -348,13 +348,10 @@ func (d *Flow) updateFromLogs(reader io.ReadCloser, hdrLen int) error {
 	scan := bufio.NewScanner(reader)
 	for time.Since(started) < 5*time.Second {
 		got, err := utils.GetLogLine(scan)
-		if errors.Is(err, bufio.ErrTooLong) || errors.Is(err, utils.ErrEmptyLogFile) {
-			continue
-		}
-
 		if err != nil {
 			return err
 		}
+
 		// This assumes the container is not using a TTY. In this case
 		// stdout/stderr are multiplexed on the same stream and 8-byte header
 		// precedes each line. We don't need to parse the header since we are
@@ -383,11 +380,14 @@ func (d *Flow) updateFromLogs(reader io.ReadCloser, hdrLen int) error {
 		}
 	}
 
-	zap.S().Debugw("node metadata discovery took ", "took", time.Since(started), "network", d.network, "node_role", d.nodeRole)
-
 	if d.network == "" || d.nodeRole == "" {
+		zap.S().Warnw("missing metadata", "network", d.network, "node_role", d.nodeRole)
+
 		return fmt.Errorf("could not discover node role or network")
 	}
+
+	zap.S().Infow("metadata discovered", "network", d.network, "node_role", d.nodeRole, "took", time.Since(started))
+
 	return nil
 }
 
