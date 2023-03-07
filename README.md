@@ -45,7 +45,7 @@ docker run --rm \
     -e MA_API_KEY={api_key} \
     --name metrikad-{blockchain} \
     --network host \
-    ghcr.io/Metrika-Inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
+    ghcr.io/metrika-inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
 ```
 
 ### Docker (non-root)
@@ -64,7 +64,7 @@ docker run --rm \
     --name metrikad-{blockchain} \
     --network host \
     --user metrikad \
-    ghcr.io/Metrika-Inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
+    ghcr.io/metrika-inc/agent:latest ./metrikad-{blockchain} -procfs /host/proc -sysfs /host/sys
 ```
 
 #### Docker image verification
