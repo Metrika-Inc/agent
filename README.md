@@ -33,6 +33,11 @@ To install and run the agent as a systemd service without adding `metrikad` user
 MA_PLATFORM={platform_endpoint} DOCKER_HOST=tcp://127.0.0.1:2379 DOCKER_API_VERSION=1.41 MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)" -- --no-docker-grp
 ```
 
+By default the agent will add `metrikad` user to `systemd-journal` group to enable access to journald logs. Similarly to Docker, you can explicitly disable this behavior with `--no-systemd-journal-grp` flag, for example:
+```bash
+MA_PLATFORM={platform_endpoint} MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)" -- --no-systemd-journal-grp
+```
+
 ### Docker
 To run the agent in a Docker container using the latest image use this one-liner:
 ```bash

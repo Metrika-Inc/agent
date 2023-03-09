@@ -222,6 +222,11 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 		ContainerRegex: containerRegex,
 	}
 
+	if global.AgentConf.Discovery.Systemd.Deactivated {
+		zap.S().Info("systemd discovery mode disabled")
+		c.UnitGlob = []string{}
+	}
+
 	var err error
 	discoverer, err = utils.NewNodeDiscoverer(c)
 	if err != nil {

@@ -20,6 +20,7 @@ LATEST_RELEASE="0.0.0"
 IS_UPDATABLE=-1
 UPGRADE_REQUESTED=0
 NO_DOCKER_GRP_REQUESTED=0
+NO_SYSTEMD_JOURNAL_GRP_REQUESTED=0
 HAS_SYSTEMD=0
 INSTALL_ID=$(date +%s)
 
@@ -51,11 +52,12 @@ function usage {
 	cat <<EOF
 usage: install.sh [options]
 options:
-  --upgrade            Upgrade the Metrika agent to the latest version.
-  --reinstall          Reinstall/refresh the Metrika Agent installation.
-  --uninstall          Stop and remove the Metrika Agent.
-  --purge              Stop, remove the Metrika Agent, including any agent configuration/data.
-  --no-docker-grp	   Do NOT add to the system docker group (requires docker proxy for containerized nodes!)
+  --upgrade                 Upgrade the Metrika agent to the latest version.
+  --reinstall               Reinstall/refresh the Metrika Agent installation.
+  --uninstall               Stop and remove the Metrika Agent.
+  --purge                   Stop, remove the Metrika Agent, including any agent configuration/data.
+  --no-docker-grp	        Do NOT add to the system docker group (requires docker proxy for containerized nodes!).
+  --no-systemd-journal-grp  Do NOT add to the systemd-journal log. Use this to disable systemd node discovery.
 EOF
 }
 
@@ -335,7 +337,7 @@ function create_systemd_service {
 		log_info "$dockerApiVersionEnv"
 	else
 		if [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
-			log_warn "Both metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
+			log_warn "metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
 		fi
 	fi
 
@@ -401,25 +403,33 @@ function create_directories {
 	$sudo_cmd chown -R $MA_USER:$MA_GROUP $APP_INSTALL_DIR
 }
 
-function create_users_and_groups {
+function create_users {
 	log_info "Creating system group(user): $MA_GROUP($MA_USER)"
 	getent passwd "$MA_USER" >/dev/null ||
 		$sudo_cmd adduser --system --group --home $APP_INSTALL_DIR --shell /sbin/nologin "$MA_USER" &&
 		{ $sudo_cmd usermod -L "$MA_USER" ||
 			log_warn "Cannot lock the 'metrika-agent' user account"; }
+}
 
-   	# enable journald access for log tailing
-   	$sudo_cmd usermod -aG systemd-journal $MA_USER
+function add_user_groups {
+	if [ "$NO_SYSTEMD_JOURNAL_GRP_REQUESTED" -ne 1 ]; then
+		# enable journald access for log tailing if not explicitly disabled
+		log_info "Adding $MA_USER to systemd-journal group to allow journal log tailing."
+
+		$sudo_cmd usermod -aG systemd-journal $MA_USER
+	fi
 
 	if [ $NO_DOCKER_GRP_REQUESTED -ne 1 ]; then
+		# enable docker access for log tailing if not explicitly disabled
+		log_info "Adding $MA_USER to docker group to allow communication with Docker daemon."
+
 		$sudo_cmd usermod -aG docker $MA_USER
 	else
 		if [ -z "$DOCKER_HOST" ]; then
-			log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data!"
+			log_warn "NOT adding ${MA_USER} to the docker group. For containerized nodes, you WILL need to have a docker proxy running on the host to allow the metrika agent to retrieve data from Docker!"
 		else
 			log_info "Will configure the agent to use DOCKER_HOST=$DOCKER_HOST"
 		fi
-
 	fi
 }
 
@@ -447,6 +457,9 @@ for arg in "$@"; do
 	"--upgrade")
 		UPGRADE_REQUESTED=1
 		;;
+	"--no-systemd-journal-grp")
+		NO_SYSTEMD_JOURNAL_GRP_REQUESTED=1
+		;;
 	"--no-docker-grp")
 		NO_DOCKER_GRP_REQUESTED=1
 		;;
@@ -472,7 +485,7 @@ done
 
 sanity_check
 
-if [ -z $MA_AGENT_DOWNLOAD_URL ]; then
+if [ -z "$MA_AGENT_DOWNLOAD_URL" ]; then
 	check_can_update $IS_UPDATABLE
 fi
 
@@ -491,9 +504,12 @@ download_agent
 
 # if the agent is downloaded ok, create users etc.
 if [ $UPGRADE_REQUESTED -ne 1 ]; then
-	create_users_and_groups
+	create_users
 	create_directories
 fi
+
+# add user groups to enable access to system facilities (i.e. docker, journald).
+add_user_groups
 
 # install the agent.
 install_agent

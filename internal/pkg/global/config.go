@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -192,12 +193,14 @@ type Hints struct {
 
 // DiscoverySystemd systemd discovery configuration
 type DiscoverySystemd struct {
-	Glob []string `yaml:"glob"`
+	Deactivated bool     `yaml:"deactivated"`
+	Glob        []string `yaml:"glob"`
 }
 
 // DiscoveryDocker docker discovery configuration
 type DiscoveryDocker struct {
-	Regex []string `yaml:"regex"`
+	Deactivated bool     `yaml:"deactivated"`
+	Regex       []string `yaml:"regex"`
 }
 
 // DiscoveryConfig configuration related to node discovery.
@@ -476,6 +479,71 @@ func ensureDefaults() {
 	}
 }
 
+// userLookup is interface to enable mocking os/user package.
+type userLookup interface {
+	Current() (*user.User, error)
+	LookupGroupID(gid string) (*user.Group, error)
+}
+
+type osUserLookup struct {
+	*user.User
+}
+
+func (o *osUserLookup) Current() (*user.User, error) {
+	return user.Current()
+}
+
+func (o *osUserLookup) LookupGroupID(gid string) (*user.Group, error) {
+	return user.LookupGroupId(gid)
+}
+
+var getUserGroupIds = func(u *user.User) ([]string, error) {
+	return u.GroupIds()
+}
+
+// systemdCanBeActivated returns true if agent user is part of systemd-journal group. Returns false
+// and the error if one occurs. Used to deactivate systemd node discovery path.
+func systemdCanBeActivated(usr userLookup, targetGrp string) (bool, error) {
+	u, err := usr.Current()
+	if err != nil {
+		return false, err
+	}
+
+	gids, err := getUserGroupIds(u)
+	if err != nil {
+		return false, err
+	}
+
+	for _, gid := range gids {
+		grp, err := usr.LookupGroupID(gid)
+		if err != nil {
+			continue
+		}
+		if grp.Name == targetGrp {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// ensureSystemdActivated force sets discovery.systemd.deactivated to true
+// if agent user is not part of systemd-journal group.
+func ensureSystemdActivated() error {
+	usr := &osUserLookup{}
+
+	act, err := systemdCanBeActivated(usr, "systemd-journal")
+	if err != nil {
+		return err
+	}
+
+	if !act {
+		AgentConf.Discovery.Systemd.Deactivated = true
+	}
+
+	return nil
+}
+
 // ensureRequired ensures global agent configuration has loaded required configuration
 func ensureRequired() error {
 	// Platform variables are only required if Platform Exporter is enabled
@@ -517,6 +585,10 @@ func LoadAgentConfig() error {
 	}
 
 	ensureDefaults()
+
+	if err := ensureSystemdActivated(); err != nil {
+		return errors.Wrapf(err, "error checking systemd user group")
+	}
 
 	if err := ensureRequired(); err != nil {
 		return errors.Wrapf(err, "loaded configuration is missing a required parameter")
