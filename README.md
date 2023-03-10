@@ -38,6 +38,8 @@ By default the agent will add `metrikad` user to `systemd-journal` group to enab
 MA_PLATFORM={platform_endpoint} MA_BLOCKCHAIN={blockchain} MA_API_KEY={api_key} bash -c "$(curl -sL https://raw.githubusercontent.com/Metrika-Inc/agent/main/install.sh)" -- --no-systemd-journal-grp
 ```
 
+*Note*: On startup, if `metrikad` is in `systemd-journal` group, the agent will force set `discovery.systemd.deactivated=true` since journal logs will not be available.
+
 ### Docker
 To run the agent in a Docker container using the latest image use this one-liner:
 ```bash
