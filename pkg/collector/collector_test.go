@@ -25,7 +25,9 @@ func TestMain(m *testing.M) {
 	os.Setenv("MA_PLATFORM", "agent.test.metrika.co:443")
 	os.Setenv("MA_API_KEY", "test_api_key")
 	os.Setenv("MA_DISCOVERY_HINTS_DOCKER", "test-discovery-name")
-	if err := global.LoadAgentConfig(); err != nil {
+
+	c := &global.AgentConfig{}
+	if err := global.LoadAgentConfig(c); err != nil {
 		fmt.Printf("failed to load config: %v\n", err)
 
 		os.Exit(1)

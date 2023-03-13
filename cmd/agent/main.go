@@ -206,6 +206,11 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 		watchersEnabled = append(watchersEnabled, watch.NewPEFWatch(pefConf, httpWatch))
 	}
 
+	if err := watch.DefaultWatchRegistry.Register(watchersEnabled...); err != nil {
+		return err
+	}
+	watchersEnabled = watchersEnabled[:0]
+
 	var containerRegex []string
 	oldRegex := blockchain.ContainerRegex()
 	newRegex := global.AgentConf.Discovery.Docker.Regex
@@ -217,14 +222,18 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 		containerRegex = oldRegex
 	}
 
+	if global.AgentConf.Discovery.Systemd.Deactivated && global.AgentConf.Discovery.Docker.Deactivated {
+		zap.S().Warn("node discovery is deactivated, the agent will start without monitoring a node")
+		return nil
+	} else if global.AgentConf.Discovery.Systemd.Deactivated {
+		zap.S().Info("systemd discovery mode deactivated by discovery.systemd.glob.deactivated")
+	} else if global.AgentConf.Discovery.Docker.Deactivated {
+		zap.S().Info("docker discovery mode deactivated by discovery.docker.regex.deactivated")
+	}
+
 	c := utils.NodeDiscovererConfig{
 		UnitGlob:       global.AgentConf.Discovery.Systemd.Glob,
 		ContainerRegex: containerRegex,
-	}
-
-	if global.AgentConf.Discovery.Systemd.Deactivated {
-		zap.S().Info("systemd discovery mode disabled")
-		c.UnitGlob = []string{}
 	}
 
 	var err error
@@ -321,7 +330,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := global.LoadAgentConfig(); err != nil {
+	if err := global.LoadAgentConfig(&global.AgentConf); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 
 		os.Exit(1)
