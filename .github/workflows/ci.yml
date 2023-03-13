@@ -78,7 +78,9 @@ jobs:
           cp -r configs /etc/metrikad/
 
       - name: Install libsystemd-dev
-        run: sudo apt-get install -y libsystemd-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev
 
       - name: Run go test
         if: success()
