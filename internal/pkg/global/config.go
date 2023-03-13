@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -192,12 +193,14 @@ type Hints struct {
 
 // DiscoverySystemd systemd discovery configuration
 type DiscoverySystemd struct {
-	Glob []string `yaml:"glob"`
+	Deactivated bool     `yaml:"deactivated"`
+	Glob        []string `yaml:"glob"`
 }
 
 // DiscoveryDocker docker discovery configuration
 type DiscoveryDocker struct {
-	Regex []string `yaml:"regex"`
+	Deactivated bool     `yaml:"deactivated"`
+	Regex       []string `yaml:"regex"`
 }
 
 // DiscoveryConfig configuration related to node discovery.
@@ -241,15 +244,15 @@ var ConfigFilePriority = []string{
 
 // overloadFromEnv tries to parse all configuration parameters from the environment
 // and always overrides global config if a value is set.
-func overloadFromEnv() error {
+func overloadFromEnv(c *AgentConfig) error {
 	v := os.Getenv(PlatformAPIKeyEnvVar)
 	if v != "" {
-		AgentConf.Platform.APIKey = v
+		c.Platform.APIKey = v
 	}
 
 	v = os.Getenv(PlatformAddrEnvVar)
 	if v != "" {
-		AgentConf.Platform.Addr = v
+		c.Platform.Addr = v
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_enabled"))
@@ -258,7 +261,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "platform_enabled env parse error")
 		}
-		AgentConf.Platform.Enabled = &vBool
+		c.Platform.Enabled = &vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_batch_n"))
@@ -267,7 +270,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "platform_batch_n env parse error")
 		}
-		AgentConf.Platform.BatchN = int(vInt)
+		c.Platform.BatchN = int(vInt)
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_max_publish_interval"))
@@ -276,7 +279,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "platform_max_publish_internval env parse error")
 		}
-		AgentConf.Platform.MaxPublishInterval = vDur
+		c.Platform.MaxPublishInterval = vDur
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_transport_timeout"))
@@ -285,12 +288,12 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "platform_transport_timeout env parse error")
 		}
-		AgentConf.Platform.TransportTimeout = vDur
+		c.Platform.TransportTimeout = vDur
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "platform_uri"))
 	if v != "" {
-		AgentConf.Platform.URI = v
+		c.Platform.URI = v
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "buffer_max_heap_alloc"))
@@ -299,7 +302,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "buffer_max_heap_alloc env parse error")
 		}
-		AgentConf.Buffer.MaxHeapAlloc = vUint
+		c.Buffer.MaxHeapAlloc = vUint
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "buffer_min_buffer_size"))
@@ -308,7 +311,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "buffer_min_buffer_size env parse error")
 		}
-		AgentConf.Buffer.MinBufferSize = int(vInt)
+		c.Buffer.MinBufferSize = int(vInt)
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "buffer_ttl"))
@@ -317,17 +320,17 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "buffer_ttl env parse error")
 		}
-		AgentConf.Buffer.TTL = vDur
+		c.Buffer.TTL = vDur
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_logging_outputs"))
 	if v != "" {
-		AgentConf.Runtime.Log.Outputs = strings.Split(v, ",")
+		c.Runtime.Log.Outputs = strings.Split(v, ",")
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_logging_level"))
 	if v != "" {
-		AgentConf.Runtime.Log.Lvl = v
+		c.Runtime.Log.Lvl = v
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_disable_fingerprint_validation"))
@@ -337,7 +340,7 @@ func overloadFromEnv() error {
 			return errors.Wrapf(err, "runtime_disable_fingeprint_validation env parse error")
 		}
 
-		AgentConf.Runtime.DisableFingerprintValidation = vBool
+		c.Runtime.DisableFingerprintValidation = vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_host_header_validation_enabled"))
@@ -347,17 +350,17 @@ func overloadFromEnv() error {
 			return errors.Wrapf(err, "runtime_host_header_validation_enabled env parse error")
 		}
 
-		AgentConf.Runtime.HostHeaderValidationEnabled = &vBool
+		c.Runtime.HostHeaderValidationEnabled = &vBool
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_http_addr"))
 	if v != "" {
-		AgentConf.Runtime.HTTPAddr = v
+		c.Runtime.HTTPAddr = v
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_allowed_hosts"))
 	if v != "" {
-		AgentConf.Runtime.AllowedHosts = strings.Split(v, ",")
+		c.Runtime.AllowedHosts = strings.Split(v, ",")
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_sampling_interval"))
@@ -366,7 +369,7 @@ func overloadFromEnv() error {
 		if err != nil {
 			return errors.Wrapf(err, "runtime_sampling_interval env parse error")
 		}
-		AgentConf.Runtime.SamplingInterval = vDur
+		c.Runtime.SamplingInterval = vDur
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_watchers"))
@@ -377,7 +380,7 @@ func overloadFromEnv() error {
 			watchers = append(watchers, &WatchConfig{Type: vw})
 		}
 
-		AgentConf.Runtime.Watchers = watchers
+		c.Runtime.Watchers = watchers
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_systemd_glob"))
@@ -387,7 +390,7 @@ func overloadFromEnv() error {
 		for _, pat := range vpatterns {
 			patterns = append(patterns, pat)
 		}
-		AgentConf.Discovery.Systemd.Glob = patterns
+		c.Discovery.Systemd.Glob = patterns
 	}
 
 	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "discovery_docker_regex"))
@@ -397,94 +400,169 @@ func overloadFromEnv() error {
 		for _, pat := range vpatterns {
 			patterns = append(patterns, pat)
 		}
-		AgentConf.Discovery.Docker.Regex = patterns
+		c.Discovery.Docker.Regex = patterns
 	}
 
 	return nil
 }
 
 // ensureDefaults ensures sane defaults in global agent configuration
-func ensureDefaults() {
-	if AgentConf.Runtime.SamplingInterval == 0 {
-		AgentConf.Runtime.SamplingInterval = DefaultRuntimeSamplingInterval
+func ensureDefaults(c *AgentConfig) {
+	if c.Runtime.SamplingInterval == 0 {
+		c.Runtime.SamplingInterval = DefaultRuntimeSamplingInterval
 	}
 
-	for _, watchConf := range AgentConf.Runtime.Watchers {
+	for _, watchConf := range c.Runtime.Watchers {
 		if watchConf.SamplingInterval == 0*time.Second {
-			watchConf.SamplingInterval = AgentConf.Runtime.SamplingInterval
+			watchConf.SamplingInterval = c.Runtime.SamplingInterval
 		}
 	}
 
-	if AgentConf.Platform.Enabled == nil {
-		AgentConf.Platform.Enabled = &DefaultPlatformEnabled
+	if c.Platform.Enabled == nil {
+		c.Platform.Enabled = &DefaultPlatformEnabled
 	}
 
-	if AgentConf.Platform.BatchN == 0 {
-		AgentConf.Platform.BatchN = DefaultPlatformBatchN
+	if c.Platform.BatchN == 0 {
+		c.Platform.BatchN = DefaultPlatformBatchN
 	}
 
-	if AgentConf.Platform.MaxPublishInterval == 0 {
-		AgentConf.Platform.MaxPublishInterval = DefaultPlatformMaxPublishInterval
+	if c.Platform.MaxPublishInterval == 0 {
+		c.Platform.MaxPublishInterval = DefaultPlatformMaxPublishInterval
 	}
 
-	if AgentConf.Platform.TransportTimeout == 0 {
-		AgentConf.Platform.TransportTimeout = DefaultPlatformTransportTimeout
+	if c.Platform.TransportTimeout == 0 {
+		c.Platform.TransportTimeout = DefaultPlatformTransportTimeout
 	}
 
-	if AgentConf.Platform.URI == "" {
-		AgentConf.Platform.URI = DefaultPlatformURI
+	if c.Platform.URI == "" {
+		c.Platform.URI = DefaultPlatformURI
 	}
 
-	if AgentConf.Buffer.MaxHeapAlloc == 0 {
-		AgentConf.Buffer.MaxHeapAlloc = DefaultBufferMaxHeapAlloc
+	if c.Buffer.MaxHeapAlloc == 0 {
+		c.Buffer.MaxHeapAlloc = DefaultBufferMaxHeapAlloc
 	}
 
-	if AgentConf.Buffer.MinBufferSize == 0 {
-		AgentConf.Buffer.MinBufferSize = DefaultBufferMinBufferSize
+	if c.Buffer.MinBufferSize == 0 {
+		c.Buffer.MinBufferSize = DefaultBufferMinBufferSize
 	}
 
-	if AgentConf.Buffer.TTL == 0 {
-		AgentConf.Buffer.TTL = DefaultBufferTTL
+	if c.Buffer.TTL == 0 {
+		c.Buffer.TTL = DefaultBufferTTL
 	}
 
-	if len(AgentConf.Runtime.Log.Outputs) == 0 {
-		AgentConf.Runtime.Log.Outputs = DefaultRuntimeLoggingOutputs
+	if len(c.Runtime.Log.Outputs) == 0 {
+		c.Runtime.Log.Outputs = DefaultRuntimeLoggingOutputs
 	}
 
-	if AgentConf.Runtime.Log.Lvl == "" {
-		AgentConf.Runtime.Log.Lvl = DefaultRuntimeLoggingLevel
+	if c.Runtime.Log.Lvl == "" {
+		c.Runtime.Log.Lvl = DefaultRuntimeLoggingLevel
 	}
 
-	if AgentConf.Runtime.HTTPAddr == "" {
-		AgentConf.Runtime.HTTPAddr = DefaultRuntimeHTTPAddr
+	if c.Runtime.HTTPAddr == "" {
+		c.Runtime.HTTPAddr = DefaultRuntimeHTTPAddr
 	}
 
-	if AgentConf.Runtime.HostHeaderValidationEnabled == nil {
-		AgentConf.Runtime.HostHeaderValidationEnabled = &DefaultRuntimeHostHeaderValidationEnabled
+	if c.Runtime.HostHeaderValidationEnabled == nil {
+		c.Runtime.HostHeaderValidationEnabled = &DefaultRuntimeHostHeaderValidationEnabled
 	}
 
-	if len(AgentConf.Runtime.AllowedHosts) == 0 {
-		AgentConf.Runtime.AllowedHosts = DefaultRuntimeAllowedHosts
+	if len(c.Runtime.AllowedHosts) == 0 {
+		c.Runtime.AllowedHosts = DefaultRuntimeAllowedHosts
 	}
 
-	if AgentConf.Runtime.SamplingInterval == 0 {
-		AgentConf.Runtime.SamplingInterval = DefaultRuntimeSamplingInterval
+	if c.Runtime.SamplingInterval == 0 {
+		c.Runtime.SamplingInterval = DefaultRuntimeSamplingInterval
 	}
 
-	if len(AgentConf.Runtime.Watchers) == 0 {
-		AgentConf.Runtime.Watchers = DefaultRuntimeWatchers
+	if len(c.Runtime.Watchers) == 0 {
+		c.Runtime.Watchers = DefaultRuntimeWatchers
 	}
 }
 
+// userLookup is interface to enable mocking os/user package.
+type userLookup interface {
+	Current() (*user.User, error)
+	LookupGroupID(gid string) (*user.Group, error)
+}
+
+type osUserLookup struct {
+	*user.User
+}
+
+func (o *osUserLookup) Current() (*user.User, error) {
+	return user.Current()
+}
+
+func (o *osUserLookup) LookupGroupID(gid string) (*user.Group, error) {
+	return user.LookupGroupId(gid)
+}
+
+var getUserGroupIds = func(u *user.User) ([]string, error) {
+	return u.GroupIds()
+}
+
+// systemdCanBeActivated returns true if agent user is part of systemd-journal group. Returns false
+// and the error if one occurs. Used to deactivate systemd node discovery path.
+func systemdCanBeActivated(usr userLookup, targetGrp string) (bool, error) {
+	u, err := usr.Current()
+	if err != nil {
+		return false, err
+	}
+
+	gids, err := getUserGroupIds(u)
+	if err != nil {
+		return false, err
+	}
+
+	for _, gid := range gids {
+		grp, err := usr.LookupGroupID(gid)
+		if err != nil {
+			continue
+		}
+		if grp.Name == targetGrp {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func clearDeactivatedDiscoveryConfig(c *AgentConfig) {
+	if c.Discovery.Docker.Deactivated {
+		c.Discovery.Docker.Regex = []string{}
+	}
+
+	if c.Discovery.Systemd.Deactivated {
+		c.Discovery.Systemd.Glob = []string{}
+	}
+}
+
+// ensureSystemdActivated force sets discovery.systemd.deactivated to true
+// if agent user is not part of systemd-journal group.
+func ensureSystemdActivated(c *AgentConfig) error {
+	usr := &osUserLookup{}
+
+	act, err := systemdCanBeActivated(usr, "systemd-journal")
+	if err != nil {
+		return err
+	}
+
+	if !act {
+		c.Discovery.Systemd.Deactivated = true
+	}
+
+	return nil
+}
+
 // ensureRequired ensures global agent configuration has loaded required configuration
-func ensureRequired() error {
+func ensureRequired(c *AgentConfig) error {
 	// Platform variables are only required if Platform Exporter is enabled
-	if AgentConf.Platform.IsEnabled() {
-		if AgentConf.Platform.Addr == "" || AgentConf.Platform.Addr == PlatformAddrConfigPlaceholder {
+	if c.Platform.IsEnabled() {
+		if c.Platform.Addr == "" || c.Platform.Addr == PlatformAddrConfigPlaceholder {
 			return fmt.Errorf("platform.addr is missing from loaded config")
 		}
 
-		if AgentConf.Platform.APIKey == "" || AgentConf.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
+		if c.Platform.APIKey == "" || c.Platform.APIKey == PlatformAPIKeyConfigPlaceholder {
 			return fmt.Errorf("platform.api_key is missing from loaded config")
 		}
 	}
@@ -495,7 +573,7 @@ func ensureRequired() error {
 // LoadAgentConfig loads agent configuration in the following priority:
 // 1. Load configuration from the first file found in ConfigFilePriority.
 // 2. Override any configuration key if an environment variable is set.
-func LoadAgentConfig() error {
+func LoadAgentConfig(c *AgentConfig) error {
 	var (
 		content []byte
 		err     error
@@ -508,29 +586,35 @@ func LoadAgentConfig() error {
 		}
 	}
 
-	if err := yaml.Unmarshal(content, &AgentConf); err != nil {
+	if err := yaml.Unmarshal(content, c); err != nil {
 		return err
 	}
 
-	if err := overloadFromEnv(); err != nil {
+	if err := overloadFromEnv(c); err != nil {
 		return errors.Wrapf(err, "error while loading config from env")
 	}
 
-	ensureDefaults()
+	ensureDefaults(c)
 
-	if err := ensureRequired(); err != nil {
+	if err := ensureSystemdActivated(c); err != nil {
+		return errors.Wrapf(err, "error checking systemd user group")
+	}
+
+	if err := ensureRequired(c); err != nil {
 		return errors.Wrapf(err, "loaded configuration is missing a required parameter")
 	}
 
-	if err := createLogFolders(); err != nil {
+	if err := createLogFolders(c); err != nil {
 		return err
 	}
+
+	clearDeactivatedDiscoveryConfig(c)
 
 	return nil
 }
 
-func createLogFolders() error {
-	for _, logPath := range AgentConf.Runtime.Log.Outputs {
+func createLogFolders(c *AgentConfig) error {
+	for _, logPath := range c.Runtime.Log.Outputs {
 		if strings.HasSuffix(logPath, "/") {
 			return fmt.Errorf("invalid log output path ending with '/': %s", logPath)
 		}

@@ -14,12 +14,15 @@
 package global
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,10 +34,11 @@ func TestCreateLogFolders(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		AgentConf.Runtime.Log.Outputs = tc.paths
-		err := createLogFolders()
+		c := &AgentConfig{}
+		c.Runtime.Log.Outputs = tc.paths
+		err := createLogFolders(c)
 		require.NoError(t, err)
-		for _, path := range AgentConf.Runtime.Log.Outputs {
+		for _, path := range c.Runtime.Log.Outputs {
 			_, err := os.Create(path)
 			require.NoError(t, err)
 			defer func() {
@@ -49,6 +53,118 @@ func TestCreateLogFolders(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+}
+
+type mockUserLookup struct {
+	currentErrors bool
+	group         string
+}
+
+func (m *mockUserLookup) Current() (*user.User, error) {
+	if m.currentErrors {
+		return nil, errors.New("mock user.Current() error")
+	}
+
+	return &user.User{Name: "foobar"}, nil
+}
+
+func (m *mockUserLookup) LookupGroupID(gid string) (*user.Group, error) {
+	if m.group == "" {
+		return nil, fmt.Errorf("mock lookup group id")
+	}
+
+	return &user.Group{Name: m.group}, nil
+}
+
+func TestSystemdCanBeActivated(t *testing.T) {
+	tests := []struct {
+		name            string
+		usr             userLookup
+		usrGroupIdsFunc func(u *user.User) ([]string, error)
+		expErr          bool
+		expRes          bool
+	}{
+		{
+			name: "can be activated",
+			usr:  &mockUserLookup{group: "systemd-journal"},
+			usrGroupIdsFunc: func(u *user.User) ([]string, error) {
+				return []string{"1001"}, nil
+			},
+			expRes: true,
+		},
+		{
+			name: "cannot be activated",
+			usr:  &mockUserLookup{},
+			usrGroupIdsFunc: func(u *user.User) ([]string, error) {
+				return []string{"1001"}, nil
+			},
+			expRes: false,
+		},
+		{
+			name: "with errors",
+			usr:  &mockUserLookup{},
+			usrGroupIdsFunc: func(u *user.User) ([]string, error) {
+				return nil, errors.New("u.GroupIds() mock error")
+			},
+			expErr: true,
+			expRes: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getUserGroupIdsWas := getUserGroupIds
+			getUserGroupIds = tt.usrGroupIdsFunc
+
+			got, err := systemdCanBeActivated(tt.usr, "systemd-journal")
+			if !tt.expErr {
+				require.Nil(t, err)
+			} else {
+				require.NotNil(t, err)
+			}
+
+			require.Equal(t, tt.expRes, got)
+			getUserGroupIds = getUserGroupIdsWas
+		})
+	}
+}
+
+func TestClearDeactivatedDiscoveryConfig(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	testConf := []byte(`
+---
+platform:
+  api_key: test-api-key
+  addr: test-addr
+discovery:
+  systemd:
+    deactivated: true
+    glob:
+      - metrikad-*.service
+  docker:
+    deactivated: true
+    regex:
+      - metrikad-foobar
+`)
+
+	_, err = f.Write(testConf)
+	require.NoError(t, err)
+
+	configFilePriorityWas := ConfigFilePriority
+	ConfigFilePriority = []string{f.Name()}
+	defer func() { ConfigFilePriority = configFilePriorityWas }()
+
+	c := &AgentConfig{}
+	err = LoadAgentConfig(c)
+	require.NoError(t, err)
+
+	require.Empty(t, c.Discovery.Docker.Regex)
+	require.Empty(t, c.Discovery.Systemd.Glob)
+	require.True(t, c.Discovery.Docker.Deactivated)
+	require.True(t, c.Discovery.Systemd.Deactivated)
 }
 
 func TestLoadConfig_EnvOverride(t *testing.T) {
@@ -94,28 +210,29 @@ discovery:
 	err = os.Setenv("MA_DISCOVERY_DOCKER_REGEX", "container-name,foobar")
 	err = os.Setenv("MA_DISCOVERY_SYSTEMD_GLOB", "node.service foobar")
 
-	err = LoadAgentConfig()
+	c := &AgentConfig{}
+	err = LoadAgentConfig(c)
 	require.NoError(t, err)
 
-	require.Equal(t, "foobar", AgentConf.Platform.APIKey)
-	require.Equal(t, false, *AgentConf.Platform.Enabled)
-	require.Equal(t, "foobar.addr:443", AgentConf.Platform.Addr)
-	require.Equal(t, 100, AgentConf.Platform.BatchN)
-	require.Equal(t, 1*time.Second, AgentConf.Platform.MaxPublishInterval)
-	require.Equal(t, 2*time.Second, AgentConf.Platform.TransportTimeout)
-	require.Equal(t, "/", AgentConf.Platform.URI)
-	require.Equal(t, uint64(10000), AgentConf.Buffer.MaxHeapAlloc)
-	require.Equal(t, 100, AgentConf.Buffer.MinBufferSize)
-	require.Equal(t, 5*time.Second, AgentConf.Buffer.TTL)
-	require.Equal(t, []string{"stdout", "stderr"}, AgentConf.Runtime.Log.Outputs)
-	require.Equal(t, "debug", AgentConf.Runtime.Log.Lvl)
-	require.Equal(t, true, AgentConf.Runtime.DisableFingerprintValidation)
-	require.Equal(t, "foobar:9000", AgentConf.Runtime.HTTPAddr)
-	require.Equal(t, 5*time.Second, AgentConf.Runtime.SamplingInterval)
-	require.Equal(t, false, *AgentConf.Runtime.HostHeaderValidationEnabled)
-	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, AgentConf.Runtime.Watchers)
-	require.Equal(t, "container-name", AgentConf.Discovery.Docker.Regex[0])
-	require.Equal(t, "foobar", AgentConf.Discovery.Docker.Regex[1])
-	require.Equal(t, "node.service", AgentConf.Discovery.Systemd.Glob[0])
-	require.Equal(t, "foobar", AgentConf.Discovery.Systemd.Glob[1])
+	require.Equal(t, "foobar", c.Platform.APIKey)
+	require.Equal(t, false, *c.Platform.Enabled)
+	require.Equal(t, "foobar.addr:443", c.Platform.Addr)
+	require.Equal(t, 100, c.Platform.BatchN)
+	require.Equal(t, 1*time.Second, c.Platform.MaxPublishInterval)
+	require.Equal(t, 2*time.Second, c.Platform.TransportTimeout)
+	require.Equal(t, "/", c.Platform.URI)
+	require.Equal(t, uint64(10000), c.Buffer.MaxHeapAlloc)
+	require.Equal(t, 100, c.Buffer.MinBufferSize)
+	require.Equal(t, 5*time.Second, c.Buffer.TTL)
+	require.Equal(t, []string{"stdout", "stderr"}, c.Runtime.Log.Outputs)
+	require.Equal(t, "debug", c.Runtime.Log.Lvl)
+	require.Equal(t, true, c.Runtime.DisableFingerprintValidation)
+	require.Equal(t, "foobar:9000", c.Runtime.HTTPAddr)
+	require.Equal(t, 5*time.Second, c.Runtime.SamplingInterval)
+	require.Equal(t, false, *c.Runtime.HostHeaderValidationEnabled)
+	require.Equal(t, []*WatchConfig{{Type: "foo", SamplingInterval: 5 * time.Second}, {Type: "bar", SamplingInterval: 5 * time.Second}}, c.Runtime.Watchers)
+	require.Equal(t, "container-name", c.Discovery.Docker.Regex[0])
+	require.Equal(t, "foobar", c.Discovery.Docker.Regex[1])
+	require.Equal(t, "node.service", c.Discovery.Systemd.Glob[0])
+	require.Equal(t, "foobar", c.Discovery.Systemd.Glob[1])
 }

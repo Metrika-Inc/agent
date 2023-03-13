@@ -119,12 +119,21 @@ runtime:
 
 discovery:
   systemd:
+    # deactivated: bool, explicitly disables systemd discovery. Default is false. Note, on startup, the
+    # agent will check if metrikad user is in systemd-journal group, and if not will automatically deactivate
+    # systemd discovery. This is ensure the agent ignores systemd discovery path for installations
+    # run with --no-systemd-journal-grp flag.
+    deactivated: false
+
     # glob: list[string], pattern used in systemctl list-units command. Use whitespace (" ") delimiter to
     # specify a list of patterns when configuring with an environment variable.
     # For syntax, see https://www.freedesktop.org/software/systemd/man/systemctl.html#Parameter%20Syntax.
     glob:
 
   docker:
+    # deactivated: bool, explicitly disables docker discovery
+    deactivated: false
+
     # regex: list[string], RE2 regular expressions to match for running containers. Use comma (",") delimiter
     # to specify a list of patterns when configuring with an environment variable.
     # For syntax, see: https://github.com/google/re2/wiki/Syntax.
