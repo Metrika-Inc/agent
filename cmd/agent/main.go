@@ -211,17 +211,6 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 	}
 	watchersEnabled = watchersEnabled[:0]
 
-	var containerRegex []string
-	oldRegex := blockchain.ContainerRegex()
-	newRegex := global.AgentConf.Discovery.Docker.Regex
-
-	// fallback to node specific config if no discovery hints available (pre v0.10)
-	if len(newRegex) > 0 {
-		containerRegex = newRegex
-	} else if len(oldRegex) > 0 {
-		containerRegex = oldRegex
-	}
-
 	if global.AgentConf.Discovery.Systemd.Deactivated && global.AgentConf.Discovery.Docker.Deactivated {
 		zap.S().Warn("node discovery is deactivated, the agent will start without monitoring a node")
 		return nil
@@ -233,7 +222,7 @@ func registerWatchers(ctx context.Context, cupdStream *global.ConfigUpdateStream
 
 	c := utils.NodeDiscovererConfig{
 		UnitGlob:       global.AgentConf.Discovery.Systemd.Glob,
-		ContainerRegex: containerRegex,
+		ContainerRegex: global.AgentConf.Discovery.Docker.Regex,
 	}
 
 	var err error
