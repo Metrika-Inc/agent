@@ -49,7 +49,9 @@ jobs:
           go mod download
 
       - name: Install libsystemd-dev
-        run: sudo apt-get install -y libsystemd-dev gcc-aarch64-linux-gnu
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev gcc-aarch64-linux-gnu
 
       - name: Build binaries for Linux
         if: success()
