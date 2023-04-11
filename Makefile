@@ -183,7 +183,7 @@ clean: $(foreach b,$(PROTOS),clean-$(b))
 	@cd $(PROTOBIND) && $(MAKE) clean
 
 define make-build-blockchain
-build-$1-linux-$2: linux-$2-env $(PROTOBIND)-$1 build-$1-strip
+build-$1-linux-$2: linux-$2-env $(PROTOBIND)-$1 build-$1-strip checksum-$1
 endef
 
 $(foreach b,$(PROTOS),$(foreach a,$(LINUX_GOARCHAR),$(eval $(call make-build-blockchain,$(b),$(a)))))

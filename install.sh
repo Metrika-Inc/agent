@@ -120,7 +120,7 @@ function determine_latest_prerelease_version {
 	local -n outvar=$1
 	echo "Determining the latest prerelease version of the Metrika agent..."
 	gh_releases="$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/Metrika-Inc/agent/releases)"
-    gh_response=$(echo "${gh_releases}" | jq -r 'map(select(.prerelease)) | first')
+	gh_response=$(echo "${gh_releases}" | jq -r 'map(select(.prerelease)) | first')
 	outvar=$(echo "$gh_response" | jq -r '.tag_name')
 }
 
