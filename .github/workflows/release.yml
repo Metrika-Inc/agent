@@ -3,9 +3,8 @@ name: "Release standalone binaries and Docker images"
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+"
       - "v[0-9]+.[0-9]+.[0-9]+"
-      - "solana-pre"
+      - "v[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+"
 
 jobs:
   release:
@@ -61,11 +60,23 @@ jobs:
           make build-linux-amd64
           CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc make build-linux-arm64
 
-      - name: Get latest release tag
+      - name: Check if prerelease
+        id: check_prerelease
+        run: |
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+$ ]]; then
+              echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+              echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get latest release (or prerelease) tag
         id: git_last_tag
         run: |
-          # echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+$"| tail -n1)'
-          echo 'solana-pre'
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+$ ]]; then
+            echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+$"| tail -n1)'
+          else
+            echo '::set-output name=previous_tag::$(git tag --sort=version:refname | grep -v "$(git describe --tags)" | grep -E "v[0-9]+.[0-9]+.[0-9]+$"| tail -n1)'
+          fi
 
       - name: Create Release Changelog
         id: git_release_changelog
@@ -88,9 +99,9 @@ jobs:
           release_name: ${{ github.ref }}
           body: ${{ steps.git_release_changelog.outputs.release_body }}
           draft: false
-          prerelease: true
+          prerelease: ${{ steps.check_prerelease.outputs.prerelease == 'true' && 'true' || 'false' }}
 
-      - name: Upload Flow Release Asset Linux amd64
+      - name: Upload Release Asset Linux amd64 (Flow)
         if: success()
         id: upload-release-flow-asset-linux-amd64
         uses: actions/upload-release-asset@v1
@@ -102,7 +113,7 @@ jobs:
           asset_name: metrikad-flow-linux-amd64
           asset_content_type: application/octet-stream
 
-      - name: Upload Flow Release Asset Linux amd64 checksum
+      - name: Upload Release Asset Linux amd64 checksum (Flow)
         if: success()
         id: upload-release-flow-asset-linux-amd64-checksum
         uses: actions/upload-release-asset@v1
@@ -114,7 +125,7 @@ jobs:
           asset_name: metrikad-flow-linux-amd64.sha256
           asset_content_type: text/plain
 
-      - name: Upload Flow Release Asset Linux arm64
+      - name: Upload Release Asset Linux arm64 (Flow)
         if: success()
         id: upload-release-flow-asset-linux-arm64
         uses: actions/upload-release-asset@v1
@@ -126,7 +137,7 @@ jobs:
           asset_name: metrikad-flow-linux-arm64
           asset_content_type: application/octet-stream
 
-      - name: Upload Flow Release Asset Linux arm64 checksum
+      - name: Upload Release Asset Linux arm64 checksum (Flow)
         if: success()
         id: upload-release-flow-asset-linux-arm64-checksum
         uses: actions/upload-release-asset@v1
@@ -138,7 +149,7 @@ jobs:
           asset_name: metrikad-flow-linux-arm64.sha256
           asset_content_type: text/plain
 
-      - name: Upload Solana Release Asset Linux amd64
+      - name: Upload Release Asset Linux amd64 (Solana)
         if: success()
         id: upload-release-solana-asset-linux-amd64
         uses: actions/upload-release-asset@v1
@@ -150,7 +161,7 @@ jobs:
           asset_name: metrikad-solana-linux-amd64
           asset_content_type: application/octet-stream
 
-      - name: Upload Solana Release Asset Linux amd64 checksum
+      - name: Upload Release Asset Linux amd64 checksum (Solana)
         if: success()
         id: upload-release-solana-asset-linux-amd64-checksum
         uses: actions/upload-release-asset@v1
@@ -162,7 +173,7 @@ jobs:
           asset_name: metrikad-solana-linux-amd64.sha256
           asset_content_type: text/plain
 
-      - name: Upload Solana Release Asset Linux arm64
+      - name: Upload Release Asset Linux arm64 (Solana)
         if: success()
         id: upload-release-solana-asset-linux-arm64
         uses: actions/upload-release-asset@v1
@@ -174,7 +185,7 @@ jobs:
           asset_name: metrikad-solana-linux-arm64
           asset_content_type: application/octet-stream
 
-      - name: Upload Solana Release Asset Linux arm64 checksum
+      - name: Upload Release Asset Linux arm64 checksum (Solana)
         if: success()
         id: upload-release-solana-asset-linux-arm64-checksum
         uses: actions/upload-release-asset@v1
@@ -200,36 +211,48 @@ jobs:
           result-encoding: string
           script: return 'ghcr.io/${{ github.repository }}'.toLowerCase()
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
+      - name: Extract metadata (tags, labels) for Docker (Flow)
+        id: meta_flow
         uses: docker/metadata-action@v4
         with:
           images: ${{ steps.repo_slug.outputs.result }}
           flavor: |
             latest=false
           tags: |
-            type=raw,value=solana-pre
+            type=semver,pattern={{raw}}
+            type=raw,value=latest-flow
+
+      - name: Extract metadata (tags, labels) for Docker (Solana)
+        id: meta_solana
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ steps.repo_slug.outputs.result }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{raw}}
+            type=raw,value=latest-solana
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         with:
           buildkitd-flags: --debug
 
-      # - name: Build and push Docker Flow images
-      #   id: build-and-push-flow
-      #   uses: docker/build-push-action@v3
-      #   with:
-      #     context: .
-      #     push: true
-      #     file: docker/Dockerfile
-      #     platforms: linux/amd64,linux/arm64
-      #     build-args: |
-      #       MA_PROTOCOL=flow
-      #       MA_VERSION=${{ steps.meta.outputs.version }}
-      #     tags: ${{ steps.meta.outputs.tags }}
-      #     labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and push Docker images (Flow)
+        id: build-and-push-flow
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            MA_PROTOCOL=flow
+            MA_VERSION=${{ steps.meta_flow.outputs.version }}
+          tags: ${{ steps.meta_flow.outputs.tags }}
+          labels: ${{ steps.meta_flow.outputs.labels }}
 
-      - name: Build and push Docker Solana images
+      - name: Build and push Docker images (Solana)
         id: build-and-push-solana
         uses: docker/build-push-action@v3
         with:
@@ -239,53 +262,55 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             MA_PROTOCOL=solana
-            MA_VERSION=${{ steps.meta.outputs.version }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+            MA_VERSION=${{ steps.meta_solana.outputs.version }}
+          tags: ${{ steps.meta_solana.outputs.tags }}
+          labels: ${{ steps.meta_solana.outputs.labels }}
 
-      # - name: Sign the published Docked images for Flow
-      #   if: github.event_name != 'pull_request'
-      #   run: |
-      #     cosign sign --key env://COSIGN_PRIVATE_KEY \
-      #       -a "repo=${{ github.repository }}" \
-      #       -a "ref=${{ github.sha }}" \
-      #       ${{ steps.repo_slug.outputs.result }}@${{ steps.build-and-push-flow.outputs.digest }}
+      - name: Sign the published Docker images (Flow)
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign sign --key env://COSIGN_PRIVATE_KEY \
+            -a "repo=${{ github.repository }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.repo_slug.outputs.result }}@${{ steps.build-and-push-flow.outputs.digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
 
-      # - name: Sign the published Docked images for Solana
-      #   if: github.event_name != 'pull_request'
-      #   run: |
-      #     cosign sign --key env://COSIGN_PRIVATE_KEY \
-      #       -a "repo=${{ github.repository }}" \
-      #       -a "ref=${{ github.sha }}" \
-      #       ${{ steps.repo_slug.outputs.result }}@${{ steps.build-and-push-solana.outputs.digest }}
-      #   env:
-      #     COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
-      #     COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+      - name: Sign the published Docker images (Solana)
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign sign --key env://COSIGN_PRIVATE_KEY \
+            -a "repo=${{ github.repository }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.repo_slug.outputs.result }}@${{ steps.build-and-push-solana.outputs.digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
 
-      # - name: Slack Notification Failure
-      #   if: failure()
-      #   id: status
-      #   uses: rtCamp/action-slack-notify@v2
-      #   env:
-      #     SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
-      #     SLACK_TITLE: GitHub Release Metrika Agent
-      #     SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
-      #     SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-      #     SLACK_CHANNEL: "cicd-node-agent"
-      #     SLACK_USERNAME: "github-ci-metrika-agent"
-      #     SLACK_COLOR: ${{ job.status }}
-      #     SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
+      - name: Slack Notification Failure
+        if: failure()
+        id: status
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
+          SLACK_TITLE: GitHub Release Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "cicd-node-agent"
+          SLACK_USERNAME: "github-ci-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub CI from Metrika Agent repo"
 
-      # - name: Slack Notification Success
-      #   if: success()
-      #   uses: rtCamp/action-slack-notify@v2
-      #   env:
-      #     SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
-      #     SLACK_TITLE: GitHub Release Metrika Agent
-      #     SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
-      #     SLACK_ICON: https://app.metrika.co/logo192.png?size=48
-      #     SLACK_CHANNEL: "cicd-node-agent"
-      #     SLACK_USERNAME: "github-release-metrika-agent"
-      #     SLACK_COLOR: ${{ job.status }}
-      #     SLACK_FOOTER: "Sent by GitHub Release Job from Metrika Agent repo"
-
+      - name: Slack Notification Success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_MESSAGE: "${{ github.event.head_commit.message }}"
+          SLACK_TITLE: GitHub Release Metrika Agent
+          SLACK_WEBHOOK: ${{ secrets.METRIKA_SLACK_NON_PROD_WEBHOOK }}
+          SLACK_ICON: https://app.metrika.co/logo192.png?size=48
+          SLACK_CHANNEL: "cicd-node-agent"
+          SLACK_USERNAME: "github-release-metrika-agent"
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_FOOTER: "Sent by GitHub Release Job from Metrika Agent repo"
