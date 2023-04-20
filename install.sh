@@ -268,6 +268,7 @@ function sanity_check {
 		;;
 	solana)
 		DEFAULT_INFLUX_UPSTREAM_URL="https://metrics.solana.com:8086"
+		NO_DOCKER_GRP_REQUESTED=1
 		true
 		;;
 	*)
