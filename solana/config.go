@@ -13,12 +13,6 @@
 
 package solana
 
-import (
-	"fmt"
-
-	"agent/internal/pkg/global"
-)
-
 const (
 	// DefaultFlowPath default flow configuration path
 	DefaultFlowPath = "/etc/metrikad/configs/solana.yml"
@@ -46,9 +40,5 @@ func (d *solanaConfig) load() (*solanaConfig, error) {
 // Default overrides the configuration file specified in configPath
 // with the template preset, and then loads it in memory.
 func (d *solanaConfig) Default() (*solanaConfig, error) {
-	if err := global.GenerateConfigFromTemplate(DefaultTemplatePath, DefaultBlockchainPath, d); err != nil {
-		return nil, fmt.Errorf("failed to generate default template: %w", err)
-	}
-
-	return d.load()
+	return nil, nil
 }
