@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/digitalocean/go-metadata v0.0.0-20220602160802-6f1b22e9ba8c
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/influxdata/influxdb v1.10.0
 	github.com/joho/godotenv v1.4.0
