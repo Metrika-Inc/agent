@@ -445,9 +445,11 @@ function create_directories {
 function create_users {
 	log_info "Creating system group(user): $MA_GROUP($MA_USER)"
 	getent passwd "$MA_USER" >/dev/null ||
-		$sudo_cmd adduser --system --group --home $APP_INSTALL_DIR --shell /sbin/nologin "$MA_USER" &&
+		$sudo_cmd adduser --system --home $APP_INSTALL_DIR --shell /sbin/nologin "$MA_USER" &&
 		{ $sudo_cmd usermod -L "$MA_USER" ||
 			log_warn "Cannot lock the 'metrika-agent' user account"; }
+		$sudo_cmd groupadd "$MA_USER"
+		$sudo_cmd usermod -aG $MA_USER $MA_USER
 }
 
 function add_user_groups {
