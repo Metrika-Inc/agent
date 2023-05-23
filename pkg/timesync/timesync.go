@@ -56,6 +56,11 @@ const (
 // the agent.
 var Default = NewTimeSync(context.Background(), "pool.ntp.org", 0)
 
+// SetDefault overrides Default TimeSync instance
+func SetDefault(ts *TimeSync) {
+	Default = ts
+}
+
 // NewTimeSync constructor
 func NewTimeSync(ctx context.Context, host string, retries int) *TimeSync {
 	if retries <= 0 {

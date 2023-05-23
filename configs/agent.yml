@@ -117,6 +117,9 @@ runtime:
     - type: prometheus.uname
     - type: prometheus.vmstat
 
+  # ntp_server : string, address of the NTP server to use for time synchronization.
+  ntp_server: pool.ntp.org
+
 discovery:
   # deactivated: bool, deactivates node discovery completely. Default: false.
   deactivated: false

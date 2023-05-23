@@ -336,6 +336,8 @@ func main() {
 
 		os.Exit(1)
 	}
+	ctx := context.Background()
+	timesync.SetDefault(timesync.NewTimeSync(ctx, global.AgentConf.Runtime.NTPServer, 0))
 	zapLevelHandler := setupZapLogger()
 
 	chain, err := discover.AutoConfig(&global.AgentConf, reset)
