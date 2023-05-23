@@ -121,6 +121,9 @@ var (
 	// DefaultRuntimeWatchersInfluxUpstreamURL default URL to push InfluxDB metrics to
 	DefaultRuntimeWatchersInfluxUpstreamURL = ""
 
+	// DefaultNTPServer default NTP server
+	DefaultNTPServer = "pool.ntp.org"
+
 	// ConfigEnvPrefix prefix used for agent specific env vars
 	ConfigEnvPrefix = "MA"
 )
@@ -215,6 +218,7 @@ type RuntimeConfig struct {
 	Watchers                     []*WatchConfig         `yaml:"watchers"`
 	DisableFingerprintValidation bool                   `yaml:"disable_fingerprint_validation"`
 	Exporters                    map[string]interface{} `yaml:"exporters"`
+	NTPServer                    string                 `yaml:"ntp_server"`
 }
 
 // Hints node discovery hints
@@ -445,6 +449,11 @@ func overloadFromEnv(c *AgentConfig) error {
 		c.Discovery.Docker.Regex = patterns
 	}
 
+	v = os.Getenv(strings.ToUpper(ConfigEnvPrefix + "_" + "runtime_ntp_server"))
+	if v != "" {
+		c.Runtime.NTPServer = v
+	}
+
 	return nil
 }
 
@@ -528,6 +537,9 @@ func ensureDefaults(c *AgentConfig) {
 				wc.ListenAddr = DefaultRuntimeWatchersInfluxListenAddr
 			}
 		}
+	}
+	if len(c.Runtime.NTPServer) == 0 {
+		c.Runtime.NTPServer = DefaultNTPServer
 	}
 }
 
