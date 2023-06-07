@@ -507,10 +507,8 @@ func (d *Flow) nodeVersionFromDocker() (string, error) {
 		return "", fmt.Errorf("empty version in image parts")
 	}
 
-	d.nodeVersion = nodeVersionDocker
-
 	zap.S().Infow("updated node version (Docker)", "version", nodeVersionDocker)
-	return d.nodeVersion, nil
+	return nodeVersionDocker, nil
 }
 
 // Protocol returns "flow"
