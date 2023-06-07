@@ -17,7 +17,9 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"regexp"
@@ -280,4 +282,34 @@ func KnownNetwork(s string) bool {
 	}
 
 	return false
+}
+
+// ExtractStringFromPEFEndpoint hits the given url extracts applies the regex
+// to extract possible matches.
+func ExtractStringFromPEFEndpoint(url string, re *regexp.Regexp) ([]string, error) {
+	r, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got response code: %v", r.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if body == nil {
+		return nil, fmt.Errorf("nil body")
+	}
+
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty body")
+	}
+
+	matches := re.FindStringSubmatch(string(body))
+
+	return matches, nil
 }

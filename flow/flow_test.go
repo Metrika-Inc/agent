@@ -27,6 +27,20 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func newMockPEFEndpoint(t *testing.T, f string) *httptest.Server {
+	out, err := ioutil.ReadFile(f)
+	require.NoError(t, err)
+
+	handleFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.RequestURI)
+		w.Write(out)
+	})
+
+	ts := httptest.NewServer(handleFunc)
+
+	return ts
+}
+
 func newMockDockerDaemonHTTP(t *testing.T) *httptest.Server {
 	out, err := ioutil.ReadFile("testdata/containers.json")
 	require.NoError(t, err)
@@ -60,13 +74,13 @@ func (d *DockerMockAdapterHealthy) Close() error {
 
 func (d *DockerMockAdapterHealthy) GetRunningContainers() ([]dt.Container, error) {
 	return []dt.Container{
-		{Names: []string{"/flow-private-network_consensus_3_1"}},
+		{Names: []string{"/flow-private-network_consensus_3_1"}, Image: "foobar:v0.0.99"},
 	}, nil
 }
 
 func (d *DockerMockAdapterHealthy) MatchContainer(containers []dt.Container, identifiers []string) (dt.Container, error) {
 	return dt.Container{
-		Names: []string{"/flow-private-network_consensus_3_1"},
+		Names: []string{"/flow-private-network_consensus_3_1"}, Image: "foobar:v0.0.99",
 	}, nil
 }
 
@@ -111,27 +125,42 @@ func (d *DockerMockAdapterHealthy) DockerEvents(ctx context.Context, options typ
 
 func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 	tests := []struct {
-		name         string
-		testdataFile string
-		expNetwork   string
-		expNodeRole  string
-		expErr       bool
+		name           string
+		testdataFile   string
+		metricsFile    string
+		expNetwork     string
+		expNodeRole    string
+		expNodeVersion string
+		expErr         bool
 	}{
 		{
-			name:         "network by chain_id",
-			testdataFile: "./testdata/networkExtraction-1.json",
-			expNetwork:   "flow-localnet",
-			expNodeRole:  "verification",
+			name:           "network by chain_id",
+			testdataFile:   "./testdata/networkExtraction-1.json",
+			metricsFile:    "testdata/metrics.txt",
+			expNetwork:     "flow-localnet",
+			expNodeRole:    "verification",
+			expNodeVersion: "v0.29.17",
 		},
 		{
-			name:         "network by chain",
-			testdataFile: "./testdata/networkExtraction-2.json",
-			expNetwork:   "flow-mainnet",
-			expNodeRole:  "verification",
+			name:           "network by chain",
+			testdataFile:   "./testdata/networkExtraction-2.json",
+			metricsFile:    "testdata/metrics.txt",
+			expNetwork:     "flow-mainnet",
+			expNodeRole:    "verification",
+			expNodeVersion: "v0.29.17",
+		},
+		{
+			name:           "version by docker",
+			testdataFile:   "./testdata/networkExtraction-2.json",
+			metricsFile:    "testdata/metrics-no-version.txt",
+			expNetwork:     "flow-mainnet",
+			expNodeRole:    "verification",
+			expNodeVersion: "v0.0.99",
 		},
 		{
 			name:         "missing network and node role",
 			testdataFile: "./testdata/networkExtraction-3.json",
+			metricsFile:  "testdata/metrics.txt",
 			expNetwork:   "",
 			expNodeRole:  "",
 			expErr:       true,
@@ -151,10 +180,13 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 	}()
 
 	for _, tt := range tests {
+		pefSrv := newMockPEFEndpoint(t, tt.metricsFile)
+
 		t.Run(tt.name, func(t *testing.T) {
 			mockad.logFile = tt.testdataFile
 
 			flow, err := NewFlow()
+			flow.config.PEFEndpoints = []global.PEFEndpoint{{URL: pefSrv.URL}}
 			require.Nil(t, err)
 			require.NotNil(t, flow)
 
@@ -176,8 +208,9 @@ func TestDiscoverContainer_Network_NodeRole(t *testing.T) {
 
 				require.Equal(t, tt.expNetwork, flow.network)
 				require.Equal(t, tt.expNodeRole, flow.nodeRole)
-
+				require.Equal(t, tt.expNodeVersion, flow.nodeVersion)
 			}
 		})
+		pefSrv.Close()
 	}
 }
