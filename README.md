@@ -120,7 +120,7 @@ The agent loads its configuration by looking at the following sources in order:
 3. Ensure sane defaults are set for configuration parameters that has not been set by a configuration file or an environment variable.
 4. Ensure loaded configuration has all required parameters set.
 
-Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation. All configuration parameters (except `runtime.exporters`) can be overloaded by environment variables prefixed by `MA`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
+Customization is possible by modifying the [agent.yml](configs/agent.yml) found in `/etc/metrikad/configs/agent.yml` after the installation, or before installation with environment variables passed to the installation script. All configuration parameters (except `runtime.exporters`) can be overloaded by environment variables prefixed by `MA_`. For example, to overload sampling frequency set `MA_RUNTIME_SAMPLING_INTERVAL=30s`.
 
 ### Node discovery
 By default, the agent uses sensible defaults to detect the blockchain node by probing all supported daemons or service managers. Currently the agent can detect nodes that are run as:
