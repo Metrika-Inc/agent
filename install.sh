@@ -347,37 +347,29 @@ function check_existing_install {
 	fi
 }
 
+function generate_systemd_env_config() {
+  local env_string=""
+  local env_variable
+
+  # Iterate over all environment variables
+  while IFS='=' read -r -d '' env_variable; do
+    # Skip empty variables or those starting with underscore
+    if [[ -n $env_variable && ${env_variable:0:3} = "MA_" ]]; then
+      env_string+="Environment=${env_variable//$'\n'/\\n}\n"
+    fi
+  done < <(env -0)
+
+  echo -e "$env_string"
+}
+
 function create_systemd_service {
 	log_info "Creating systemd service..."
 
-	# Setup DOCKER_HOST & DOCKER_API_VERSION if present
-	# to cover reverse-proxy enabled setup.
-	local dockerHostEnv=""
-	local dockerApiVersionEnv=""
-	if [ -n "$DOCKER_HOST" ]; then
-		dockerHostEnv="DOCKER_HOST=$DOCKER_HOST"
-		if [ -n "$DOCKER_API_VERSION" ]; then
-			dockerApiVersionEnv="DOCKER_API_VERSION=$DOCKER_API_VERSION"
-		fi
-
-		log_info "Systemd environment set to:\n"
-		log_info "$dockerHostEnv"
-		log_info "$dockerApiVersionEnv"
-	else
-		if [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
-			log_warn "metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
-		fi
+	if [ -n "$DOCKER_HOST" ] && [ $NO_DOCKER_GRP_REQUESTED -eq 1 ]; then
+		log_warn "metrikad user is not in docker group and DOCKER_HOST is empty. Installation will proceed but the agent won't be able to access the local Docker daemon and discover containerized nodes."
 	fi
 
-	# Setup MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL if present to configure
-	# the agent's upstream influx address.
-	local maRuntimeWatchersInfluxUpstreamURL=""
-	if [ -n "$MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL" ]; then
-		maRuntimeWatchersInfluxUpstreamURL="MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL=$MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL"
-	else
-		maRuntimeWatchersInfluxUpstreamURL="MA_RUNTIME_WATCHERS_INFLUX_UPSTREAM_URL=$DEFAULT_INFLUX_UPSTREAM_URL"
-	fi
-	log_info "Agent will activate InfluxDB reverse proxy to upstream: $maRuntimeWatchersInfluxUpstreamURL"
+	env_config=$(generate_systemd_env_config)
 
 	service=$(
 		envsubst <<EOF
@@ -390,9 +382,7 @@ StartLimitIntervalSec=0
 Restart=always
 RestartSec=5
 User=$MA_USER
-Environment="$dockerHostEnv"
-Environment="$dockerApiVersionEnv"
-Environment="$maRuntimeWatchersInfluxUpstreamURL"
+$env_config
 ExecStart=/usr/bin/env $APP_INSTALL_DIR/$BIN_NAME
 
 [Install]
