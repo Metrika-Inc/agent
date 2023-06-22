@@ -437,30 +437,32 @@ func (d *Flow) updateNodeVersion() (string, error) {
 	)
 
 	if versionPEF, errPEF = d.nodeVersionFromPEF(); errPEF != nil {
-		zap.S().Warnw("could not update node version from PEF endpoint", zap.Error(errPEF))
+		zap.S().Warnw("node version extraction from PEF endpoint error", zap.Error(errPEF))
 	}
 
-	if versionDocker, errDocker = d.nodeVersionFromDocker(); errDocker != nil {
-		zap.S().Warnw("could not update node version from Docker", zap.Error(errDocker))
+	if versionPEF != "" {
+		d.nodeVersion = versionPEF
+
+		return versionPEF, nil
 	}
 
-	if versionPEF == "" {
+	if d.container != nil {
+		if versionDocker, errDocker = d.nodeVersionFromDocker(); errDocker != nil {
+			zap.S().Errorw("container tag extraction error", zap.Error(errDocker))
+
+			return "", fmt.Errorf("could not extract node version from PEF/Docker")
+		}
+
 		if versionDocker != "" {
 			d.nodeVersion = versionDocker
 
 			return versionDocker, nil
 		}
 
-		return "", fmt.Errorf("error updating version: pef: %v, docker: %v", errPEF, errDocker)
+		return "", fmt.Errorf("got empty version by docker container tag, is the image tagged?")
 	}
 
-	if versionDocker != "" && versionPEF != versionDocker {
-		zap.S().Warnw("extracted versions do not match (will use PEF extracted one)", "pef", versionPEF, "docker", versionDocker)
-	}
-
-	d.nodeVersion = versionPEF
-
-	return versionPEF, nil
+	return "", fmt.Errorf("could not update node version from PEF/Docker")
 }
 
 func (d *Flow) nodeVersionFromPEF() (string, error) {
@@ -484,14 +486,12 @@ func (d *Flow) nodeVersionFromPEF() (string, error) {
 		return "", fmt.Errorf("empty version in returned matches")
 	}
 
-	zap.S().Infow("update node version (PEF)", "version", nodeVersionPEF)
-
 	return nodeVersionPEF, nil
 }
 
 func (d *Flow) nodeVersionFromDocker() (string, error) {
 	if d.container == nil {
-		return "", errors.New("node version not found in PEF metrics or container")
+		return "", errors.New("cannot extract tag if container is nil")
 	}
 
 	imageParts := strings.Split(d.container.Image, ":")
@@ -507,7 +507,6 @@ func (d *Flow) nodeVersionFromDocker() (string, error) {
 		return "", fmt.Errorf("empty version in image parts")
 	}
 
-	zap.S().Infow("updated node version (Docker)", "version", nodeVersionDocker)
 	return nodeVersionDocker, nil
 }
 
@@ -650,6 +649,8 @@ func (d *Flow) ReconfigureByDockerContainer(container *types.Container, reader i
 		zap.S().Warnw("could not update node version (Docker)", zap.Error(err))
 	}
 
+	zap.S().Infow("updated node version (Docker)", "version", d.nodeVersion)
+
 	return nil
 }
 
@@ -668,6 +669,8 @@ func (d *Flow) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadClo
 	if _, err := d.updateNodeVersion(); err != nil {
 		zap.S().Warnw("could not update node version (systemd)", zap.Error(err))
 	}
+
+	zap.S().Infow("updated node version (PEF)", "version", d.nodeVersion)
 
 	return nil
 }
