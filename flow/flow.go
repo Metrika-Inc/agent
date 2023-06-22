@@ -462,7 +462,7 @@ func (d *Flow) updateNodeVersion() (string, error) {
 		return "", fmt.Errorf("got empty version by docker container tag, is the image tagged?")
 	}
 
-	return "", fmt.Errorf("could not update node version from PEF/Docker")
+	return "", fmt.Errorf("node version not found in PEF/Docker")
 }
 
 func (d *Flow) nodeVersionFromPEF() (string, error) {
