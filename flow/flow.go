@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,6 +66,8 @@ var recognizedNodeRoles = map[string]struct{}{
 	nodeRoleExecution:    {},
 	nodeRoleVerification: {},
 }
+
+var nodeVersionRe = regexp.MustCompile(`general_node_info{key="version",value="([^"]+)"}`)
 
 // Flow is responsible for discovery and validation
 // of the agent's flow-related configuration.
@@ -427,19 +430,84 @@ func (d *Flow) NodeVersion() string {
 	return d.nodeVersion
 }
 
-func (d *Flow) updateNodeVersionFromDocker() (string, error) {
+func (d *Flow) updateNodeVersion() (string, error) {
+	var (
+		versionPEF, versionDocker string
+		errPEF, errDocker         error
+	)
+
+	if versionPEF, errPEF = d.nodeVersionFromPEF(); errPEF != nil {
+		zap.S().Warnw("node version extraction from PEF endpoint error", zap.Error(errPEF))
+	}
+
+	if versionPEF != "" {
+		d.nodeVersion = versionPEF
+
+		return versionPEF, nil
+	}
+
+	if d.container != nil {
+		if versionDocker, errDocker = d.nodeVersionFromDocker(); errDocker != nil {
+			zap.S().Errorw("container tag extraction error", zap.Error(errDocker))
+
+			return "", fmt.Errorf("could not extract node version from PEF/Docker")
+		}
+
+		if versionDocker != "" {
+			d.nodeVersion = versionDocker
+
+			return versionDocker, nil
+		}
+
+		return "", fmt.Errorf("got empty version by docker container tag, is the image tagged?")
+	}
+
+	return "", fmt.Errorf("node version not found in PEF/Docker")
+}
+
+func (d *Flow) nodeVersionFromPEF() (string, error) {
+	if !d.isPEFConfigured() {
+		return "", fmt.Errorf("PEF endpoint not configured")
+	}
+
+	matches, err := utils.ExtractStringFromPEFEndpoint(d.config.PEFEndpoints[0].URL, nodeVersionRe)
+	if err != nil {
+		return "", err
+	}
+
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no matches found")
+	}
+
+	nodeVersionPEF := matches[1]
+	if nodeVersionPEF == "" {
+		zap.S().Errorw("empty version in returned matches", "matches", matches)
+
+		return "", fmt.Errorf("empty version in returned matches")
+	}
+
+	return nodeVersionPEF, nil
+}
+
+func (d *Flow) nodeVersionFromDocker() (string, error) {
 	if d.container == nil {
-		return "", errors.New("node version: container not configured")
+		return "", errors.New("cannot extract tag if container is nil")
 	}
 
 	imageParts := strings.Split(d.container.Image, ":")
 	if len(imageParts) < 2 {
-		return "", fmt.Errorf("could not find node version: %v", d.container.Image)
+		return "", fmt.Errorf("unexpected image name format: %v", d.container.Image)
 	}
 
-	d.nodeVersion = imageParts[1]
+	nodeVersionDocker := imageParts[1]
 
-	return d.nodeVersion, nil
+	if nodeVersionDocker == "" {
+		zap.S().Errorw("empty version in returned matches", "parts", imageParts)
+
+		return "", fmt.Errorf("empty version in image parts")
+	}
+
+	return nodeVersionDocker, nil
 }
 
 // Protocol returns "flow"
@@ -530,11 +598,6 @@ func (d *Flow) reconfigureDocker(reader io.ReadCloser) error {
 		}
 	}
 
-	if _, err := d.updateNodeVersionFromDocker(); err != nil {
-		log.Warn("could not find node version")
-		// errs.Append(err)
-	}
-
 	if err := d.configurePEFEndpoints(); err != nil {
 		log.Warn("could not find PEF metric endpoints")
 		errs.Append(err)
@@ -576,15 +639,17 @@ func (d *Flow) ReconfigureByDockerContainer(container *types.Container, reader i
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if d.network != "" && d.nodeRole != "" {
-		return nil
-	}
-
 	d.container = container
 
 	if err := d.reconfigureDocker(reader); err != nil {
 		return err
 	}
+
+	if _, err := d.updateNodeVersion(); err != nil {
+		zap.S().Warnw("could not update node version (Docker)", zap.Error(err))
+	}
+
+	zap.S().Infow("updated node version (Docker)", "version", d.nodeVersion)
 
 	return nil
 }
@@ -595,15 +660,17 @@ func (d *Flow) ReconfigureBySystemdUnit(unit *dbus.UnitStatus, reader io.ReadClo
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if d.network != "" && d.nodeRole != "" {
-		return nil
-	}
-
 	d.systemdService = unit
 
 	if err := d.reconfigureSystemd(reader); err != nil {
 		return err
 	}
+
+	if _, err := d.updateNodeVersion(); err != nil {
+		zap.S().Warnw("could not update node version (systemd)", zap.Error(err))
+	}
+
+	zap.S().Infow("updated node version (PEF)", "version", d.nodeVersion)
 
 	return nil
 }
