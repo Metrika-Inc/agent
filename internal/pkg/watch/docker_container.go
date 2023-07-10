@@ -122,6 +122,17 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 		return nil, nil, fmt.Errorf("got nil container or container with empty names, without an error")
 	}
 
+	containerName := container.Names[0]
+	reader, err := w.DockerLogsReaderFunc(containerName)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer reader.Close()
+
+	if err := w.blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
+		return nil, nil, err
+	}
+
 	filter := filters.NewArgs()
 	filter.Add("type", "container")
 	filter.Add("event", "start")
@@ -129,7 +140,6 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	filter.Add("event", "kill")
 	filter.Add("event", "die")
 
-	containerName := container.Names[0]
 	filter.Add("container", containerName)
 
 	options := dt.EventsOptions{Filters: filter}
@@ -140,16 +150,6 @@ func (w *ContainerWatch) repairEventStream(ctx context.Context) (
 	}
 
 	zap.S().Debugw("subscribed to docker event stream", "filter", filter)
-
-	reader, err := w.DockerLogsReaderFunc(containerName)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer reader.Close()
-
-	if err := w.blockchain.ReconfigureByDockerContainer(container, reader); err != nil {
-		return nil, nil, err
-	}
 
 	return msgchan, errchan, nil
 }
@@ -215,6 +215,7 @@ func (w *ContainerWatch) StartUnsafe() {
 				w.emitAgentNodeEvent(model.AgentNodeDownName)
 
 				resetTimers()
+				cancel()
 
 				continue
 			}

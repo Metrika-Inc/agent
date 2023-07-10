@@ -31,7 +31,7 @@ import (
 const (
 	maxLineBytes = uint32(1024 * 1024)
 
-	defaultRetryIntv            = 3 * time.Second
+	defaultRetryIntv            = 10 * time.Second
 	defaultPendingStartInterval = time.Second
 )
 
