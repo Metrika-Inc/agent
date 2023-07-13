@@ -41,6 +41,7 @@ pefEndpoints:{{ range .PEFEndpoints }}
       - consensus_compliance_finalized_blocks_total
       - consensus_compliance_finalized_height
       - consensus_compliance_finalized_payload_total
+      - consensus_compliance_last_epoch_transition_height
       - consensus_compliance_sealed_blocks_total
       - consensus_compliance_sealed_height
       - consensus_compliance_sealed_payload_total
@@ -142,7 +143,24 @@ pefEndpoints:{{ range .PEFEndpoints }}
       - verification_storage_latest_chunk_size_bytes
       - verification_verifier_result_approvals_total
       - verification_verifier_verifiable_chunk_received_total
+      - access_connection_pool_connection_reused
+      - access_connection_pool_connection_added
+      - access_connection_pool_connection_invalidated
+      - access_connection_pool_connection_evicted
+      - access_connection_pool_connections_in_pool
+      - access_connection_pool_connection_established
+      - access_connection_pool_connection_updated
+      - access_ingestion_max_receipt_height
+      - access_ingestion_last_full_finalized_block_height
+      - access_rest_api_inflight_requests
+      - access_rest_api_http_inflight_requests
+      - access_rest_api_http_request_total
+      - access_rest_api_http_request_duration
+      - access_rest_api_http_response_size
       - access_transaction_submission_transaction_submission
       - access_transaction_timing_time_to_executed_seconds
       - access_transaction_timing_time_to_finalized_executed_seconds
-      - access_transaction_timing_time_to_finalized_seconds{{end}}
+      - access_transaction_timing_time_to_finalized_seconds
+      - network_queue_public_inbound_connection_count
+      - grpc_server_handling_seconds
+      - grpc_server_handled_total{{end}}
