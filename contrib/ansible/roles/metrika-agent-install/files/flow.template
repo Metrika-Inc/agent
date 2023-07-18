@@ -25,6 +25,7 @@ pefEndpoints:{{ range .PEFEndpoints }}
       - network_queue_inbound_connection_count
       - network_queue_message_queue_duration_seconds
       - network_queue_message_queue_size
+      - public_network_queue_message_queue_size
       - network_queue_outbound_connection_count
       - network_queue_unstaked_inbound_connection_count
       - network_queue_unstaked_outbound_connection_count
@@ -152,9 +153,8 @@ pefEndpoints:{{ range .PEFEndpoints }}
       - access_connection_pool_connection_updated
       - access_ingestion_max_receipt_height
       - access_ingestion_last_full_finalized_block_height
-      - access_rest_api_inflight_requests
-      - access_rest_api_http_inflight_requests
-      - access_rest_api_http_request_total
+      - access_rest_api_requests_inflight
+      - access_rest_api_http_requests_total
       - access_rest_api_http_request_duration
       - access_rest_api_http_response_size
       - access_transaction_submission_transaction_submission
@@ -163,4 +163,7 @@ pefEndpoints:{{ range .PEFEndpoints }}
       - access_transaction_timing_time_to_finalized_seconds
       - network_queue_public_inbound_connection_count
       - grpc_server_handling_seconds
-      - grpc_server_handled_total{{end}}
+      - grpc_server_handled_total
+      - state_synchronization_execution_data_requester_execution_requester_download_duration_ms
+      - state_synchronization_execution_data_requester_execution_data_failed_downloads_total
+      - state_synchronization_execution_data_requester_execution_requester_download_retries_total{{end}}
