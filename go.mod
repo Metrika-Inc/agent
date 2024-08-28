@@ -24,8 +24,8 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/vultr/metadata v1.1.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0
+	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/sys v0.18.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -58,7 +58,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20220902135211-223410557253 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
