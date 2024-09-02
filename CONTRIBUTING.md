@@ -27,7 +27,7 @@ sudo /opt/metrikad/metrikad-{protocol} --version
 ### Development environment
 To work on an agent development you will need:
 * GNU `make`
-* Go `1.18` or later
+* Go `1.23` or later
 
 To ensure everything is set up correctly, simply run `make build`, which should build every metrika agent binary version for your architecture.
 
