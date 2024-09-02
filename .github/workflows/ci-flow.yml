@@ -7,11 +7,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.23
         if: success()
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.23
 
       - name: Checkout code
         if: success()
@@ -51,11 +51,11 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.23
         if: success()
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.23
 
       - name: Checkout code
         if: success()
@@ -106,11 +106,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
+      - name: Set up Go 1.23
         if: success()
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.23
 
       - name: Checkout code
         if: success()
