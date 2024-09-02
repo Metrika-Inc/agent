@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM golang:1.22.6 as builder-amd64
+FROM --platform=$BUILDPLATFORM golang:1.23 as builder-amd64
 ENV CC "gcc"
 
-FROM --platform=$BUILDPLATFORM golang:1.22.6 as builder-arm64
+FROM --platform=$BUILDPLATFORM golang:1.23 as builder-arm64
 ENV CC "aarch64-linux-gnu-gcc"
 ENV CGO_ENABLED "1"
 
